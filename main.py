@@ -81,7 +81,7 @@ def init_db():
             raw_in_delivery INTEGER DEFAULT 0,
             raw_spent INTEGER DEFAULT 0,
             total_invested INTEGER DEFAULT 0,
-            total_profit INTEGER DEFAULT 0,
+            stored_profit INTEGER DEFAULT 0,
             last_update TEXT,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
@@ -118,6 +118,7 @@ def init_db():
         )
     ''')
     
+    # ДАННЫЕ БИЗНЕСОВ - ТОЧНО ПО ТВОЕМУ ЗАДАНИЮ
     businesses_data = [
         ("🥤 Киоск", 500_000, "🥤", 1_000_000, 4_000, 60),
         ("🍔 Фастфуд", 5_000_000, "🍔", 2_500_000, 10_000, 60),
@@ -215,7 +216,6 @@ def get_user_stats(user_id):
         return (0, 1, 0, 0)
 
 def get_user_profile(user_id):
-    """Получить полный профиль пользователя"""
     try:
         conn = get_db()
         cursor = conn.cursor()
@@ -227,7 +227,6 @@ def get_user_profile(user_id):
         return None
 
 def get_user_by_username(username):
-    """Найти пользователя по username"""
     try:
         conn = get_db()
         cursor = conn.cursor()
@@ -239,7 +238,6 @@ def get_user_by_username(username):
         return None
 
 def get_user_by_custom_name(custom_name):
-    """Найти пользователя по кастомному имени"""
     try:
         conn = get_db()
         cursor = conn.cursor()
@@ -251,17 +249,15 @@ def get_user_by_custom_name(custom_name):
         return None
 
 def get_user_display_name(user_data):
-    """Получить отображаемое имя пользователя"""
-    if user_data and user_data[3]:  # custom_name
+    if user_data and user_data[3]:
         return user_data[3]
     elif user_data and user_data[2] and user_data[2] != "NoUsername":
         return f"@{user_data[2]}"
     elif user_data:
-        return user_data[1]  # first_name
+        return user_data[1]
     return "Игрок"
 
 def set_custom_name(user_id, name):
-    """Установить кастомное имя"""
     try:
         conn = get_db()
         cursor = conn.cursor()
@@ -270,7 +266,7 @@ def set_custom_name(user_id, name):
         conn.close()
         return True
     except sqlite3.IntegrityError:
-        return False  # Имя уже занято
+        return False
     except Exception as e:
         print(f"Ошибка установки имени: {e}")
         return False
@@ -328,6 +324,13 @@ def has_active_delivery(user_id):
     except:
         return False
 
+def find_user_by_input(input_str):
+    if input_str.startswith('@'):
+        username = input_str[1:]
+        return get_user_by_username(username)
+    else:
+        return get_user_by_custom_name(input_str)
+
 # ========== АДМИН КОМАНДЫ ==========
 @bot.message_handler(commands=['adminhelp'])
 def admin_help(message):
@@ -361,16 +364,6 @@ def admin_help(message):
         help_text += "  /setadminlevel [@user или ник] [уровень] - изменить уровень\n"
     
     bot.reply_to(message, help_text, parse_mode="Markdown")
-
-def find_user_by_input(input_str):
-    """Найти пользователя по @username или кастомному нику"""
-    # Если начинается с @ - ищем по username
-    if input_str.startswith('@'):
-        username = input_str[1:]
-        return get_user_by_username(username)
-    else:
-        # Иначе ищем по кастомному нику
-        return get_user_by_custom_name(input_str)
 
 @bot.message_handler(commands=['giveme'])
 def give_me(message):
@@ -445,7 +438,6 @@ def give_money(message):
             target_input = parts[1]
             amount = int(parts[2])
             
-            # Ищем пользователя по @username или кастомному нику
             user_data = find_user_by_input(target_input)
             
             if not user_data:
@@ -493,7 +485,6 @@ def add_exp_command(message):
             target_input = parts[1]
             amount = int(parts[2])
             
-            # Ищем пользователя по @username или кастомному нику
             user_data = find_user_by_input(target_input)
             
             if not user_data:
@@ -535,7 +526,6 @@ def profile_command(message):
         
         target_input = parts[1]
         
-        # Ищем пользователя по @username или кастомному нику
         user_data = find_user_by_input(target_input)
         
         if not user_data:
@@ -573,7 +563,7 @@ def profile_command(message):
             msg += f"📦 Сырье: {business['raw_material']}/500\n"
             msg += f"🚚 В доставке: {business['raw_in_delivery']}\n"
             msg += f"💵 Вложено: {business['total_invested']:,}\n"
-            msg += f"💎 Получено: {business['total_profit']:,}"
+            msg += f"💎 Прибыль на складе: {business['stored_profit']:,}"
         
         bot.reply_to(message, msg, parse_mode="Markdown")
         
@@ -602,7 +592,6 @@ def add_admin_command(message):
             bot.reply_to(message, "❌ Уровень должен быть от 1 до 3")
             return
         
-        # Ищем пользователя по @username или кастомному нику
         user_data = find_user_by_input(target_input)
         
         if not user_data:
@@ -637,9 +626,9 @@ def admin_list(message):
         try:
             user_data = get_user_profile(admin_id)
             if user_data:
-                name = user_data[2]  # first_name
-                username = user_data[1]  # username
-                custom = user_data[3]  # custom_name
+                name = user_data[2]
+                username = user_data[1]
+                custom = user_data[3]
                 
                 if custom:
                     display = custom
@@ -674,7 +663,6 @@ def remove_admin_command(message):
         
         target_input = parts[1]
         
-        # Ищем пользователя по @username или кастомному нику
         user_data = find_user_by_input(target_input)
         
         if not user_data:
@@ -720,7 +708,6 @@ def set_admin_level_command(message):
             bot.reply_to(message, "❌ Уровень должен быть от 1 до 4")
             return
         
-        # Ищем пользователя по @username или кастомному нику
         user_data = find_user_by_input(target_input)
         
         if not user_data:
@@ -781,13 +768,14 @@ def businesses_main_keyboard():
     markup = types.ReplyKeyboardMarkup(row_width=2, resize_keyboard=True)
     markup.row(
         types.KeyboardButton("📊 Мой бизнес"),
-        types.KeyboardButton("📦 Заказать сырье")
+        types.KeyboardButton("💰 Собрать прибыль")
     )
     markup.row(
-        types.KeyboardButton("🏪 Купить бизнес"),
-        types.KeyboardButton("💰 Продать бизнес")
+        types.KeyboardButton("📦 Заказать сырье"),
+        types.KeyboardButton("🏪 Купить бизнес")
     )
     markup.row(
+        types.KeyboardButton("💰 Продать бизнес"),
         types.KeyboardButton("🔙 Назад")
     )
     return markup
@@ -852,12 +840,10 @@ def start(message):
     conn = get_db()
     cursor = conn.cursor()
     
-    # Проверяем существует ли пользователь
     cursor.execute('SELECT * FROM users WHERE user_id = ?', (user_id,))
     user = cursor.fetchone()
     
     if not user:
-        # Новый пользователь - создаем запись
         cursor.execute('''
             INSERT INTO users (user_id, username, first_name, balance, exp, level, work_count, total_earned)
             VALUES (?, ?, ?, 0, 0, 1, 0, 0)
@@ -865,7 +851,6 @@ def start(message):
         conn.commit()
         conn.close()
         
-        # Красивое приветствие
         welcome_text = (
             "🌟 **ДОБРО ПОЖАЛОВАТЬ В МИР SuguruCoins!** 🌟\n\n"
             f"👋 Рады видеть тебя, {first_name}!\n\n"
@@ -880,7 +865,6 @@ def start(message):
         
         bot.send_message(user_id, welcome_text, parse_mode="Markdown")
         
-        # Просим ввести никнейм
         markup = types.ForceReply(selective=True)
         msg = bot.send_message(
             user_id, 
@@ -892,7 +876,6 @@ def start(message):
             reply_markup=markup
         )
         
-        # Сохраняем состояние что ожидаем никнейм
         bot.register_next_step_handler(msg, process_name_step)
         
     else:
@@ -909,7 +892,6 @@ def process_name_step(message):
     user_id = message.from_user.id
     custom_name = message.text.strip()
     
-    # Проверка на длину
     if len(custom_name) < 2 or len(custom_name) > 30:
         bot.send_message(
             user_id, 
@@ -918,7 +900,6 @@ def process_name_step(message):
         bot.register_next_step_handler(message, process_name_step)
         return
     
-    # Проверка на допустимые символы
     allowed_chars = set("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_ -!@#$%^&*()")
     if not all(c in allowed_chars for c in custom_name):
         bot.send_message(
@@ -929,7 +910,6 @@ def process_name_step(message):
         bot.register_next_step_handler(message, process_name_step)
         return
     
-    # Проверка на уникальность
     existing_user = get_user_by_custom_name(custom_name)
     if existing_user:
         bot.send_message(
@@ -941,7 +921,6 @@ def process_name_step(message):
         bot.register_next_step_handler(message, process_name_step)
         return
     
-    # Сохраняем никнейм
     if set_custom_name(user_id, custom_name):
         success_text = (
             f"✅ **Отлично!** Твой никнейм `{custom_name}` сохранен!\n\n"
@@ -961,7 +940,6 @@ def change_nickname_step(message):
     user_id = message.from_user.id
     new_nickname = message.text.strip()
     
-    # Проверка на длину
     if len(new_nickname) < 2 or len(new_nickname) > 30:
         bot.send_message(
             user_id, 
@@ -970,7 +948,6 @@ def change_nickname_step(message):
         bot.register_next_step_handler(message, change_nickname_step)
         return
     
-    # Проверка на допустимые символы
     allowed_chars = set("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_ -!@#$%^&*()")
     if not all(c in allowed_chars for c in new_nickname):
         bot.send_message(
@@ -981,7 +958,6 @@ def change_nickname_step(message):
         bot.register_next_step_handler(message, change_nickname_step)
         return
     
-    # Проверка на уникальность
     existing_user = get_user_by_custom_name(new_nickname)
     if existing_user:
         bot.send_message(
@@ -993,11 +969,9 @@ def change_nickname_step(message):
         bot.register_next_step_handler(message, change_nickname_step)
         return
     
-    # Получаем старый ник для сообщения
     user_data = get_user_profile(user_id)
     old_nickname = user_data[3] if user_data and user_data[3] else "Не установлен"
     
-    # Сохраняем новый никнейм
     if set_custom_name(user_id, new_nickname):
         success_text = (
             f"✅ **Никнейм успешно изменен!**\n\n"
@@ -1030,7 +1004,6 @@ def handle(message):
     except:
         pass
     
-    # Получаем данные пользователя для отображения имени
     user_data = get_user_profile(user_id)
     display_name = get_user_display_name(user_data) if user_data else "Игрок"
     
@@ -1156,15 +1129,21 @@ def handle(message):
             "• 3 уровень: +100% скорости\n"
             "• Склад вмещает максимум 500 сырья\n"
             "• Доставка сырья - 15 минут\n"
-            "• Прибыль: 200% от вложений\n\n"
+            "• Прибыль накапливается на складе, нужно собирать вручную\n\n"
             
             "📊 **ДАННЫЕ БИЗНЕСОВ**\n"
-            "🥤 Киоск - 500к | сырье 1M | профит 4к\n"
-            "🍔 Фастфуд - 5M | сырье 2.5M | профит 10к\n"
-            "🏪 Минимаркет - 15M | сырье 30M | профит 120к\n"
-            "⛽ Заправка - 50M | сырье 100M | профит 400к\n"
-            "🏨 Отель - 250M | сырье 500M | профит 2M\n"
-            "🏦 Корпорация - 1B | сырье 1B | профит 2M\n\n"
+            "🥤 Киоск - 500к | сырье 1M | профит 4к/сырье\n"
+            "🍔 Фастфуд - 5M | сырье 2.5M | профит 10к/сырье\n"
+            "🏪 Минимаркет - 15M | сырье 30M | профит 120к/сырье\n"
+            "⛽ Заправка - 50M | сырье 100M | профит 400к/сырье\n"
+            "🏨 Отель - 250M | сырье 500M | профит 2M/сырье\n"
+            "🏦 Корпорация - 1B | сырье 1B | профит 2M/сырье\n\n"
+            
+            "⏱️ **ВРЕМЯ ПЕРЕРАБОТКИ**\n"
+            "• Киоск, Фастфуд, Минимаркет, Заправка, Корпорация:\n"
+            "  1 ур: 60с | 2 ур: 50с | 3 ур: 30с\n"
+            "• Отель:\n"
+            "  1 ур: 120с | 2 ур: 90с | 3 ур: 60с\n\n"
             
             "👥 **РЕФЕРАЛЫ**\n"
             "• Приглашай друзей по уникальной ссылке\n"
@@ -1256,16 +1235,41 @@ def handle(message):
         time_per_raw = data['base_time'] / current_speed
         
         total_raw = business['raw_material'] + business['raw_in_delivery']
+        total_potential = business['raw_material'] * data['profit_per_raw']
+        
         msg = f"{data['emoji']} **{business['business_name']}**\n\n"
         msg += f"📊 Уровень: {business['level']}\n"
         msg += f"⏱️ Время на 1 сырье: {time_per_raw:.0f} сек\n"
         msg += f"📦 На складе: {business['raw_material']}/500 сырья\n"
         msg += f"🚚 В доставке: {business['raw_in_delivery']} сырья\n"
         msg += f"📊 Всего: {total_raw}/500\n"
+        msg += f"💰 Прибыль на складе: {business['stored_profit']:,} {CURRENCY}\n"
         msg += f"💵 Всего вложено: {business['total_invested']:,} {CURRENCY}\n"
-        msg += f"💎 Всего получено: {business['total_profit']:,} {CURRENCY}"
+        msg += f"🎯 Потенциальная прибыль: {total_potential:,} {CURRENCY}"
         
         bot.send_message(user_id, msg, parse_mode="Markdown")
+    
+    elif text == "💰 Собрать прибыль":
+        business = get_user_business(user_id)
+        if not business:
+            bot.send_message(user_id, "📭 У тебя еще нет бизнеса!")
+            return
+        
+        if business['stored_profit'] <= 0:
+            bot.send_message(user_id, "❌ На складе нет прибыли! Сырье еще перерабатывается.")
+            return
+        
+        profit = business['stored_profit']
+        
+        conn = get_db()
+        cursor = conn.cursor()
+        cursor.execute('UPDATE businesses SET stored_profit = 0 WHERE user_id = ?', (user_id,))
+        conn.commit()
+        conn.close()
+        
+        add_balance(user_id, profit)
+        
+        bot.send_message(user_id, f"✅ Ты собрал {profit:,} {CURRENCY} прибыли с бизнеса!")
     
     elif text == "📦 Заказать сырье":
         business = get_user_business(user_id)
@@ -1336,7 +1340,7 @@ def handle(message):
                 conn = get_db()
                 cursor = conn.cursor()
                 cursor.execute('''
-                    INSERT INTO businesses (user_id, business_name, level, raw_material, raw_in_delivery, raw_spent, total_invested, total_profit, last_update)
+                    INSERT INTO businesses (user_id, business_name, level, raw_material, raw_in_delivery, raw_spent, total_invested, stored_profit, last_update)
                     VALUES (?, ?, 1, 0, 0, 0, 0, 0, ?)
                 ''', (user_id, text, datetime.now().isoformat()))
                 conn.commit()
@@ -1395,10 +1399,9 @@ def handle(message):
             cursor.execute('''
                 UPDATE businesses 
                 SET raw_in_delivery = raw_in_delivery + ?,
-                    total_invested = total_invested + ?,
-                    last_update = ?
+                    total_invested = total_invested + ?
                 WHERE user_id = ?
-            ''', (amount, total_cost, datetime.now().isoformat(), user_id))
+            ''', (amount, total_cost, user_id))
             
             conn.commit()
             conn.close()
@@ -1464,10 +1467,9 @@ def handle(message):
             cursor.execute('''
                 UPDATE businesses 
                 SET raw_in_delivery = raw_in_delivery + ?,
-                    total_invested = total_invested + ?,
-                    last_update = ?
+                    total_invested = total_invested + ?
                 WHERE user_id = ?
-            ''', (amount, total_cost, datetime.now().isoformat(), user_id))
+            ''', (amount, total_cost, user_id))
             
             conn.commit()
             conn.close()
@@ -1512,20 +1514,26 @@ def process_raw_material():
                                 UPDATE businesses 
                                 SET raw_material = raw_material - ?,
                                     raw_spent = raw_spent + ?,
-                                    total_profit = total_profit + ?,
+                                    stored_profit = stored_profit + ?,
                                     last_update = ?
                                 WHERE user_id = ?
                             ''', (process, process, profit, datetime.now().isoformat(), b['user_id']))
                             
-                            add_balance(b['user_id'], profit)
-                            
                             total_spent = b['raw_spent'] + process
-                            if total_spent >= 200000 and b['level'] == 1:
+                            
+                            # Проверка повышения уровня (50k, 200k, 500k)
+                            if total_spent >= 50000 and b['level'] == 1:
                                 cursor.execute('UPDATE businesses SET level = 2 WHERE user_id = ?', (b['user_id'],))
-                                bot.send_message(b['user_id'], "🎉 Твой бизнес достиг 2 уровня! Скорость +20%!")
-                            elif total_spent >= 500000 and b['level'] == 2:
+                                try:
+                                    bot.send_message(b['user_id'], "🎉 Твой бизнес достиг 2 уровня! Скорость +20%!")
+                                except:
+                                    pass
+                            elif total_spent >= 200000 and b['level'] == 2:
                                 cursor.execute('UPDATE businesses SET level = 3 WHERE user_id = ?', (b['user_id'],))
-                                bot.send_message(b['user_id'], "🎉 Твой бизнес достиг 3 уровня! Скорость +100%!")
+                                try:
+                                    bot.send_message(b['user_id'], "🎉 Твой бизнес достиг 3 уровня! Скорость +100%!")
+                                except:
+                                    pass
                             
                             conn.commit()
             
