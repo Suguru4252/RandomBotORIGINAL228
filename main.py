@@ -16,6 +16,12 @@ ADMINS = {
     5596589260: 4
 }
 
+# ========== БАНЫ И ВАРНЫ ==========
+BANS = {}
+WARNS = {}
+MAX_WARNS = 3
+BAN_WARN_DAYS = 30
+
 def get_admin_level(user_id):
     return ADMINS.get(user_id, 0)
 
@@ -27,6 +33,30 @@ def add_admin(user_id, level):
         return False, "❌ Пользователь уже админ"
     ADMINS[user_id] = level
     return True, f"✅ Пользователь назначен админом {level} уровня"
+
+def is_banned(user_id):
+    if user_id in BANS:
+        ban_info = BANS[user_id]
+        if ban_info['until'] == 0:
+            return True
+        elif datetime.now().timestamp() < ban_info['until']:
+            return True
+        else:
+            del BANS[user_id]
+    return False
+
+def add_warn(user_id):
+    global WARNS
+    current = WARNS.get(user_id, 0) + 1
+    WARNS[user_id] = current
+    
+    if current >= MAX_WARNS:
+        ban_time = datetime.now() + timedelta(days=30)
+        BANS[user_id] = {'reason': 'warn', 'until': ban_time.timestamp()}
+        WARNS[user_id] = 0
+        return True, f"❌ Получен 3 варн! Бан на 30 дней."
+    
+    return False, f"⚠️ Варн {current}/{MAX_WARNS}"
 
 # ========== БАЗА ДАННЫХ ==========
 def get_db():
@@ -56,6 +86,8 @@ def init_db():
             work_count INTEGER DEFAULT 0,
             total_earned INTEGER DEFAULT 0,
             last_daily TEXT,
+            warns INTEGER DEFAULT 0,
+            banned_until TEXT,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
     ''')
@@ -118,14 +150,13 @@ def init_db():
         )
     ''')
     
-    # ДАННЫЕ БИЗНЕСОВ - ТОЧНО ПО ТВОЕМУ ЗАДАНИЮ
+    # ДАННЫЕ БИЗНЕСОВ
     businesses_data = [
-        ("🥤 Киоск", 500_000, "🥤", 1_000_000, 4_000, 60),
-        ("🍔 Фастфуд", 5_000_000, "🍔", 2_500_000, 10_000, 60),
-        ("🏪 Минимаркет", 15_000_000, "🏪", 30_000_000, 120_000, 60),
+        ("🥤 Киоск", 500_000, "🥤", 1_000_000, 2_000, 60),
+        ("🍔 Фастфуд", 5_000_000, "🍔", 2_500_000, 5_000, 60),
+        ("🏪 Минимаркет", 15_000_000, "🏪", 30_000_000, 60_000, 60),
         ("⛽ Заправка", 50_000_000, "⛽", 100_000_000, 400_000, 60),
-        ("🏨 Отель", 250_000_000, "🏨", 500_000_000, 2_000_000, 120),
-        ("🏦 Корпорация", 1_000_000_000, "🏦", 1_000_000_000, 2_000_000, 60)
+        ("🏨 Отель", 1_000_000_000, "🏨", 1_000_000_000, 2_000_000, 120)
     ]
     
     for bd in businesses_data:
@@ -230,7 +261,7 @@ def get_user_by_username(username):
     try:
         conn = get_db()
         cursor = conn.cursor()
-        cursor.execute('SELECT user_id, first_name, username, custom_name FROM users WHERE username = ?', (username,))
+        cursor.execute('SELECT user_id, first_name, username, custom_name, warns FROM users WHERE username = ?', (username,))
         user = cursor.fetchone()
         conn.close()
         return user
@@ -241,7 +272,7 @@ def get_user_by_custom_name(custom_name):
     try:
         conn = get_db()
         cursor = conn.cursor()
-        cursor.execute('SELECT user_id, first_name, username, custom_name FROM users WHERE custom_name = ? COLLATE NOCASE', (custom_name,))
+        cursor.execute('SELECT user_id, first_name, username, custom_name, warns FROM users WHERE custom_name = ? COLLATE NOCASE', (custom_name,))
         user = cursor.fetchone()
         conn.close()
         return user
@@ -249,11 +280,19 @@ def get_user_by_custom_name(custom_name):
         return None
 
 def get_user_display_name(user_data):
-    if user_data and user_data[3]:
-        return user_data[3]
-    elif user_data and user_data[2] and user_data[2] != "NoUsername":
-        return f"@{user_data[2]}"
-    elif user_data:
+    if not user_data:
+        return "Игрок"
+    
+    custom = user_data[3]
+    username = user_data[2]
+    
+    if custom:
+        if username and username != "NoUsername":
+            return f"{custom} (@{username})"
+        return custom
+    elif username and username != "NoUsername":
+        return f"@{username}"
+    elif user_data[1]:
         return user_data[1]
     return "Игрок"
 
@@ -338,7 +377,7 @@ def admin_help(message):
     level = get_admin_level(user_id)
     
     if level == 0:
-        bot.reply_to(message, "❌ У тебя нет прав администратора!")
+        bot.reply_to(message, "❌ Эта команда только для администраторов!")
         return
     
     help_text = f"👑 **АДМИН ПАНЕЛЬ (Уровень {level})**\n\n"
@@ -356,12 +395,18 @@ def admin_help(message):
     if level >= 3:
         help_text += "**Уровень 3:**\n"
         help_text += "  /addadmin [@user или ник] [уровень] - назначить админа\n"
-        help_text += "  /adminlist - список админов\n\n"
+        help_text += "  /adminlist - список админов\n"
+        help_text += "  /reset [@user или ник] - обнулить аккаунт\n"
+        help_text += "  /wipe [@user или ник] - стереть баланс и опыт\n\n"
     
     if level >= 4:
         help_text += "**Уровень 4:**\n"
         help_text += "  /removeadmin [@user или ник] - снять админа\n"
         help_text += "  /setadminlevel [@user или ник] [уровень] - изменить уровень\n"
+        help_text += "  /ban [@user или ник] [часы] - забанить (0 = навсегда)\n"
+        help_text += "  /unban [@user или ник] - разбанить\n"
+        help_text += "  /warn [@user или ник] - выдать варн\n"
+        help_text += "  /warns [@user или ник] - показать варны\n"
     
     bot.reply_to(message, help_text, parse_mode="Markdown")
 
@@ -441,7 +486,7 @@ def give_money(message):
             user_data = find_user_by_input(target_input)
             
             if not user_data:
-                bot.reply_to(message, f"❌ Пользователь {target_input} не найден в базе данных")
+                bot.reply_to(message, f"❌ Пользователь {target_input} не найден")
                 return
             
             target_id = user_data[0]
@@ -488,7 +533,7 @@ def add_exp_command(message):
             user_data = find_user_by_input(target_input)
             
             if not user_data:
-                bot.reply_to(message, f"❌ Пользователь {target_input} не найден в базе данных")
+                bot.reply_to(message, f"❌ Пользователь {target_input} не найден")
                 return
             
             target_id = user_data[0]
@@ -529,13 +574,14 @@ def profile_command(message):
         user_data = find_user_by_input(target_input)
         
         if not user_data:
-            bot.reply_to(message, f"❌ Пользователь {target_input} не найден в базе данных")
+            bot.reply_to(message, f"❌ Пользователь {target_input} не найден")
             return
         
         target_id = user_data[0]
         target_name = user_data[1]
         target_username = user_data[2]
         custom_name = user_data[3]
+        warns = user_data[4] or 0
         
         stats = get_user_stats(target_id)
         exp, level, work_count, total = stats
@@ -544,14 +590,12 @@ def profile_command(message):
         business = get_user_business(target_id)
         business_info = "Нет" if not business else f"{business['business_name']} (ур.{business['level']})"
         
-        username_display = f"@{target_username}" if target_username and target_username != "NoUsername" else "Нет"
-        custom_display = custom_name if custom_name else "Не выбран"
+        display_name = get_user_display_name(user_data)
         
         msg = f"👤 **ПРОФИЛЬ ПОЛЬЗОВАТЕЛЯ**\n\n"
-        msg += f"👤 Имя: {target_name}\n"
-        msg += f"🎮 Игровой ник: {custom_display}\n"
+        msg += f"👤 Отображается как: {display_name}\n"
         msg += f"🆔 ID: `{target_id}`\n"
-        msg += f"📛 Telegram: {username_display}\n\n"
+        msg += f"⚠️ Варны: {warns}/3\n\n"
         msg += f"💰 Баланс: {balance:,} {CURRENCY}\n"
         msg += f"⭐ Опыт: {exp}\n"
         msg += f"📈 Уровень: {level}\n"
@@ -560,7 +604,7 @@ def profile_command(message):
         msg += f"🏭 Бизнес: {business_info}\n"
         
         if business:
-            msg += f"📦 Сырье: {business['raw_material']}/500\n"
+            msg += f"📦 Сырье: {business['raw_material']}/1000\n"
             msg += f"🚚 В доставке: {business['raw_in_delivery']}\n"
             msg += f"💵 Вложено: {business['total_invested']:,}\n"
             msg += f"💎 Прибыль на складе: {business['stored_profit']:,}"
@@ -595,7 +639,7 @@ def add_admin_command(message):
         user_data = find_user_by_input(target_input)
         
         if not user_data:
-            bot.reply_to(message, f"❌ Пользователь {target_input} не найден в базе данных")
+            bot.reply_to(message, f"❌ Пользователь {target_input} не найден")
             return
         
         target_id = user_data[0]
@@ -626,17 +670,7 @@ def admin_list(message):
         try:
             user_data = get_user_profile(admin_id)
             if user_data:
-                name = user_data[2]
-                username = user_data[1]
-                custom = user_data[3]
-                
-                if custom:
-                    display = custom
-                elif username and username != "NoUsername":
-                    display = f"@{username}"
-                else:
-                    display = name
-                    
+                display = get_user_display_name((user_data[0], user_data[1], user_data[2], user_data[3], 0))
                 admins_info.append(f"• {display} - уровень {level} (`{admin_id}`)")
             else:
                 admins_info.append(f"• Админ с ID: `{admin_id}` - уровень {level}")
@@ -645,6 +679,245 @@ def admin_list(message):
     
     msg = "👑 **СПИСОК АДМИНИСТРАТОРОВ**\n\n" + "\n".join(admins_info)
     bot.reply_to(message, msg, parse_mode="Markdown")
+
+@bot.message_handler(commands=['reset'])
+def reset_account(message):
+    user_id = message.from_user.id
+    
+    if not is_admin(user_id, 3):
+        bot.reply_to(message, "❌ У тебя нет прав администратора 3 уровня!")
+        return
+    
+    try:
+        parts = message.text.split()
+        
+        if len(parts) != 2:
+            bot.reply_to(message, "❌ Формат: /reset [@user или ник]")
+            return
+        
+        target_input = parts[1]
+        user_data = find_user_by_input(target_input)
+        
+        if not user_data:
+            bot.reply_to(message, f"❌ Пользователь {target_input} не найден")
+            return
+        
+        target_id = user_data[0]
+        display_name = get_user_display_name(user_data)
+        
+        conn = get_db()
+        cursor = conn.cursor()
+        
+        cursor.execute('DELETE FROM businesses WHERE user_id = ?', (target_id,))
+        cursor.execute('DELETE FROM deliveries WHERE user_id = ?', (target_id,))
+        
+        cursor.execute('''
+            UPDATE users 
+            SET balance = 0, exp = 0, level = 1, work_count = 0, 
+                total_earned = 0, custom_name = NULL
+            WHERE user_id = ?
+        ''', (target_id,))
+        
+        conn.commit()
+        conn.close()
+        
+        bot.send_message(target_id, "♻️ Ваш аккаунт был полностью сброшен администратором.")
+        bot.reply_to(message, f"✅ Аккаунт {display_name} полностью обнулен")
+        
+    except Exception as e:
+        bot.reply_to(message, f"❌ Ошибка: {e}")
+
+@bot.message_handler(commands=['wipe'])
+def wipe_account(message):
+    user_id = message.from_user.id
+    
+    if not is_admin(user_id, 3):
+        bot.reply_to(message, "❌ У тебя нет прав администратора 3 уровня!")
+        return
+    
+    try:
+        parts = message.text.split()
+        
+        if len(parts) != 2:
+            bot.reply_to(message, "❌ Формат: /wipe [@user или ник]")
+            return
+        
+        target_input = parts[1]
+        user_data = find_user_by_input(target_input)
+        
+        if not user_data:
+            bot.reply_to(message, f"❌ Пользователь {target_input} не найден")
+            return
+        
+        target_id = user_data[0]
+        display_name = get_user_display_name(user_data)
+        
+        conn = get_db()
+        cursor = conn.cursor()
+        
+        cursor.execute('UPDATE users SET balance = 0, exp = 0, level = 1 WHERE user_id = ?', (target_id,))
+        
+        conn.commit()
+        conn.close()
+        
+        bot.send_message(target_id, "🧹 Ваши баланс и опыт были обнулены администратором.")
+        bot.reply_to(message, f"✅ Баланс и опыт {display_name} обнулены")
+        
+    except Exception as e:
+        bot.reply_to(message, f"❌ Ошибка: {e}")
+
+@bot.message_handler(commands=['ban'])
+def ban_user(message):
+    user_id = message.from_user.id
+    
+    if not is_admin(user_id, 4):
+        bot.reply_to(message, "❌ У тебя нет прав администратора 4 уровня!")
+        return
+    
+    try:
+        parts = message.text.split()
+        
+        if len(parts) not in [2, 3]:
+            bot.reply_to(message, "❌ Формат: /ban [@user или ник] [часы]\n/ban [@user или ник] 0 - навсегда")
+            return
+        
+        target_input = parts[1]
+        hours = int(parts[2]) if len(parts) == 3 else 0
+        
+        user_data = find_user_by_input(target_input)
+        
+        if not user_data:
+            bot.reply_to(message, f"❌ Пользователь {target_input} не найден")
+            return
+        
+        target_id = user_data[0]
+        display_name = get_user_display_name(user_data)
+        
+        if hours == 0:
+            BANS[target_id] = {'reason': 'admin', 'until': 0}
+            ban_text = "навсегда"
+        else:
+            ban_time = datetime.now() + timedelta(hours=hours)
+            BANS[target_id] = {'reason': 'admin', 'until': ban_time.timestamp()}
+            ban_text = f"на {hours} ч."
+        
+        bot.send_message(target_id, f"🔨 Вы забанены администратором {ban_text}")
+        bot.reply_to(message, f"✅ Пользователь {display_name} забанен {ban_text}")
+        
+    except ValueError:
+        bot.reply_to(message, "❌ Часы должны быть числом")
+    except Exception as e:
+        bot.reply_to(message, f"❌ Ошибка: {e}")
+
+@bot.message_handler(commands=['unban'])
+def unban_user(message):
+    user_id = message.from_user.id
+    
+    if not is_admin(user_id, 4):
+        bot.reply_to(message, "❌ У тебя нет прав администратора 4 уровня!")
+        return
+    
+    try:
+        parts = message.text.split()
+        
+        if len(parts) != 2:
+            bot.reply_to(message, "❌ Формат: /unban [@user или ник]")
+            return
+        
+        target_input = parts[1]
+        user_data = find_user_by_input(target_input)
+        
+        if not user_data:
+            bot.reply_to(message, f"❌ Пользователь {target_input} не найден")
+            return
+        
+        target_id = user_data[0]
+        display_name = get_user_display_name(user_data)
+        
+        if target_id in BANS:
+            del BANS[target_id]
+            bot.send_message(target_id, "✅ Вы разбанены администратором")
+            bot.reply_to(message, f"✅ Пользователь {display_name} разбанен")
+        else:
+            bot.reply_to(message, f"❌ Пользователь не в бане")
+        
+    except Exception as e:
+        bot.reply_to(message, f"❌ Ошибка: {e}")
+
+@bot.message_handler(commands=['warn'])
+def warn_user(message):
+    user_id = message.from_user.id
+    
+    if not is_admin(user_id, 4):
+        bot.reply_to(message, "❌ У тебя нет прав администратора 4 уровня!")
+        return
+    
+    try:
+        parts = message.text.split()
+        
+        if len(parts) != 2:
+            bot.reply_to(message, "❌ Формат: /warn [@user или ник]")
+            return
+        
+        target_input = parts[1]
+        user_data = find_user_by_input(target_input)
+        
+        if not user_data:
+            bot.reply_to(message, f"❌ Пользователь {target_input} не найден")
+            return
+        
+        target_id = user_data[0]
+        display_name = get_user_display_name(user_data)
+        
+        banned, msg = add_warn(target_id)
+        
+        conn = get_db()
+        cursor = conn.cursor()
+        cursor.execute('UPDATE users SET warns = ? WHERE user_id = ?', (WARNS.get(target_id, 0), target_id))
+        
+        if banned:
+            ban_until = datetime.fromtimestamp(BANS[target_id]['until']).isoformat() if BANS[target_id]['until'] != 0 else "forever"
+            cursor.execute('UPDATE users SET banned_until = ? WHERE user_id = ?', (ban_until, target_id))
+        
+        conn.commit()
+        conn.close()
+        
+        bot.send_message(target_id, msg)
+        bot.reply_to(message, f"✅ Варн выдан {display_name}\n{msg}")
+        
+    except Exception as e:
+        bot.reply_to(message, f"❌ Ошибка: {e}")
+
+@bot.message_handler(commands=['warns'])
+def show_warns(message):
+    user_id = message.from_user.id
+    
+    if not is_admin(user_id, 4):
+        bot.reply_to(message, "❌ У тебя нет прав администратора 4 уровня!")
+        return
+    
+    try:
+        parts = message.text.split()
+        
+        if len(parts) != 2:
+            bot.reply_to(message, "❌ Формат: /warns [@user или ник]")
+            return
+        
+        target_input = parts[1]
+        user_data = find_user_by_input(target_input)
+        
+        if not user_data:
+            bot.reply_to(message, f"❌ Пользователь {target_input} не найден")
+            return
+        
+        target_id = user_data[0]
+        display_name = get_user_display_name(user_data)
+        warns = user_data[4] or 0
+        
+        bot.reply_to(message, f"⚠️ У {display_name} {warns}/3 варнов")
+        
+    except Exception as e:
+        bot.reply_to(message, f"❌ Ошибка: {e}")
 
 @bot.message_handler(commands=['removeadmin'])
 def remove_admin_command(message):
@@ -666,7 +939,7 @@ def remove_admin_command(message):
         user_data = find_user_by_input(target_input)
         
         if not user_data:
-            bot.reply_to(message, f"❌ Пользователь {target_input} не найден в базе данных")
+            bot.reply_to(message, f"❌ Пользователь {target_input} не найден")
             return
         
         target_id = user_data[0]
@@ -711,7 +984,7 @@ def set_admin_level_command(message):
         user_data = find_user_by_input(target_input)
         
         if not user_data:
-            bot.reply_to(message, f"❌ Пользователь {target_input} не найден в базе данных")
+            bot.reply_to(message, f"❌ Пользователь {target_input} не найден")
             return
         
         target_id = user_data[0]
@@ -771,7 +1044,7 @@ def businesses_main_keyboard():
         types.KeyboardButton("💰 Собрать прибыль")
     )
     markup.row(
-        types.KeyboardButton("📦 Заказать сырье"),
+        types.KeyboardButton("📦 Закупить на всё"),
         types.KeyboardButton("🏪 Купить бизнес")
     )
     markup.row(
@@ -792,27 +1065,6 @@ def buy_business_keyboard():
     )
     markup.row(
         types.KeyboardButton("🏨 Отель"),
-        types.KeyboardButton("🏦 Корпорация")
-    )
-    markup.row(
-        types.KeyboardButton("🔙 Назад")
-    )
-    return markup
-
-def order_raw_keyboard():
-    markup = types.ReplyKeyboardMarkup(row_width=3, resize_keyboard=True)
-    markup.row(
-        types.KeyboardButton("📦 1"),
-        types.KeyboardButton("📦 5"),
-        types.KeyboardButton("📦 10")
-    )
-    markup.row(
-        types.KeyboardButton("📦 50"),
-        types.KeyboardButton("📦 100"),
-        types.KeyboardButton("📦 500")
-    )
-    markup.row(
-        types.KeyboardButton("📦 ВСЁ"),
         types.KeyboardButton("🔙 Назад")
     )
     return markup
@@ -834,6 +1086,16 @@ def settings_keyboard():
 @bot.message_handler(commands=['start'])
 def start(message):
     user_id = message.from_user.id
+    
+    if is_banned(user_id):
+        ban_info = BANS.get(user_id, {})
+        if ban_info.get('until') == 0:
+            bot.reply_to(message, "🔨 Вы забанены навсегда.")
+        else:
+            until = datetime.fromtimestamp(ban_info['until'])
+            bot.reply_to(message, f"🔨 Вы забанены до {until.strftime('%d.%m.%Y %H:%M')}")
+        return
+    
     username = message.from_user.username or "NoUsername"
     first_name = message.from_user.first_name
     
@@ -993,6 +1255,15 @@ def handle(message):
     user_id = message.from_user.id
     text = message.text
     
+    if is_banned(user_id):
+        ban_info = BANS.get(user_id, {})
+        if ban_info.get('until') == 0:
+            bot.reply_to(message, "🔨 Вы забанены навсегда.")
+        else:
+            until = datetime.fromtimestamp(ban_info['until'])
+            bot.reply_to(message, f"🔨 Вы забанены до {until.strftime('%d.%m.%Y %H:%M')}")
+        return
+    
     print(f"Получено сообщение: {text} от {user_id}")
     
     try:
@@ -1021,7 +1292,8 @@ def handle(message):
     
     elif text == "📊 Статистика":
         exp, level, work_count, total = get_user_stats(user_id)
-        msg = f"📊 **СТАТИСТИКА {display_name}**\n\n"
+        msg = f"📊 **СТАТИСТИКА**\n\n"
+        msg += f"👤 Игрок: {display_name}\n"
         msg += f"⭐ Опыт: {exp}\n"
         msg += f"📈 Уровень: {level}\n"
         msg += f"🔨 Работ: {work_count}\n"
@@ -1040,22 +1312,18 @@ def handle(message):
         try:
             conn = get_db()
             cursor = conn.cursor()
-            cursor.execute('SELECT custom_name, first_name, username, balance FROM users ORDER BY balance DESC LIMIT 10')
+            cursor.execute('SELECT user_id, custom_name, first_name, username, balance FROM users ORDER BY balance DESC LIMIT 10')
             top = cursor.fetchall()
             conn.close()
             
             msg = "🏆 **ТОП 10 БОГАЧЕЙ**\n\n"
-            for i, (custom, first, username, balance) in enumerate(top, 1):
+            for i, (uid, custom, first, username, balance) in enumerate(top, 1):
                 medal = "🥇" if i == 1 else "🥈" if i == 2 else "🥉" if i == 3 else f"{i}."
                 
-                if custom:
-                    display_name = custom
-                elif username and username != "NoUsername":
-                    display_name = f"@{username}"
-                else:
-                    display_name = first
+                fake_data = (uid, first, username, custom, 0)
+                display = get_user_display_name(fake_data)
                 
-                msg += f"{medal} {display_name}: {balance:,} {CURRENCY}\n"
+                msg += f"{medal} {display}: {balance:,} {CURRENCY}\n"
             
             bot.send_message(user_id, msg, parse_mode="Markdown")
         except Exception as e:
@@ -1122,52 +1390,30 @@ def handle(message):
             
             "🏭 **БИЗНЕСЫ**\n"
             "• Можно купить только один бизнес\n"
-            "• 6 видов бизнеса от 500к до 1млрд\n"
+            "• 5 видов бизнеса\n"
             "• У каждого бизнеса 3 уровня прокачки\n"
-            "• 1 уровень: 100% скорости\n"
-            "• 2 уровень: +20% скорости\n"
-            "• 3 уровень: +100% скорости\n"
-            "• Склад вмещает максимум 500 сырья\n"
+            "• Склад вмещает максимум 1000 сырья\n"
             "• Доставка сырья - 15 минут\n"
             "• Прибыль накапливается на складе, нужно собирать вручную\n\n"
             
             "📊 **ДАННЫЕ БИЗНЕСОВ**\n"
-            "🥤 Киоск - 500к | сырье 1M | профит 4к/сырье\n"
-            "🍔 Фастфуд - 5M | сырье 2.5M | профит 10к/сырье\n"
-            "🏪 Минимаркет - 15M | сырье 30M | профит 120к/сырье\n"
-            "⛽ Заправка - 50M | сырье 100M | профит 400к/сырье\n"
-            "🏨 Отель - 250M | сырье 500M | профит 2M/сырье\n"
-            "🏦 Корпорация - 1B | сырье 1B | профит 2M/сырье\n\n"
-            
-            "⏱️ **ВРЕМЯ ПЕРЕРАБОТКИ**\n"
-            "• Киоск, Фастфуд, Минимаркет, Заправка, Корпорация:\n"
-            "  1 ур: 60с | 2 ур: 50с | 3 ур: 30с\n"
-            "• Отель:\n"
-            "  1 ур: 120с | 2 ур: 90с | 3 ур: 60с\n\n"
+            "🥤 Киоск - 500к | сырьё 1M | профит 2к/сырьё\n"
+            "🍔 Фастфуд - 5M | сырьё 2.5M | профит 5к/сырьё\n"
+            "🏪 Минимаркет - 15M | сырьё 30M | профит 60к/сырьё\n"
+            "⛽ Заправка - 50M | сырьё 100M | профит 400к/сырьё\n"
+            "🏨 Отель - 1B | сырьё 1B | профит 2M/сырьё\n\n"
             
             "👥 **РЕФЕРАЛЫ**\n"
             "• Приглашай друзей по уникальной ссылке\n"
-            "• За каждого друга бонус 100💰 и 50⭐\n"
-            "• Друг получает 25💰 на старт\n\n"
+            "• За каждого друга бонус 100💰 и 50⭐\n\n"
             
             "🏆 **ТОП 10**\n"
-            "• Соревнуйся с другими игроками\n"
-            "• Становись самым богатым\n\n"
+            "• Соревнуйся с другими игроками\n\n"
             
             "🎁 **ЕЖЕДНЕВНЫЙ БОНУС**\n"
             "• Получай бонус раз в 24 часа\n"
             "• Рандомный бонус от 500 до 2000💰\n"
-            "• Дополнительно 50-200⭐ опыта\n\n"
-            
-            "⚙️ **НАСТРОЙКИ**\n"
-            "• Меняй свой игровой никнейм\n"
-            "• Никнейм должен быть уникальным\n\n"
-            
-            "👑 **АДМИН КОМАНДЫ** (для админов)\n"
-            "Уровень 1: /giveme, /addexpm\n"
-            "Уровень 2: /give, /addexp, /profile\n"
-            "Уровень 3: /addadmin, /adminlist\n"
-            "Уровень 4: /removeadmin, /setadminlevel"
+            "• Дополнительно 50-200⭐ опыта"
         )
         bot.send_message(user_id, help_text, parse_mode="Markdown")
     
@@ -1181,10 +1427,6 @@ def handle(message):
         help_text += "🏆 Топ 10 - лучшие игроки\n"
         help_text += "🎁 Ежедневно - бонус каждый день\n"
         help_text += "⚙️ Настройки - изменить никнейм и полная помощь"
-        
-        level = get_admin_level(user_id)
-        if level > 0:
-            help_text += f"\n\n👑 У вас права администратора {level} уровня!\n/adminhelp - список команд админа"
         
         bot.send_message(user_id, help_text, parse_mode="Markdown")
     
@@ -1240,9 +1482,9 @@ def handle(message):
         msg = f"{data['emoji']} **{business['business_name']}**\n\n"
         msg += f"📊 Уровень: {business['level']}\n"
         msg += f"⏱️ Время на 1 сырье: {time_per_raw:.0f} сек\n"
-        msg += f"📦 На складе: {business['raw_material']}/500 сырья\n"
+        msg += f"📦 На складе: {business['raw_material']}/1000 сырья\n"
         msg += f"🚚 В доставке: {business['raw_in_delivery']} сырья\n"
-        msg += f"📊 Всего: {total_raw}/500\n"
+        msg += f"📊 Всего: {total_raw}/1000\n"
         msg += f"💰 Прибыль на складе: {business['stored_profit']:,} {CURRENCY}\n"
         msg += f"💵 Всего вложено: {business['total_invested']:,} {CURRENCY}\n"
         msg += f"🎯 Потенциальная прибыль: {total_potential:,} {CURRENCY}"
@@ -1271,7 +1513,7 @@ def handle(message):
         
         bot.send_message(user_id, f"✅ Ты собрал {profit:,} {CURRENCY} прибыли с бизнеса!")
     
-    elif text == "📦 Заказать сырье":
+    elif text == "📦 Закупить на всё":
         business = get_user_business(user_id)
         if not business:
             bot.send_message(user_id, "❌ Сначала купи бизнес!")
@@ -1282,10 +1524,54 @@ def handle(message):
             bot.send_message(user_id, "❌ Ошибка загрузки данных бизнеса")
             return
         
-        total_raw = business['raw_material'] + business['raw_in_delivery']
-        free_space = 500 - total_raw
+        balance = get_balance(user_id)
+        raw_cost = data['raw_cost']
+        max_by_money = balance // raw_cost
         
-        bot.send_message(user_id, f"💰 Цена 1 сырья: {data['raw_cost']:,} {CURRENCY}\n📦 Свободно места: {free_space}/500\n💰 Прибыль с 1 сырья: {data['profit_per_raw']:,} {CURRENCY}\n\nВыбери количество:", reply_markup=order_raw_keyboard())
+        total_raw = business['raw_material'] + business['raw_in_delivery']
+        free_space = 1000 - total_raw
+        
+        amount = min(max_by_money, free_space)
+        
+        if amount <= 0:
+            if free_space <= 0:
+                bot.send_message(user_id, f"❌ Склад переполнен! Свободно места: 0/1000")
+            else:
+                bot.send_message(user_id, f"❌ У тебя недостаточно денег! Нужно минимум {raw_cost:,} {CURRENCY}")
+            return
+        
+        total_cost = amount * raw_cost
+        
+        if not add_balance(user_id, -total_cost):
+            bot.send_message(user_id, "❌ Ошибка при списании денег")
+            return
+        
+        if has_active_delivery(user_id):
+            bot.send_message(user_id, "❌ У тебя уже есть активная доставка! Дождись её завершения.")
+            add_balance(user_id, total_cost)
+            return
+        
+        conn = get_db()
+        cursor = conn.cursor()
+        
+        end_time = datetime.now() + timedelta(minutes=15)
+        cursor.execute('''
+            INSERT INTO deliveries (user_id, amount, end_time, delivered)
+            VALUES (?, ?, ?, 0)
+        ''', (user_id, amount, end_time.isoformat()))
+        
+        cursor.execute('''
+            UPDATE businesses 
+            SET raw_in_delivery = raw_in_delivery + ?,
+                total_invested = total_invested + ?
+            WHERE user_id = ?
+        ''', (amount, total_cost, user_id))
+        
+        conn.commit()
+        conn.close()
+        
+        new_total = total_raw + amount
+        bot.send_message(user_id, f"✅ Заказ на {amount} сырья оформлен!\n💰 Стоимость: {total_cost:,} {CURRENCY}\n📦 Будет: {new_total}/1000\n⏱️ Доставка через 15 минут")
     
     elif text == "🏪 Купить бизнес":
         bot.send_message(user_id, "Выбери бизнес для покупки:", reply_markup=buy_business_keyboard())
@@ -1317,7 +1603,7 @@ def handle(message):
                 add_balance(user_id, -sell_price)
     
     # ===== ПОКУПКА БИЗНЕСА =====
-    elif text in ["🥤 Киоск", "🍔 Фастфуд", "🏪 Минимаркет", "⛽ Заправка", "🏨 Отель", "🏦 Корпорация"]:
+    elif text in ["🥤 Киоск", "🍔 Фастфуд", "🏪 Минимаркет", "⛽ Заправка", "🏨 Отель"]:
         
         if get_user_business(user_id):
             bot.send_message(user_id, "❌ У тебя уже есть бизнес!")
@@ -1350,137 +1636,6 @@ def handle(message):
                 print(f"Ошибка при покупке: {e}")
                 bot.send_message(user_id, "❌ Ошибка при покупке")
                 add_balance(user_id, price)
-    
-    # ===== ЗАКАЗ СЫРЬЯ =====
-    elif text in ["📦 1", "📦 5", "📦 10", "📦 50", "📦 100", "📦 500"]:
-        try:
-            amount = int(text.split()[1])
-            print(f"Попытка заказать {amount} сырья от {user_id}")
-            
-            if has_active_delivery(user_id):
-                bot.send_message(user_id, "❌ У тебя уже есть активная доставка! Дождись её завершения.")
-                return
-            
-            business = get_user_business(user_id)
-            if not business:
-                bot.send_message(user_id, "❌ У тебя нет бизнеса!")
-                return
-            
-            data = get_business_data(business['business_name'])
-            if not data:
-                bot.send_message(user_id, "❌ Ошибка с данными бизнеса")
-                return
-            
-            total_raw = business['raw_material'] + business['raw_in_delivery']
-            if total_raw + amount > 500:
-                bot.send_message(user_id, f"❌ Не хватает места! Свободно только {500 - total_raw}/500")
-                return
-            
-            total_cost = data['raw_cost'] * amount
-            balance = get_balance(user_id)
-            
-            if balance < total_cost:
-                bot.send_message(user_id, f"❌ Не хватает {total_cost - balance:,}💰")
-                return
-            
-            if not add_balance(user_id, -total_cost):
-                bot.send_message(user_id, "❌ Ошибка при списании денег")
-                return
-            
-            conn = get_db()
-            cursor = conn.cursor()
-            
-            end_time = datetime.now() + timedelta(minutes=15)
-            cursor.execute('''
-                INSERT INTO deliveries (user_id, amount, end_time, delivered)
-                VALUES (?, ?, ?, 0)
-            ''', (user_id, amount, end_time.isoformat()))
-            
-            cursor.execute('''
-                UPDATE businesses 
-                SET raw_in_delivery = raw_in_delivery + ?,
-                    total_invested = total_invested + ?
-                WHERE user_id = ?
-            ''', (amount, total_cost, user_id))
-            
-            conn.commit()
-            conn.close()
-            
-            new_total = total_raw + amount
-            bot.send_message(user_id, f"✅ Заказ на {amount} сырья оформлен!\n💰 Стоимость: {total_cost:,} {CURRENCY}\n📦 Будет: {new_total}/500\n⏱️ Доставка через 15 минут")
-            print(f"Заказ успешно оформлен для {user_id}")
-            
-        except Exception as e:
-            print(f"Ошибка при заказе: {e}")
-            bot.send_message(user_id, f"❌ Ошибка при заказе сырья: {e}")
-    
-    # ===== ЗАКАЗ НА ВСЕ ДЕНЬГИ =====
-    elif text == "📦 ВСЁ":
-        try:
-            print(f"Попытка заказать на все деньги от {user_id}")
-            
-            if has_active_delivery(user_id):
-                bot.send_message(user_id, "❌ У тебя уже есть активная доставка! Дождись её завершения.")
-                return
-            
-            business = get_user_business(user_id)
-            if not business:
-                bot.send_message(user_id, "❌ У тебя нет бизнеса!")
-                return
-            
-            data = get_business_data(business['business_name'])
-            if not data:
-                bot.send_message(user_id, "❌ Ошибка с данными бизнеса")
-                return
-            
-            balance = get_balance(user_id)
-            raw_cost = data['raw_cost']
-            
-            max_by_money = balance // raw_cost
-            total_raw = business['raw_material'] + business['raw_in_delivery']
-            free_space = 500 - total_raw
-            
-            amount = min(max_by_money, free_space)
-            
-            if amount <= 0:
-                if free_space <= 0:
-                    bot.send_message(user_id, f"❌ Склад переполнен! Свободно места: 0/500")
-                else:
-                    bot.send_message(user_id, f"❌ У тебя недостаточно денег! Нужно минимум {raw_cost:,} {CURRENCY}")
-                return
-            
-            total_cost = amount * raw_cost
-            
-            if not add_balance(user_id, -total_cost):
-                bot.send_message(user_id, "❌ Ошибка при списании денег")
-                return
-            
-            conn = get_db()
-            cursor = conn.cursor()
-            
-            end_time = datetime.now() + timedelta(minutes=15)
-            cursor.execute('''
-                INSERT INTO deliveries (user_id, amount, end_time, delivered)
-                VALUES (?, ?, ?, 0)
-            ''', (user_id, amount, end_time.isoformat()))
-            
-            cursor.execute('''
-                UPDATE businesses 
-                SET raw_in_delivery = raw_in_delivery + ?,
-                    total_invested = total_invested + ?
-                WHERE user_id = ?
-            ''', (amount, total_cost, user_id))
-            
-            conn.commit()
-            conn.close()
-            
-            new_total = total_raw + amount
-            bot.send_message(user_id, f"✅ Заказ на ВСЁ сырьё оформлен!\n📦 Количество: {amount}\n💰 Стоимость: {total_cost:,} {CURRENCY}\n📦 Будет: {new_total}/500\n⏱️ Доставка через 15 минут")
-            print(f"Заказ на все деньги успешно оформлен для {user_id}")
-            
-        except Exception as e:
-            print(f"Ошибка при заказе на все деньги: {e}")
-            bot.send_message(user_id, f"❌ Ошибка при заказе сырья: {e}")
     
     elif text == "🔙 Назад":
         bot.send_message(user_id, "Главное меню:", reply_markup=main_keyboard())
@@ -1521,7 +1676,6 @@ def process_raw_material():
                             
                             total_spent = b['raw_spent'] + process
                             
-                            # Проверка повышения уровня (50k, 200k, 500k)
                             if total_spent >= 50000 and b['level'] == 1:
                                 cursor.execute('UPDATE businesses SET level = 2 WHERE user_id = ?', (b['user_id'],))
                                 try:
@@ -1573,7 +1727,7 @@ def check_deliveries():
                         total_raw = business['raw_material'] + d['amount']
                         bot.send_message(
                             d['user_id'],
-                            f"✅ Сырье доставлено на склад!\n📦 +{d['amount']} сырья\n📦 Теперь на складе: {total_raw}/500"
+                            f"✅ Сырье доставлено на склад!\n📦 +{d['amount']} сырья\n📦 Теперь на складе: {total_raw}/1000"
                         )
                 except:
                     pass
