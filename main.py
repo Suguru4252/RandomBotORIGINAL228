@@ -11,6 +11,31 @@ TOKEN = os.environ['TOKEN']
 bot = telebot.TeleBot(TOKEN)
 CURRENCY = "💰 SuguruCoins"
 
+# ========== ПУТЬ К БАЗЕ ДАННЫХ (ПОСТОЯННОЕ ХРАНИЛИЩЕ) ==========
+# Пробуем разные пути для постоянного хранения (Render, Railway, локально)
+POSSIBLE_PATHS = [
+    '/data/bot.db',                    # Render/Railway с диском
+    '/storage/bot.db',                  # Railway
+    '/opt/render/project/src/data/bot.db', # Render старый
+    './bot.db'                           # локально (запасной)
+]
+
+DB_PATH = None
+for path in POSSIBLE_PATHS:
+    try:
+        dir_path = os.path.dirname(path)
+        # Проверяем, существует ли папка и можно ли в неё писать
+        if os.path.exists(dir_path) and os.access(dir_path, os.W_OK):
+            DB_PATH = path
+            print(f"✅ База будет храниться в: {DB_PATH}")
+            break
+    except:
+        continue
+
+if DB_PATH is None:
+    DB_PATH = 'bot.db'
+    print("⚠️ Постоянное хранилище не найдено, использую локальную БД")
+
 # ========== АДМИНЫ ==========
 ADMINS = {
     5596589260: 4
@@ -60,7 +85,7 @@ def add_warn(user_id):
 
 # ========== БАЗА ДАННЫХ ==========
 def get_db():
-    conn = sqlite3.connect('bot.db')
+    conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
     return conn
 
@@ -145,7 +170,7 @@ def init_db():
         )
     ''')
     
-    # ДАННЫЕ БИЗНЕСОВ
+    # ДАННЫЕ БИЗНЕСОВ - вставляем только если их нет
     businesses_data = [
         ("🥤 Киоск", 500_000, "🥤", 1_000, 2_000, 60),
         ("🍔 Фастфуд", 5_000_000, "🍔", 2_500, 5_000, 60),
