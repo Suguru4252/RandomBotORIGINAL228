@@ -965,6 +965,84 @@ def get_clothes_navigation_keyboard(current_page, total_items):
 
 # ========== ФУНКЦИИ ДЛЯ РУЛЕТКИ ==========
 
+def parse_bet_amount(amount_str):
+    """Парсит сумму ставки с поддержкой к, кк, ккк, кккк"""
+    amount_str = amount_str.lower().strip()
+    
+    # Словарь для перевода
+    multipliers = {
+        'к': 1000,
+        'кк': 1000000,
+        'ккк': 1000000000,
+        'кккк': 1000000000000,
+        'kk': 1000,
+        'kkk': 1000000,
+        'kkkk': 1000000000,
+        'kkkkk': 1000000000000,
+    }
+    
+    # Проверяем, не "все" ли это
+    if amount_str in ['все', 'алл', 'максимум', 'всё', 'all', 'max']:
+        return -1
+    
+    # Пытаемся распарсить число с суффиксом
+    for suffix, multiplier in multipliers.items():
+        if amount_str.endswith(suffix):
+            try:
+                num = float(amount_str[:-len(suffix)])
+                return int(num * multiplier)
+            except:
+                pass
+    
+    # Если нет суффикса - просто число
+    try:
+        return int(amount_str)
+    except:
+        return None
+
+def parse_roulette_bet(text):
+    """Парсит сообщение вида 'рул крас 1000' или 'рул крас все'"""
+    text = text.lower().strip()
+    words = text.split()
+    
+    if not (words[0].startswith('рул') or words[0].startswith('рулетка')):
+        return None
+    
+    if len(words) != 3:
+        return None
+    
+    bet_word = words[1]
+    bet_value = words[2]
+    
+    # Парсим сумму
+    bet_amount = parse_bet_amount(bet_value)
+    if bet_amount is None:
+        return None
+    
+    bet_types = {
+        'крас': 'red', 'красное': 'red',
+        'чер': 'black', 'черное': 'black',
+        'чет': 'even', 'четное': 'even',
+        'нечет': 'odd', 'нечетное': 'odd',
+        'бол': 'high', 'большое': 'high',
+        'мал': 'low', 'маленькое': 'low',
+        '1-12': '1-12',
+        '13-24': '13-24',
+        '25-36': '25-36',
+        'зеро': '0',
+    }
+    
+    for key, value in bet_types.items():
+        if bet_word == key or bet_word in key.split():
+            return (value, bet_amount)
+    
+    if bet_word.isdigit():
+        num = int(bet_word)
+        if 0 <= num <= 36:
+            return (f'num_{num}', bet_amount)
+    
+    return None
+
 def update_roulette_stats(user_id, bet_amount, win_amount):
     """Обновляет статистику рулетки"""
     try:
@@ -976,12 +1054,17 @@ def update_roulette_stats(user_id, bet_amount, win_amount):
         if stats:
             games_played = stats['games_played'] + 1
             total_bet = stats['total_bet'] + bet_amount
-            total_win = stats['total_win'] + win_amount
-            total_lose = stats['total_lose'] + (bet_amount if win_amount == 0 else 0)
             wins = stats['wins'] + (1 if win_amount > 0 else 0)
             losses = stats['losses'] + (1 if win_amount == 0 else 0)
-            biggest_win = max(stats['biggest_win'], win_amount)
-            biggest_lose = max(stats['biggest_lose'], bet_amount if win_amount == 0 else 0)
+            
+            # Выигрыш добавляем только если реально выиграл
+            total_win = stats['total_win'] + (win_amount if win_amount > 0 else 0)
+            
+            # Проигрыш добавляем только если реально проиграл (поставил и не выиграл)
+            total_lose = stats['total_lose'] + (bet_amount if win_amount == 0 else 0)
+            
+            biggest_win = max(stats['biggest_win'], win_amount) if win_amount > 0 else stats['biggest_win']
+            biggest_lose = max(stats['biggest_lose'], bet_amount) if win_amount == 0 else stats['biggest_lose']
             
             cursor.execute('''
                 UPDATE roulette_stats 
@@ -1001,8 +1084,10 @@ def update_roulette_stats(user_id, bet_amount, win_amount):
                 INSERT INTO roulette_stats 
                 (user_id, games_played, wins, losses, total_bet, total_win, total_lose, biggest_win, biggest_lose, last_game)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            ''', (user_id, 1, wins, losses, bet_amount, win_amount, 
-                  (bet_amount if win_amount == 0 else 0), biggest_win, biggest_lose, datetime.now().isoformat()))
+            ''', (user_id, 1, wins, losses, bet_amount, 
+                  (win_amount if win_amount > 0 else 0), 
+                  (bet_amount if win_amount == 0 else 0), 
+                  biggest_win, biggest_lose, datetime.now().isoformat()))
         
         conn.commit()
         conn.close()
@@ -1130,50 +1215,6 @@ def get_bet_name(bet_type):
         return f"⚡ ЧИСЛО {number}"
     
     return names.get(bet_type, bet_type)
-
-def parse_roulette_bet(text):
-    """Парсит сообщение вида 'рул крас 1000'"""
-    text = text.lower().strip()
-    words = text.split()
-    
-    if not (words[0].startswith('рул') or words[0].startswith('рулетка')):
-        return None
-    
-    if len(words) != 3:
-        return None
-    
-    try:
-        bet_amount = int(words[2])
-        if bet_amount < 1:
-            return None
-    except:
-        return None
-    
-    bet_word = words[1]
-    
-    bet_types = {
-        'крас': 'red', 'красное': 'red',
-        'чер': 'black', 'черное': 'black',
-        'чет': 'even', 'четное': 'even',
-        'нечет': 'odd', 'нечетное': 'odd',
-        'бол': 'high', 'большое': 'high',
-        'мал': 'low', 'маленькое': 'low',
-        '1-12': '1-12',
-        '13-24': '13-24',
-        '25-36': '25-36',
-        'зеро': '0',
-    }
-    
-    for key, value in bet_types.items():
-        if bet_word == key or bet_word in key.split():
-            return (value, bet_amount)
-    
-    if bet_word.isdigit():
-        num = int(bet_word)
-        if 0 <= num <= 36:
-            return (f'num_{num}', bet_amount)
-    
-    return None
 
 # ========== АДМИН КОМАНДЫ ==========
 @bot.message_handler(commands=['adminhelp'])
@@ -2261,24 +2302,39 @@ def roulette_handler(message):
             "❌ **Неправильный формат!**\n\n"
             "📝 **Примеры ставок:**\n"
             "• `рул крас 5000` - на красное\n"
-            "• `рулетка чер 1000` - на черное\n"
-            "• `рул чет 200` - на четное\n"
-            "• `рул нечет 777` - на нечетное\n"
+            "• `рулетка чер все` - **ВЕСЬ БАЛАНС** на черное\n"
+            "• `рул чет алл` - **ВЕСЬ БАЛАНС** на четное\n"
+            "• `рул нечет максимум` - **ВЕСЬ БАЛАНС** на нечетное\n"
             "• `рул бол 15000` - на 19-36\n"
             "• `рул мал 3000` - на 1-18\n"
             "• `рул 1-12 5000` - первая дюжина\n"
             "• `рул 13-24 5000` - вторая дюжина\n"
             "• `рул 25-36 5000` - третья дюжина\n"
-            "• `рул зеро 1000` - на зеро (0)\n"
-            "• `рул 7 500` - на число 7\n\n"
-            "💰 Можно ставить **от 1 до всего баланса**!")
+            "• `рул зеро все` - **ВЕСЬ БАЛАНС** на зеро\n"
+            "• `рул 7 все` - **ВЕСЬ БАЛАНС** на число 7\n\n"
+            "💰 **Сокращения:**\n"
+            "• `1к` = 1,000\n"
+            "• `5кк` = 5,000,000\n"
+            "• `100кк` = 100,000,000\n"
+            "• `2ккк` = 2,000,000,000\n"
+            "• `1кккк` = 1,000,000,000,000\n\n"
+            "💎 Для ставки всего баланса пиши: `все`, `алл` или `максимум`")
         return
     
     bet_type, bet_amount = bet_info
     
     balance = get_balance(user_id)
+    
+    # Если ставка = -1, значит ставим весь баланс
+    if bet_amount == -1:
+        bet_amount = balance
+    
     if balance < bet_amount:
         bot.reply_to(message, f"❌ Недостаточно средств! Твой баланс: {balance:,} {CURRENCY}")
+        return
+    
+    if bet_amount < 1:
+        bot.reply_to(message, f"❌ Минимальная ставка: 1 {CURRENCY}")
         return
     
     number = random.randint(0, 36)
@@ -2291,8 +2347,15 @@ def roulette_handler(message):
         new_balance = get_balance(user_id)
         update_roulette_stats(user_id, bet_amount, win_amount)
         
+        # Красивое сообщение для ALL-IN
+        if bet_amount == balance and bet_amount > 0:
+            allin_text = "⚡ **ALL-IN!** ⚡\n"
+        else:
+            allin_text = ""
+        
         response = (
             f"🎡 **КРУТИМ РУЛЕТКУ!**\n\n"
+            f"{allin_text}"
             f"👤 Игрок: {message.from_user.first_name}\n"
             f"💰 Ставка: {bet_amount:,} на {get_bet_name(bet_type)}\n\n"
             f"⚪ Шарик скачет по цифрам...\n"
@@ -2306,8 +2369,15 @@ def roulette_handler(message):
         new_balance = get_balance(user_id)
         update_roulette_stats(user_id, bet_amount, 0)
         
+        # Красивое сообщение для проигрыша всего баланса
+        if bet_amount == balance and bet_amount > 0:
+            allin_text = "💔 **ПРОИГРАЛ ВСЁ!** 💔\n"
+        else:
+            allin_text = ""
+        
         response = (
             f"🎡 **КРУТИМ РУЛЕТКУ!**\n\n"
+            f"{allin_text}"
             f"👤 Игрок: {message.from_user.first_name}\n"
             f"💰 Ставка: {bet_amount:,} на {get_bet_name(bet_type)}\n\n"
             f"⚪ Шарик скачет по цифрам...\n"
@@ -2704,7 +2774,8 @@ def handle(message):
             "🎰 **РУЛЕТКА**\n"
             "• Играй прямо в чате: `рул крас 1000`\n"
             "• Можно ставить на цвет, число, дюжины\n"
-            "• Ставка от 1 до всего баланса\n"
+            "• Поддержка сокращений: `1к` = 1000, `5кк` = 5 млн\n"
+            "• Команда `рул крас все` - поставить весь баланс\n"
             "• Вся статистика сохраняется!\n\n"
             "🏆 **ТОП 10** (команда /top)\n"
             "• Можно выбрать топ по деньгам, опыту или казино\n"
