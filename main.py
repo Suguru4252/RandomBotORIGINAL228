@@ -11,7 +11,7 @@ TOKEN = os.environ['TOKEN']
 bot = telebot.TeleBot(TOKEN)
 CURRENCY = "💰 SuguruCoins"
 
-# ========== ПУТЬ К БАЗЕ ДАННЫХ (ПОСТОЯННОЕ ХРАНИЛИЩЕ) ==========
+# ========== ПУТЬ К БАЗЕ ДАННЫХ ==========
 POSSIBLE_PATHS = [
     '/data/bot.db',
     '/storage/bot.db',
@@ -343,7 +343,6 @@ def get_user_display_name(user_data):
     return "Игрок"
 
 def get_user_display_name_with_clothes(user_id):
-    """Получить отображаемое имя с учётом купленной одежды"""
     user_data = get_user_profile(user_id)
     clothes_data = get_user_clothes(user_id)
     
@@ -433,7 +432,6 @@ def find_user_by_input(input_str):
 
 # ========== ФУНКЦИИ ДЛЯ МАГАЗИНА ==========
 def get_user_clothes(user_id):
-    """Получить купленную одежду пользователя"""
     try:
         conn = get_db()
         cursor = conn.cursor()
@@ -445,7 +443,6 @@ def get_user_clothes(user_id):
         return None
 
 def buy_clothes(user_id, item_name, photo_url, price):
-    """Купить одежду"""
     balance = get_balance(user_id)
     if balance < price:
         return False, f"❌ Не хватает {price - balance:,} {CURRENCY}"
@@ -453,21 +450,57 @@ def buy_clothes(user_id, item_name, photo_url, price):
     conn = get_db()
     cursor = conn.cursor()
     
-    # Удаляем старую одежду, если была
     cursor.execute('DELETE FROM clothes WHERE user_id = ?', (user_id,))
     
-    # Добавляем новую
     cursor.execute('''
         INSERT INTO clothes (user_id, item_name, photo_url)
         VALUES (?, ?, ?)
     ''', (user_id, item_name, photo_url))
     
-    # Списываем деньги
     cursor.execute('UPDATE users SET balance = balance - ? WHERE user_id = ?', (price, user_id))
     
     conn.commit()
     conn.close()
     return True, f"✅ Ты купил {item_name}!"
+
+def show_shop_item(user_id, index):
+    """Показывает товар в магазине"""
+    item = SHOP_ITEMS[index]
+    
+    text = (
+        f"🛍️ **Магазин одежды**\n\n"
+        f"✨ Мы подобрали для тебя самые лучшие и красивые комплекты одежды!\n\n"
+        f"━━━━━━━━━━━━━━━━━━\n"
+        f"**{item['name']}**\n"
+        f"💰 Цена: {item['price']:,} {CURRENCY}\n"
+        f"━━━━━━━━━━━━━━━━━━"
+    )
+    
+    keyboard = types.InlineKeyboardMarkup(row_width=3)
+    
+    nav_buttons = []
+    if index > 0:
+        nav_buttons.append(types.InlineKeyboardButton("◀️", callback_data=f"shop_prev_{index}"))
+    else:
+        nav_buttons.append(types.InlineKeyboardButton("⬅️", callback_data="none"))
+    
+    nav_buttons.append(types.InlineKeyboardButton(f"{index+1}/{len(SHOP_ITEMS)}", callback_data="none"))
+    
+    if index < len(SHOP_ITEMS) - 1:
+        nav_buttons.append(types.InlineKeyboardButton("▶️", callback_data=f"shop_next_{index}"))
+    else:
+        nav_buttons.append(types.InlineKeyboardButton("➡️", callback_data="none"))
+    
+    keyboard.row(*nav_buttons)
+    keyboard.row(
+        types.InlineKeyboardButton("✅ Купить", callback_data=f"shop_buy_{index}"),
+        types.InlineKeyboardButton("❌ Закрыть", callback_data="shop_close")
+    )
+    
+    try:
+        bot.send_photo(user_id, item['photo'], caption=text, parse_mode="Markdown", reply_markup=keyboard)
+    except Exception as e:
+        bot.send_message(user_id, f"{text}\n\n❌ Ошибка загрузки фото", parse_mode="Markdown", reply_markup=keyboard)
 
 # ========== АДМИН КОМАНДЫ ==========
 @bot.message_handler(commands=['adminhelp'])
@@ -480,7 +513,6 @@ def admin_help(message):
         return
     
     help_text = f"👑 **АДМИН ПАНЕЛЬ (Уровень {level})**\n\n"
-    
     help_text += "**Уровень 1:**\n"
     help_text += "  /giveme [сумма] - выдать деньги себе\n"
     help_text += "  /addexpm [количество] - выдать опыт себе\n\n"
@@ -689,7 +721,6 @@ def profile_command(message):
         business = get_user_business(target_id)
         business_info = "Нет" if not business else f"{business['business_name']} (ур.{business['level']})"
         
-        # Получаем купленную одежду
         clothes = get_user_clothes(target_id)
         clothes_info = "Нет" if not clothes else clothes[0]
         
@@ -1131,7 +1162,6 @@ def top_command(message):
         for i, (uid, custom, first, username, balance) in enumerate(top, 1):
             medal = "🥇" if i == 1 else "🥈" if i == 2 else "🥉" if i == 3 else f"{i}."
             
-            # Получаем одежду пользователя
             clothes = get_user_clothes(uid)
             fake_data = (uid, first, username, custom, 0)
             display = get_user_display_name(fake_data)
@@ -1220,102 +1250,29 @@ def settings_keyboard():
     )
     return markup
 
-# ========== ФУНКЦИИ МАГАЗИНА ==========
-def show_shop_item(user_id, index, edit=False, message_id=None):
-    """Показать товар в магазине (в одном сообщении с фото)"""
-    item = SHOP_ITEMS[index]
-    
-    # Текст сообщения
-    caption = (
-        f"🛍️ **Магазин одежды**\n\n"
-        f"✨ Мы подобрали для тебя самые лучшие и красивые комплекты одежды!\n"
-        f"Выбери понравившийся и нажми **✅ Купить**.\n\n"
-        f"━━━━━━━━━━━━━━━━━━\n\n"
-        f"**{item['name']}**\n"
-        f"💰 Цена: {item['price']:,} {CURRENCY}\n"
-        f"━━━━━━━━━━━━━━━━━━"
-    )
-    
-    # Кнопки
-    keyboard = types.InlineKeyboardMarkup(row_width=3)
-    
-    # Верхний ряд: навигация
-    nav_buttons = []
-    if index > 0:
-        nav_buttons.append(types.InlineKeyboardButton("◀️ Назад", callback_data=f"shop_prev_{index}"))
-    else:
-        nav_buttons.append(types.InlineKeyboardButton("⬅️", callback_data="noop"))
-    
-    nav_buttons.append(types.InlineKeyboardButton(f"{index+1}/{len(SHOP_ITEMS)}", callback_data="noop"))
-    
-    if index < len(SHOP_ITEMS) - 1:
-        nav_buttons.append(types.InlineKeyboardButton("Дальше ▶️", callback_data=f"shop_next_{index}"))
-    else:
-        nav_buttons.append(types.InlineKeyboardButton("➡️", callback_data="noop"))
-    
-    keyboard.row(*nav_buttons)
-    
-    # Нижний ряд: покупка и отмена
-    keyboard.row(
-        types.InlineKeyboardButton("✅ Купить", callback_data=f"shop_buy_{index}"),
-        types.InlineKeyboardButton("❌ Отмена", callback_data="shop_cancel")
-    )
-    
-    try:
-        if edit and message_id:
-            # Редактируем существующее сообщение
-            bot.edit_message_media(
-                chat_id=user_id,
-                message_id=message_id,
-                media=types.InputMediaPhoto(
-                    media=item['photo'],
-                    caption=caption,
-                    parse_mode="Markdown"
-                ),
-                reply_markup=keyboard
-            )
-        else:
-            # Отправляем новое сообщение
-            bot.send_photo(
-                user_id,
-                item['photo'],
-                caption=caption,
-                parse_mode="Markdown",
-                reply_markup=keyboard
-            )
-    except Exception as e:
-        print(f"Ошибка в магазине: {e}")
-        # Если фото не грузится, отправляем только текст
-        bot.send_message(
-            user_id,
-            f"❌ Не удалось загрузить фото.\n\n{caption}",
-            parse_mode="Markdown",
-            reply_markup=keyboard
-        )
-
+# ========== ОБРАБОТЧИК МАГАЗИНА ==========
 @bot.callback_query_handler(func=lambda call: True)
 def shop_callback(call):
     user_id = call.from_user.id
     data = call.data
     
-    if data == "noop":
+    if data == "none":
         bot.answer_callback_query(call.id)
         return
     
     if data.startswith("shop_prev_"):
-        # Листаем назад
-        current = int(data.split("_")[2])
-        show_shop_item(user_id, current - 1, edit=True, message_id=call.message.message_id)
+        index = int(data.split("_")[2])
+        bot.delete_message(user_id, call.message.message_id)
+        show_shop_item(user_id, index - 1)
         bot.answer_callback_query(call.id)
     
     elif data.startswith("shop_next_"):
-        # Листаем вперёд
-        current = int(data.split("_")[2])
-        show_shop_item(user_id, current + 1, edit=True, message_id=call.message.message_id)
+        index = int(data.split("_")[2])
+        bot.delete_message(user_id, call.message.message_id)
+        show_shop_item(user_id, index + 1)
         bot.answer_callback_query(call.id)
     
     elif data.startswith("shop_buy_"):
-        # Покупка
         index = int(data.split("_")[2])
         item = SHOP_ITEMS[index]
         
@@ -1323,23 +1280,12 @@ def shop_callback(call):
         bot.answer_callback_query(call.id, msg, show_alert=True)
         
         if success:
-            # Обновляем сообщение после покупки
-            new_caption = (
-                f"✅ **Покупка совершена!**\n\n"
-                f"Ты приобрёл **{item['name']}**!\n"
-                f"Он уже на тебе в профиле."
-            )
-            bot.edit_message_caption(
-                chat_id=user_id,
-                message_id=call.message.message_id,
-                caption=new_caption,
-                parse_mode="Markdown"
-            )
+            bot.delete_message(user_id, call.message.message_id)
+            show_shop_item(user_id, index)
     
-    elif data == "shop_cancel":
-        # Выход из магазина
+    elif data == "shop_close":
         bot.delete_message(user_id, call.message.message_id)
-        bot.send_message(user_id, "🚪 Ты вышел из магазина.", reply_markup=main_keyboard())
+        bot.send_message(user_id, "🚪 Выход из магазина", reply_markup=main_keyboard())
         bot.answer_callback_query(call.id)
 
 # ========== СТАРТ ==========
@@ -1393,7 +1339,7 @@ def start(message):
             "🔤 **Напиши свой игровой никнейм:**\n\n"
             "📝 Он может быть любым (буквы, цифры, символы)\n"
             "✨ Например: `DarkKnight`, `КиберПанк`, `SuguruKing`\n\n"
-            "⚠️ **Важно:** Никейм должен быть **уникальным**!",
+            "⚠️ **Важно:** Никнейм должен быть **уникальным**!",
             parse_mode="Markdown",
             reply_markup=markup
         )
@@ -1614,13 +1560,11 @@ def handle(message):
     elif text == "📋 Помощь":
         help_text = (
             "📚 **ПОЛНОЕ РУКОВОДСТВО ПО ИГРЕ** 📚\n\n"
-            
             "💼 **РАБОТЫ**\n"
             "• Доступно 10 видов работ\n"
             "• Каждая работа дает деньги и опыт\n"
             "• Чем выше опыт - тем круче работы открываются\n"
             "• Работы можно выполнять бесконечно\n\n"
-            
             "🏭 **БИЗНЕСЫ**\n"
             "• Можно купить только один бизнес\n"
             "• 5 видов бизнеса\n"
@@ -1628,32 +1572,26 @@ def handle(message):
             "• Склад вмещает максимум 1000 сырья\n"
             "• Доставка сырья - 15 минут\n"
             "• Прибыль накапливается на складе, нужно собирать вручную\n\n"
-            
             "📊 **ДАННЫЕ БИЗНЕСОВ**\n"
             "🥤 Киоск - 500к | 1 сырьё = 1.000💰 | профит 2.000💰\n"
             "🍔 Фастфуд - 5M | 1 сырьё = 2.500💰 | профит 5.000💰\n"
             "🏪 Минимаркет - 15M | 1 сырьё = 30.000💰 | профит 60.000💰\n"
             "⛽ Заправка - 50M | 1 сырьё = 200.000💰 | профит 400.000💰\n"
             "🏨 Отель - 1B | 1 сырьё = 1.000.000💰 | профит 2.000.000💰\n\n"
-            
             "⏱️ **ВРЕМЯ ПЕРЕРАБОТКИ**\n"
             "• Киоск, Фастфуд, Минимаркет, Заправка:\n"
             "  1 ур: 60с | 2 ур: 50с | 3 ур: 30с\n"
             "• Отель:\n"
             "  1 ур: 120с | 2 ур: 90с | 3 ур: 60с\n\n"
-            
             "👥 **РЕФЕРАЛЫ**\n"
             "• Приглашай друзей по уникальной ссылке\n"
             "• За каждого друга бонус 100💰 и 50⭐\n\n"
-            
             "🏆 **ТОП 10**\n"
             "• Соревнуйся с другими игроками (команда /top)\n\n"
-            
             "🛍️ **МАГАЗИН**\n"
             "• Покупай уникальную одежду\n"
             "• Одежда отображается в профиле и топе\n"
             "• Можно менять образ в любое время\n\n"
-            
             "🎁 **ЕЖЕДНЕВНЫЙ БОНУС**\n"
             "• Получай бонус раз в 24 часа\n"
             "• Рандомный бонус от 500 до 2000💰\n"
@@ -1662,7 +1600,6 @@ def handle(message):
         bot.send_message(user_id, help_text, parse_mode="Markdown")
     
     elif text == "🔄 Магазин":
-        # Сразу показываем первый товар с приветствием
         show_shop_item(user_id, 0)
     
     # ===== РАБОТЫ =====
@@ -1872,32 +1809,8 @@ def handle(message):
                 bot.send_message(user_id, "❌ Ошибка при покупке")
                 add_balance(user_id, price)
     
-    # ===== ВОЗВРАЩЕНИЕ В ГЛАВНОЕ МЕНЮ С ФОТО =====
+    # ===== ВОЗВРАЩЕНИЕ В ГЛАВНОЕ МЕНЮ =====
     elif text == "🔙 Назад":
-        # Получаем данные пользователя
-        user_data = get_user_profile(user_id)
-        display_name = get_user_display_name_with_clothes(user_id)
-        balance = get_balance(user_id)
-        
-        # Формируем текст приветствия
-        welcome_back_text = (
-            f"🌟 **Привет, {display_name}!** 🌟\n\n"
-            f"💰 Твой баланс: {balance:,} {CURRENCY}\n\n"
-            f"✨ Спасибо, что играешь со мной! ❤️"
-        )
-        
-        # Прямая ссылка на фото (загружено на iimg.su)
-        photo_url = "https://iimg.su/i/FXFrd6"
-        
-        try:
-            # Отправляем фото с подписью
-            bot.send_photo(user_id, photo_url, caption=welcome_back_text, parse_mode="Markdown")
-        except Exception as e:
-            # Если фото не отправилось, шлём просто текст
-            print(f"Ошибка отправки фото: {e}")
-            bot.send_message(user_id, welcome_back_text, parse_mode="Markdown")
-        
-        # Показываем главное меню
         bot.send_message(user_id, "Главное меню:", reply_markup=main_keyboard())
 
 # ========== ФОНОВАЯ ПЕРЕРАБОТКА СЫРЬЯ ==========
