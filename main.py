@@ -105,7 +105,7 @@ def init_db():
             last_daily TEXT,
             warns INTEGER DEFAULT 0,
             banned_until TEXT,
-            equipped_clothes INTEGER DEFAULT NULL,  -- ID надетой одежды
+            equipped_clothes INTEGER DEFAULT NULL,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
     ''')
@@ -168,7 +168,7 @@ def init_db():
         )
     ''')
     
-    # ========== НОВЫЕ ТАБЛИЦЫ ДЛЯ МАГАЗИНА ОДЕЖДЫ ==========
+    # ========== ТАБЛИЦЫ ДЛЯ МАГАЗИНА ОДЕЖДЫ ==========
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS shop_clothes (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -184,14 +184,14 @@ def init_db():
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             user_id INTEGER,
             clothes_id INTEGER,
-            equipped INTEGER DEFAULT 1,  -- Сразу надеваем при покупке
+            equipped INTEGER DEFAULT 1,
             purchased_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY (user_id) REFERENCES users(user_id),
             FOREIGN KEY (clothes_id) REFERENCES shop_clothes(id)
         )
     ''')
     
-    # Заполняем магазин одеждой (твои комплекты)
+    # Заполняем магазин одеждой
     cursor.execute('SELECT COUNT(*) FROM shop_clothes')
     if cursor.fetchone()[0] == 0:
         clothes_data = [
@@ -437,7 +437,7 @@ def find_user_by_input(input_str):
     else:
         return get_user_by_custom_name(input_str)
 
-# ========== НОВЫЕ ФУНКЦИИ ДЛЯ МАГАЗИНА ==========
+# ========== ФУНКЦИИ ДЛЯ МАГАЗИНА И ПРОФИЛЯ ==========
 
 def get_user_equipped_clothes(user_id):
     """Получает надетую одежду пользователя"""
@@ -454,6 +454,42 @@ def get_user_equipped_clothes(user_id):
         return clothes
     except:
         return None
+
+def get_user_profile_photo(user_id):
+    """Возвращает фото для профиля пользователя"""
+    equipped = get_user_equipped_clothes(user_id)
+    if equipped and equipped['photo_url']:
+        return equipped['photo_url']
+    return "https://iimg.su/i/waxabI"  # Стандартное фото
+
+def send_main_menu_with_profile(user_id, chat_id=None):
+    """Отправляет главное меню с фото профиля"""
+    if not chat_id:
+        chat_id = user_id
+    
+    # Получаем данные пользователя
+    user_data = get_user_profile(user_id)
+    if not user_data:
+        return
+    
+    balance = get_balance(user_id)
+    display_name = get_user_display_name(user_data)
+    
+    # Формируем подпись
+    caption = (f"👤 *{display_name}*\n\n"
+               f"💰 Баланс: {balance:,} {CURRENCY}")
+    
+    # Получаем фото профиля
+    photo_url = get_user_profile_photo(user_id)
+    
+    # Отправляем фото с подписью и клавиатурой
+    bot.send_photo(
+        chat_id,
+        photo_url,
+        caption=caption,
+        parse_mode="Markdown",
+        reply_markup=main_keyboard()
+    )
 
 def buy_clothes(user_id, clothes_id):
     """Покупает одежду и сразу надевает её"""
@@ -769,7 +805,7 @@ def profile_command(message):
         msg += f"👤 Отображается как: {display_name}\n"
         msg += f"🆔 ID: `{target_id}`\n"
         msg += f"⚠️ Варны: {warns}/3\n"
-        msg += f"👕 Одежда: {clothes_info}\n\n"  # Новая строка с одеждой
+        msg += f"👕 Одежда: {clothes_info}\n\n"
         msg += f"💰 Баланс: {balance:,} {CURRENCY}\n"
         msg += f"⭐ Опыт: {exp}\n"
         msg += f"📈 Уровень: {level}\n"
@@ -884,7 +920,7 @@ def reset_account(message):
         
         cursor.execute('DELETE FROM businesses WHERE user_id = ?', (target_id,))
         cursor.execute('DELETE FROM deliveries WHERE user_id = ?', (target_id,))
-        cursor.execute('DELETE FROM user_clothes WHERE user_id = ?', (target_id,))  # Удаляем одежду
+        cursor.execute('DELETE FROM user_clothes WHERE user_id = ?', (target_id,))
         
         cursor.execute('''
             UPDATE users 
@@ -1181,19 +1217,59 @@ def set_admin_level_command(message):
     except Exception as e:
         bot.reply_to(message, f"❌ Ошибка: {e}")
 
+# ========== КОМАНДА ТОП ==========
 @bot.message_handler(commands=['top'])
 def top_command(message):
     user_id = message.from_user.id
     
+    markup = types.InlineKeyboardMarkup(row_width=2)
+    markup.add(
+        types.InlineKeyboardButton("💰 Топ по деньгам", callback_data="top_money"),
+        types.InlineKeyboardButton("⭐ Топ по опыту", callback_data="top_exp")
+    )
+    
+    bot.send_message(
+        user_id,
+        "🏆 **ВЫБЕРИ ТОП**\n\n"
+        "По какому показателю показать рейтинг?",
+        parse_mode="Markdown",
+        reply_markup=markup
+    )
+
+def send_top_by_type(user_id, top_type):
+    """Отправляет топ по указанному типу"""
     try:
         conn = get_db()
         cursor = conn.cursor()
-        cursor.execute('SELECT first_name, username, custom_name, balance FROM users ORDER BY balance DESC LIMIT 10')
+        
+        if top_type == "money":
+            cursor.execute('''
+                SELECT first_name, username, custom_name, balance 
+                FROM users 
+                ORDER BY balance DESC 
+                LIMIT 10
+            ''')
+            title = "💰 ТОП 10 ПО ДЕНЬГАМ"
+            value_name = "Баланс"
+        else:  # exp
+            cursor.execute('''
+                SELECT first_name, username, custom_name, exp 
+                FROM users 
+                ORDER BY exp DESC 
+                LIMIT 10
+            ''')
+            title = "⭐ ТОП 10 ПО ОПЫТУ"
+            value_name = "Опыт"
+        
         top = cursor.fetchall()
         conn.close()
         
-        msg = "🏆 **ТОП 10 БОГАЧЕЙ**\n\n"
-        for i, (first_name, username, custom_name, balance) in enumerate(top, 1):
+        if not top:
+            bot.send_message(user_id, "❌ В топе пока никого нет!")
+            return
+        
+        msg = f"🏆 **{title}**\n\n"
+        for i, (first_name, username, custom_name, value) in enumerate(top, 1):
             medal = "🥇" if i == 1 else "🥈" if i == 2 else "🥉" if i == 3 else f"{i}."
             
             if custom_name:
@@ -1203,9 +1279,10 @@ def top_command(message):
             else:
                 display_name = first_name
             
-            msg += f"{medal} {display_name}: {balance:,} {CURRENCY}\n"
+            msg += f"{medal} {display_name}: {value:,}\n"
         
         bot.send_message(user_id, msg, parse_mode="Markdown")
+        
     except Exception as e:
         print(f"Ошибка топа: {e}")
         bot.send_message(user_id, "❌ Ошибка загрузки топа")
@@ -1226,8 +1303,8 @@ def main_keyboard():
         types.KeyboardButton("⚙️ Настройки")
     )
     markup.row(
-        types.KeyboardButton("👕 МАГАЗИН ОДЕЖДЫ"),  # НОВАЯ КНОПКА
-        types.KeyboardButton("🔄")  # КНОПКА ОБНОВЛЕНИЯ
+        types.KeyboardButton("👕 МАГАЗИН ОДЕЖДЫ"),
+        types.KeyboardButton("🔄")
     )
     return markup
 
@@ -1348,12 +1425,14 @@ def start(message):
     else:
         conn.close()
         level = get_admin_level(user_id)
+        
         welcome_text = f"👋 С возвращением, {first_name}!"
         
         if level > 0:
             welcome_text += f"\n\n👑 У вас права администратора {level} уровня!\n/adminhelp - список команд админа"
         
-        bot.send_message(user_id, welcome_text, reply_markup=main_keyboard())
+        bot.send_message(user_id, welcome_text)
+        send_main_menu_with_profile(user_id)
 
 def process_name_step(message):
     user_id = message.from_user.id
@@ -1395,9 +1474,10 @@ def process_name_step(message):
             "💰 У тебя 0 монет, но это временно.\n"
             "💪 Работай, зарабатывай, покупай бизнесы и становись миллионером!\n"
             "👕 Загляни в **МАГАЗИН ОДЕЖДЫ** - там есть очень крутые комплекты!\n\n"
-            "👇 Используй кнопки внизу чтобы начать!"
+            "👇 Твоё главное меню с фото профиля:"
         )
-        bot.send_message(user_id, success_text, parse_mode="Markdown", reply_markup=main_keyboard())
+        bot.send_message(user_id, success_text, parse_mode="Markdown")
+        send_main_menu_with_profile(user_id)
     else:
         bot.send_message(
             user_id,
@@ -1455,7 +1535,7 @@ def change_nickname_step(message):
         )
         bot.register_next_step_handler(message, change_nickname_step)
 
-# ========== ОБРАБОТЧИК КОЛБЭКОВ ДЛЯ МАГАЗИНА ==========
+# ========== ОБРАБОТЧИК КОЛБЭКОВ ==========
 @bot.callback_query_handler(func=lambda call: True)
 def callback_handler(call):
     user_id = call.from_user.id
@@ -1466,18 +1546,27 @@ def callback_handler(call):
     
     data = call.data
     
+    # Обработка топов
+    if data == "top_money":
+        bot.delete_message(user_id, call.message.message_id)
+        send_top_by_type(user_id, "money")
+        bot.answer_callback_query(call.id)
+    
+    elif data == "top_exp":
+        bot.delete_message(user_id, call.message.message_id)
+        send_top_by_type(user_id, "exp")
+        bot.answer_callback_query(call.id)
+    
     # Навигация по магазину
-    if data.startswith("shop_page_"):
+    elif data.startswith("shop_page_"):
         page = int(data.split("_")[2])
         clothes, current_page, total = get_clothes_page(page)
         
         if clothes:
-            # Отправляем фото с описанием
             caption = (f"👕 *{clothes['name']}*\n\n"
                       f"💰 Цена: {clothes['price']:,} {CURRENCY}\n\n"
                       f"🛍️ Всего комплектов: {total}")
             
-            # Пытаемся отредактировать сообщение с фото
             try:
                 bot.edit_message_media(
                     types.InputMediaPhoto(media=clothes['photo_url'], caption=caption, parse_mode="Markdown"),
@@ -1486,7 +1575,6 @@ def callback_handler(call):
                     reply_markup=get_clothes_navigation_keyboard(current_page, total)
                 )
             except:
-                # Если не получилось, отправляем новое
                 bot.send_photo(
                     user_id,
                     clothes['photo_url'],
@@ -1523,7 +1611,7 @@ def callback_handler(call):
             success, message_text = buy_clothes(user_id, clothes['id'])
             
             if success:
-                # Обновляем сообщение - показываем, что куплено
+                # Обновляем сообщение
                 caption = (f"👕 *{clothes['name']}*\n\n"
                           f"💰 Цена: {clothes['price']:,} {CURRENCY}\n\n"
                           f"✅ *КУПЛЕНО!* Комплект надет на тебя!")
@@ -1549,7 +1637,7 @@ def callback_handler(call):
     # Закрыть магазин
     elif data == "shop_close":
         bot.delete_message(user_id, call.message.message_id)
-        bot.send_message(user_id, "Главное меню:", reply_markup=main_keyboard())
+        send_main_menu_with_profile(user_id)
         bot.answer_callback_query(call.id)
     
     # Заглушка для неактивных кнопок
@@ -1585,13 +1673,12 @@ def handle(message):
     user_data = get_user_profile(user_id)
     display_name = get_user_display_name(user_data) if user_data else "Игрок"
     
-    # ===== ОБРАБОТКА КНОПКИ ОБНОВЛЕНИЯ =====
+    # Кнопка обновления
     if text == "🔄":
-        bot.send_message(user_id, "🔄 Обновлено!", reply_markup=main_keyboard())
+        send_main_menu_with_profile(user_id)
     
-    # ===== МАГАЗИН ОДЕЖДЫ =====
+    # Магазин одежды
     elif text == "👕 МАГАЗИН ОДЕЖДЫ":
-        # Получаем первый товар
         clothes, current_page, total = get_clothes_page(0)
         
         if clothes:
@@ -1616,7 +1703,7 @@ def handle(message):
         else:
             bot.send_message(user_id, "❌ В магазине пока нет товаров!")
     
-    # ===== ГЛАВНОЕ МЕНЮ =====
+    # Остальные кнопки
     elif text == "💼 Работы":
         bot.send_message(user_id, "🔨 Выбери работу:", reply_markup=jobs_keyboard(user_id))
     
@@ -1716,11 +1803,12 @@ def handle(message):
             "👕 **МАГАЗИН ОДЕЖДЫ**\n"
             "• Покупай крутые комплекты одежды\n"
             "• При покупке комплект сразу надевается\n"
-            "• Одежда видна в статистике\n\n"
+            "• Одежда видна в главном меню и статистике\n\n"
             "👥 **РЕФЕРАЛЫ**\n"
             "• Приглашай друзей по уникальной ссылке\n"
             "• За каждого друга бонус 100💰 и 50⭐\n\n"
             "🏆 **ТОП 10** (команда /top)\n"
+            "• Можно выбрать топ по деньгам или по опыту\n"
             "• Соревнуйся с другими игроками\n\n"
             "🎁 **ЕЖЕДНЕВНЫЙ БОНУС**\n"
             "• Получай бонус раз в 24 часа\n"
@@ -1739,7 +1827,7 @@ def handle(message):
         help_text += "🏆 Топ 10 - лучшие игроки (команда /top)\n"
         help_text += "🎁 Ежедневно - бонус каждый день\n"
         help_text += "⚙️ Настройки - изменить никнейм и полная помощь\n"
-        help_text += "🔄 - обновить меню"
+        help_text += "🔄 - обновить главное меню с фото профиля"
         
         level = get_admin_level(user_id)
         if level > 0:
@@ -1771,12 +1859,6 @@ def handle(message):
         if job_name:
             min_r, max_r, exp_r = rewards[job_name]
             earn = random.randint(min_r, max_r)
-            
-            # Проверяем, есть ли бонус от одежды (на будущее)
-            equipped = get_user_equipped_clothes(user_id)
-            bonus_multiplier = 1.0
-            # Здесь потом можно добавить бонусы от одежды
-            earn = int(earn * bonus_multiplier)
             
             if add_balance(user_id, earn) and add_exp(user_id, exp_r):
                 bot.send_message(user_id, f"✅ {job_name}\n💰 +{earn}\n⭐ +{exp_r} опыта")
@@ -1962,7 +2044,7 @@ def handle(message):
     
     # ===== ВОЗВРАЩЕНИЕ В ГЛАВНОЕ МЕНЮ =====
     elif text == "🔙 Назад":
-        bot.send_message(user_id, "Главное меню:", reply_markup=main_keyboard())
+        send_main_menu_with_profile(user_id)
 
 # ========== ФОНОВАЯ ПЕРЕРАБОТКА СЫРЬЯ ==========
 def process_raw_material():
