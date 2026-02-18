@@ -106,6 +106,9 @@ def init_db():
             warns INTEGER DEFAULT 0,
             banned_until TEXT,
             equipped_clothes INTEGER DEFAULT NULL,
+            current_city TEXT DEFAULT 'Село Молочное',
+            has_car INTEGER DEFAULT 0,
+            has_plane INTEGER DEFAULT 0,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
     ''')
@@ -148,16 +151,6 @@ def init_db():
     ''')
     
     cursor.execute('''
-        CREATE TABLE IF NOT EXISTS referrals (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            referrer_id INTEGER,
-            referral_id INTEGER,
-            bonus_claimed INTEGER DEFAULT 0,
-            joined_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-        )
-    ''')
-    
-    cursor.execute('''
         CREATE TABLE IF NOT EXISTS business_data (
             name TEXT PRIMARY KEY,
             price INTEGER,
@@ -190,6 +183,44 @@ def init_db():
             FOREIGN KEY (clothes_id) REFERENCES shop_clothes(id)
         )
     ''')
+    
+    # ========== НОВЫЕ ТАБЛИЦЫ ДЛЯ ГОРОДОВ ==========
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS cities (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT UNIQUE,
+            description TEXT,
+            has_clothes_shop INTEGER DEFAULT 1,
+            has_house_shop INTEGER DEFAULT 0,
+            has_plane_shop INTEGER DEFAULT 0
+        )
+    ''')
+    
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS travels (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER,
+            from_city TEXT,
+            to_city TEXT,
+            transport TEXT,
+            end_time TEXT,
+            completed INTEGER DEFAULT 0
+        )
+    ''')
+    
+    # Заполняем города
+    cursor.execute('SELECT COUNT(*) FROM cities')
+    if cursor.fetchone()[0] == 0:
+        cities_data = [
+            ("Кропоткин", "Промышленный город с развитой инфраструктурой", 1, 1, 0),
+            ("Москва", "Столица! Здесь есть всё", 1, 0, 1),
+            ("Мурино", "Молодежный спальный район", 1, 1, 0),
+            ("Село Молочное", "Уютное село, отличное место для старта", 1, 0, 0)
+        ]
+        cursor.executemany('''
+            INSERT INTO cities (name, description, has_clothes_shop, has_house_shop, has_plane_shop)
+            VALUES (?, ?, ?, ?, ?)
+        ''', cities_data)
     
     # Заполняем магазин одеждой
     cursor.execute('SELECT COUNT(*) FROM shop_clothes')
@@ -253,6 +284,7 @@ def init_db():
     conn.commit()
     conn.close()
     print("✅ База данных проверена/создана")
+    print("🏙️ Система городов активирована!")
     print("👕 Магазин одежды загружен с 16 комплектами!")
 
 init_db()
@@ -437,6 +469,119 @@ def find_user_by_input(input_str):
     else:
         return get_user_by_custom_name(input_str)
 
+# ========== НОВЫЕ ФУНКЦИИ ДЛЯ ГОРОДОВ ==========
+
+def get_user_city(user_id):
+    """Получает текущий город пользователя"""
+    try:
+        conn = get_db()
+        cursor = conn.cursor()
+        cursor.execute('SELECT current_city FROM users WHERE user_id = ?', (user_id,))
+        result = cursor.fetchone()
+        conn.close()
+        return result[0] if result else "Село Молочное"
+    except:
+        return "Село Молочное"
+
+def set_user_city(user_id, city):
+    """Устанавливает город пользователя"""
+    try:
+        conn = get_db()
+        cursor = conn.cursor()
+        cursor.execute('UPDATE users SET current_city = ? WHERE user_id = ?', (city, user_id))
+        conn.commit()
+        conn.close()
+        return True
+    except:
+        return False
+
+def get_city_info(city_name):
+    """Получает информацию о городе"""
+    try:
+        conn = get_db()
+        cursor = conn.cursor()
+        cursor.execute('SELECT * FROM cities WHERE name = ?', (city_name,))
+        city = cursor.fetchone()
+        conn.close()
+        return city
+    except:
+        return None
+
+def start_travel(user_id, to_city, transport):
+    """Начинает поездку в другой город"""
+    try:
+        # Проверяем, нет ли уже активной поездки
+        conn = get_db()
+        cursor = conn.cursor()
+        active = cursor.execute('''
+            SELECT id FROM travels 
+            WHERE user_id = ? AND completed = 0
+        ''', (user_id,)).fetchone()
+        
+        if active:
+            conn.close()
+            return False, "❌ У тебя уже есть активная поездка!"
+        
+        from_city = get_user_city(user_id)
+        
+        # Время поездки: рандом 30-60 секунд
+        travel_time = random.randint(30, 60)
+        end_time = datetime.now() + timedelta(seconds=travel_time)
+        
+        cursor.execute('''
+            INSERT INTO travels (user_id, from_city, to_city, transport, end_time, completed)
+            VALUES (?, ?, ?, ?, ?, 0)
+        ''', (user_id, from_city, to_city, transport, end_time.isoformat()))
+        
+        conn.commit()
+        conn.close()
+        
+        return True, f"🚀 Ты отправился в {to_city} на {transport}! Время в пути: {travel_time} сек."
+    except Exception as e:
+        print(f"Ошибка поездки: {e}")
+        return False, "❌ Ошибка при начале поездки"
+
+def get_active_travel(user_id):
+    """Получает активную поездку пользователя"""
+    try:
+        conn = get_db()
+        cursor = conn.cursor()
+        travel = cursor.execute('''
+            SELECT * FROM travels 
+            WHERE user_id = ? AND completed = 0
+        ''', (user_id,)).fetchone()
+        conn.close()
+        return travel
+    except:
+        return None
+
+def complete_travel(travel_id, user_id):
+    """Завершает поездку"""
+    try:
+        conn = get_db()
+        cursor = conn.cursor()
+        travel = cursor.execute('SELECT * FROM travels WHERE id = ?', (travel_id,)).fetchone()
+        
+        if travel:
+            # Меняем город пользователя
+            cursor.execute('UPDATE users SET current_city = ? WHERE user_id = ?', 
+                         (travel['to_city'], user_id))
+            cursor.execute('UPDATE travels SET completed = 1 WHERE id = ?', (travel_id,))
+            conn.commit()
+            
+            # Отправляем уведомление
+            bot.send_message(
+                user_id,
+                f"✅ Вы прибыли в {travel['to_city']}!\n"
+                f"Транспорт: {travel['transport']}"
+            )
+        
+        conn.close()
+        return True
+    except Exception as e:
+        print(f"Ошибка завершения поездки: {e}")
+        return False
+
 # ========== ФУНКЦИИ ДЛЯ МАГАЗИНА И ПРОФИЛЯ ==========
 
 def get_user_equipped_clothes(user_id):
@@ -463,7 +608,7 @@ def get_user_profile_photo(user_id):
     return "https://iimg.su/i/waxabI"  # Стандартное фото
 
 def send_main_menu_with_profile(user_id, chat_id=None):
-    """Отправляет главное меню с фото профиля"""
+    """Отправляет главное меню с фото профиля и городом"""
     if not chat_id:
         chat_id = user_id
     
@@ -474,10 +619,12 @@ def send_main_menu_with_profile(user_id, chat_id=None):
     
     balance = get_balance(user_id)
     display_name = get_user_display_name(user_data)
+    current_city = get_user_city(user_id)
     
-    # Формируем подпись
+    # Формируем подпись с городом
     caption = (f"👤 *{display_name}*\n\n"
-               f"💰 Баланс: {balance:,} {CURRENCY}")
+               f"💰 Баланс: {balance:,} {CURRENCY}\n"
+               f"📍 Город: {current_city}")
     
     # Получаем фото профиля
     photo_url = get_user_profile_photo(user_id)
@@ -799,13 +946,17 @@ def profile_command(message):
         equipped_clothes = get_user_equipped_clothes(target_id)
         clothes_info = "Нет" if not equipped_clothes else f"{equipped_clothes['name']}"
         
+        # Получаем город
+        current_city = get_user_city(target_id)
+        
         display_name = get_user_display_name(user_data)
         
         msg = f"👤 **ПРОФИЛЬ ПОЛЬЗОВАТЕЛЯ**\n\n"
         msg += f"👤 Отображается как: {display_name}\n"
         msg += f"🆔 ID: `{target_id}`\n"
         msg += f"⚠️ Варны: {warns}/3\n"
-        msg += f"👕 Одежда: {clothes_info}\n\n"
+        msg += f"👕 Одежда: {clothes_info}\n"
+        msg += f"📍 Город: {current_city}\n\n"
         msg += f"💰 Баланс: {balance:,} {CURRENCY}\n"
         msg += f"⭐ Опыт: {exp}\n"
         msg += f"📈 Уровень: {level}\n"
@@ -921,11 +1072,13 @@ def reset_account(message):
         cursor.execute('DELETE FROM businesses WHERE user_id = ?', (target_id,))
         cursor.execute('DELETE FROM deliveries WHERE user_id = ?', (target_id,))
         cursor.execute('DELETE FROM user_clothes WHERE user_id = ?', (target_id,))
+        cursor.execute('DELETE FROM travels WHERE user_id = ?', (target_id,))
         
         cursor.execute('''
             UPDATE users 
             SET balance = 0, exp = 0, level = 1, work_count = 0, 
-                total_earned = 0, custom_name = NULL, equipped_clothes = NULL
+                total_earned = 0, custom_name = NULL, equipped_clothes = NULL,
+                current_city = 'Село Молочное', has_car = 0, has_plane = 0
             WHERE user_id = ?
         ''', (target_id,))
         
@@ -1296,7 +1449,7 @@ def main_keyboard():
     )
     markup.row(
         types.KeyboardButton("📊 Статистика"),
-        types.KeyboardButton("👥 Рефералы")
+        types.KeyboardButton("🏙️ ГОРОДА")  # Вместо рефералов
     )
     markup.row(
         types.KeyboardButton("🎁 Ежедневно"),
@@ -1304,6 +1457,69 @@ def main_keyboard():
     )
     markup.row(
         types.KeyboardButton("👕 МАГАЗИН ОДЕЖДЫ"),
+        types.KeyboardButton("🔄")
+    )
+    return markup
+
+def cities_keyboard():
+    """Клавиатура выбора города"""
+    markup = types.ReplyKeyboardMarkup(row_width=2, resize_keyboard=True)
+    markup.row(
+        types.KeyboardButton("🏙️ Кропоткин"),
+        types.KeyboardButton("🏙️ Москва")
+    )
+    markup.row(
+        types.KeyboardButton("🏙️ Мурино"),
+        types.KeyboardButton("🏙️ Село Молочное")
+    )
+    markup.row(types.KeyboardButton("🔙 Назад"))
+    return markup
+
+def transport_keyboard(city):
+    """Клавиатура выбора транспорта"""
+    markup = types.ReplyKeyboardMarkup(row_width=2, resize_keyboard=True)
+    markup.row(
+        types.KeyboardButton("🚕 Такси"),
+        types.KeyboardButton("🚗 Личная машина")
+    )
+    markup.row(
+        types.KeyboardButton("✈️ Личный самолет"),
+        types.KeyboardButton("🔙 Назад")
+    )
+    return markup
+
+def city_menu_keyboard(city_name):
+    """Клавиатура меню города"""
+    markup = types.ReplyKeyboardMarkup(row_width=2, resize_keyboard=True)
+    
+    city_info = get_city_info(city_name)
+    
+    # Базовые кнопки для всех городов
+    markup.row(
+        types.KeyboardButton("💼 Работы"),
+        types.KeyboardButton("🏭 Бизнесы")
+    )
+    markup.row(
+        types.KeyboardButton("📊 Статистика"),
+        types.KeyboardButton("👕 Магазин одежды")
+    )
+    
+    # Дополнительные кнопки в зависимости от города
+    extra_buttons = []
+    if city_info and city_info['has_house_shop']:
+        extra_buttons.append("🏠 Магазин домов")
+    if city_info and city_info['has_plane_shop']:
+        extra_buttons.append("✈️ Магазин самолетов")
+    
+    if extra_buttons:
+        markup.row(*[types.KeyboardButton(btn) for btn in extra_buttons])
+    
+    markup.row(
+        types.KeyboardButton("🎁 Ежедневно"),
+        types.KeyboardButton("⚙️ Настройки")
+    )
+    markup.row(
+        types.KeyboardButton("🔙 Назад"),
         types.KeyboardButton("🔄")
     )
     return markup
@@ -1388,8 +1604,8 @@ def start(message):
     
     if not user:
         cursor.execute('''
-            INSERT INTO users (user_id, username, first_name, balance, exp, level, work_count, total_earned)
-            VALUES (?, ?, ?, 0, 0, 1, 0, 0)
+            INSERT INTO users (user_id, username, first_name, balance, exp, level, work_count, total_earned, current_city)
+            VALUES (?, ?, ?, 0, 0, 1, 0, 0, 'Село Молочное')
         ''', (user_id, username, first_name))
         conn.commit()
         conn.close()
@@ -1400,7 +1616,7 @@ def start(message):
             "🎮 Здесь ты сможешь:\n"
             "💼 **Работать** и зарабатывать деньги\n"
             "🏭 **Покупать бизнесы** и получать пассивный доход\n"
-            "👥 **Приглашать друзей** и получать бонусы\n"
+            "🏙️ **Путешествовать по городам** и открывать новые магазины\n"
             "👕 **Покупать крутую одежду** и менять свой стиль\n"
             "🏆 **Соревноваться** с другими игроками (/top)\n\n"
             "✨ Но сначала выбери себе игровой никнейм!\n"
@@ -1472,7 +1688,7 @@ def process_name_step(message):
             f"✅ **Отлично!** Твой никнейм `{custom_name}` сохранен!\n\n"
             "🎉 Теперь ты готов к приключениям!\n"
             "💰 У тебя 0 монет, но это временно.\n"
-            "💪 Работай, зарабатывай, покупай бизнесы и становись миллионером!\n"
+            "💪 Работай, зарабатывай, покупай бизнесы и путешествуй по городам!\n"
             "👕 Загляни в **МАГАЗИН ОДЕЖДЫ** - там есть очень крутые комплекты!\n\n"
             "👇 Твоё главное меню с фото профиля:"
         )
@@ -1673,12 +1889,63 @@ def handle(message):
     user_data = get_user_profile(user_id)
     display_name = get_user_display_name(user_data) if user_data else "Игрок"
     
-    # Кнопка обновления
-    if text == "🔄":
-        send_main_menu_with_profile(user_id)
+    # Проверяем, нет ли активной поездки
+    active_travel = get_active_travel(user_id)
+    if active_travel:
+        # Проверяем, не пора ли прибыть
+        end_time = datetime.fromisoformat(active_travel['end_time'])
+        if datetime.now() >= end_time:
+            complete_travel(active_travel['id'], user_id)
+            # После завершения показываем меню города прибытия
+            current_city = get_user_city(user_id)
+            bot.send_message(
+                user_id,
+                f"🏙️ Ты находишься в городе {current_city}",
+                reply_markup=city_menu_keyboard(current_city)
+            )
+            return
     
-    # Магазин одежды
-    elif text == "👕 МАГАЗИН ОДЕЖДЫ":
+    # ===== ГОРОДА =====
+    if text == "🏙️ ГОРОДА":
+        markup = cities_keyboard()
+        bot.send_message(
+            user_id,
+            "🏙️ **ВЫБЕРИ ГОРОД**\n\n"
+            "Куда хочешь отправиться?",
+            parse_mode="Markdown",
+            reply_markup=markup
+        )
+    
+    # Выбор конкретного города
+    elif text in ["🏙️ Кропоткин", "🏙️ Москва", "🏙️ Мурино", "🏙️ Село Молочное"]:
+        city_name = text.replace("🏙️ ", "")
+        current_city = get_user_city(user_id)
+        
+        if city_name == current_city:
+            # Если уже в этом городе - сразу показываем меню
+            bot.send_message(
+                user_id,
+                f"🏙️ Ты уже находишься в городе {city_name}",
+                reply_markup=city_menu_keyboard(city_name)
+            )
+        else:
+            # Если в другом - предлагаем выбрать транспорт
+            bot.send_message(
+                user_id,
+                f"🚀 Выбери транспорт для поездки в {city_name}:",
+                reply_markup=transport_keyboard(city_name)
+            )
+            # Сохраняем выбранный город в контексте (через следующий шаг)
+            bot.register_next_step_handler(message, process_travel, city_name)
+    
+    # ===== ТРАНСПОРТ =====
+    elif text in ["🚕 Такси", "🚗 Личная машина", "✈️ Личный самолет"]:
+        # Этот случай обрабатывается в process_travel
+        pass
+    
+    # ===== МЕНЮ ГОРОДА =====
+    elif text == "👕 Магазин одежды":
+        # Магазин одежды (работает в любом городе)
         clothes, current_page, total = get_clothes_page(0)
         
         if clothes:
@@ -1703,34 +1970,42 @@ def handle(message):
         else:
             bot.send_message(user_id, "❌ В магазине пока нет товаров!")
     
-    # Остальные кнопки
+    elif text == "🏠 Магазин домов":
+        bot.send_message(user_id, "🏠 Магазин домов скоро откроется! Следи за обновлениями!")
+    
+    elif text == "✈️ Магазин самолетов":
+        bot.send_message(user_id, "✈️ Магазин самолетов скоро откроется! Следи за обновлениями!")
+    
+    # ===== КНОПКА ОБНОВЛЕНИЯ =====
+    elif text == "🔄":
+        current_city = get_user_city(user_id)
+        send_main_menu_with_profile(user_id)
+    
+    # ===== РАБОТЫ =====
     elif text == "💼 Работы":
         bot.send_message(user_id, "🔨 Выбери работу:", reply_markup=jobs_keyboard(user_id))
     
+    # ===== БИЗНЕСЫ =====
     elif text == "🏭 Бизнесы":
         bot.send_message(user_id, "🏪 Управление бизнесом:", reply_markup=businesses_main_keyboard())
     
+    # ===== СТАТИСТИКА =====
     elif text == "📊 Статистика":
         exp, level, work_count, total = get_user_stats(user_id)
         equipped = get_user_equipped_clothes(user_id)
         clothes_info = f", одет: {equipped['name']}" if equipped else ""
+        current_city = get_user_city(user_id)
         
         msg = f"📊 **СТАТИСТИКА**\n\n"
         msg += f"👤 Игрок: {display_name}{clothes_info}\n"
+        msg += f"📍 Город: {current_city}\n"
         msg += f"⭐ Опыт: {exp}\n"
         msg += f"📈 Уровень: {level}\n"
         msg += f"🔨 Работ: {work_count}\n"
         msg += f"💰 Всего заработано: {total:,}"
         bot.send_message(user_id, msg, parse_mode="Markdown")
     
-    elif text == "👥 Рефералы":
-        bot_username = bot.get_me().username
-        link = f"https://t.me/{bot_username}?start={user_id}"
-        msg = f"👥 **РЕФЕРАЛЫ**\n\n"
-        msg += f"🔗 Твоя ссылка:\n{link}\n\n"
-        msg += f"💡 Приглашай друзей и получай бонусы!"
-        bot.send_message(user_id, msg, parse_mode="Markdown")
-    
+    # ===== ЕЖЕДНЕВНО =====
     elif text == "🎁 Ежедневно":
         try:
             conn = get_db()
@@ -1762,6 +2037,7 @@ def handle(message):
             print(f"Ошибка daily: {e}")
             bot.send_message(user_id, "❌ Ошибка")
     
+    # ===== НАСТРОЙКИ =====
     elif text == "⚙️ Настройки":
         bot.send_message(user_id, "🔧 **НАСТРОЙКИ**\n\nВыбери что хочешь изменить:", reply_markup=settings_keyboard(), parse_mode="Markdown")
     
@@ -1800,13 +2076,15 @@ def handle(message):
             "🏪 Минимаркет - 15M | 1 сырьё = 30.000💰 | профит 60.000💰\n"
             "⛽ Заправка - 50M | 1 сырьё = 200.000💰 | профит 400.000💰\n"
             "🏨 Отель - 1B | 1 сырьё = 1.000.000💰 | профит 2.000.000💰\n\n"
+            "🏙️ **ГОРОДА**\n"
+            "• Можно путешествовать между 4 городами\n"
+            "• В каждом городе свои магазины\n"
+            "• Время в пути: 30-60 секунд\n"
+            "• Транспорт: Такси, Личная машина, Личный самолет\n\n"
             "👕 **МАГАЗИН ОДЕЖДЫ**\n"
             "• Покупай крутые комплекты одежды\n"
             "• При покупке комплект сразу надевается\n"
             "• Одежда видна в главном меню и статистике\n\n"
-            "👥 **РЕФЕРАЛЫ**\n"
-            "• Приглашай друзей по уникальной ссылке\n"
-            "• За каждого друга бонус 100💰 и 50⭐\n\n"
             "🏆 **ТОП 10** (команда /top)\n"
             "• Можно выбрать топ по деньгам или по опыту\n"
             "• Соревнуйся с другими игроками\n\n"
@@ -1821,9 +2099,9 @@ def handle(message):
         help_text = "🤖 **ПОМОЩЬ**\n\n"
         help_text += "💼 Работы - зарабатывай деньги и опыт (открываются с опытом)\n"
         help_text += "🏭 Бизнесы - управление бизнесом\n"
+        help_text += "🏙️ Города - путешествуй между городами\n"
         help_text += "👕 Магазин одежды - покупай крутые комплекты\n"
         help_text += "📊 Статистика - твои показатели\n"
-        help_text += "👥 Рефералы - приглашай друзей\n"
         help_text += "🏆 Топ 10 - лучшие игроки (команда /top)\n"
         help_text += "🎁 Ежедневно - бонус каждый день\n"
         help_text += "⚙️ Настройки - изменить никнейм и полная помощь\n"
@@ -2044,7 +2322,91 @@ def handle(message):
     
     # ===== ВОЗВРАЩЕНИЕ В ГЛАВНОЕ МЕНЮ =====
     elif text == "🔙 Назад":
+        # Проверяем, откуда вернулись
+        if "🏙️" in text or "🚕" in text or "🚗" in text or "✈️" in text:
+            # Если из городов - показываем главное меню
+            send_main_menu_with_profile(user_id)
+        else:
+            # Если из других разделов - показываем меню текущего города
+            current_city = get_user_city(user_id)
+            bot.send_message(
+                user_id,
+                f"🏙️ Ты в городе {current_city}",
+                reply_markup=city_menu_keyboard(current_city)
+            )
+
+def process_travel(message, target_city):
+    """Обрабатывает выбор транспорта и начинает поездку"""
+    user_id = message.from_user.id
+    transport = message.text
+    
+    if transport not in ["🚕 Такси", "🚗 Личная машина", "✈️ Личный самолет"]:
+        bot.send_message(user_id, "❌ Пожалуйста, выбери транспорт из предложенных!")
+        bot.register_next_step_handler(message, process_travel, target_city)
+        return
+    
+    if transport == "🔙 Назад":
         send_main_menu_with_profile(user_id)
+        return
+    
+    # Начинаем поездку
+    success, msg = start_travel(user_id, target_city, transport)
+    
+    if success:
+        bot.send_message(user_id, msg)
+        # Показываем ожидание (главное меню с городом откуда уехали)
+        current_city = get_user_city(user_id)
+        bot.send_message(
+            user_id,
+            f"⏳ Ты в пути... Прибудешь через некоторое время.\n"
+            f"📍 Текущий город: {current_city}",
+            reply_markup=main_keyboard()
+        )
+    else:
+        bot.send_message(user_id, msg)
+        # Возвращаем в меню городов
+        bot.send_message(
+            user_id,
+            "🏙️ Выбери город:",
+            reply_markup=cities_keyboard()
+        )
+
+# ========== ФОНОВАЯ ПРОВЕРКА ПОЕЗДОК ==========
+def check_travels():
+    """Проверяет завершенные поездки"""
+    while True:
+        try:
+            conn = get_db()
+            cursor = conn.cursor()
+            
+            travels = cursor.execute('''
+                SELECT * FROM travels 
+                WHERE completed = 0 AND end_time <= ?
+            ''', (datetime.now().isoformat(),)).fetchall()
+            
+            for t in travels:
+                # Завершаем поездку
+                cursor.execute('UPDATE users SET current_city = ? WHERE user_id = ?', 
+                             (t['to_city'], t['user_id']))
+                cursor.execute('UPDATE travels SET completed = 1 WHERE id = ?', (t['id'],))
+                
+                try:
+                    bot.send_message(
+                        t['user_id'],
+                        f"✅ Вы прибыли в {t['to_city']}!\n"
+                        f"Транспорт: {t['transport']}",
+                        reply_markup=city_menu_keyboard(t['to_city'])
+                    )
+                except:
+                    pass
+                
+                conn.commit()
+            
+            conn.close()
+            time.sleep(5)  # Проверяем каждые 5 секунд
+        except Exception as e:
+            print(f"Ошибка проверки поездок: {e}")
+            time.sleep(5)
 
 # ========== ФОНОВАЯ ПЕРЕРАБОТКА СЫРЬЯ ==========
 def process_raw_material():
@@ -2103,8 +2465,6 @@ def process_raw_material():
             print(f"Ошибка переработки: {e}")
             time.sleep(10)
 
-threading.Thread(target=process_raw_material, daemon=True).start()
-
 # ========== ФОНОВАЯ ПРОВЕРКА ДОСТАВОК ==========
 def check_deliveries():
     while True:
@@ -2145,7 +2505,10 @@ def check_deliveries():
             print(f"Ошибка в доставках: {e}")
             time.sleep(30)
 
+# Запускаем фоновые потоки
+threading.Thread(target=process_raw_material, daemon=True).start()
 threading.Thread(target=check_deliveries, daemon=True).start()
+threading.Thread(target=check_travels, daemon=True).start()
 
 # ========== ЗАПУСК ==========
 from flask import Flask
@@ -2167,6 +2530,7 @@ def keep_alive():
 keep_alive()
 print("✅ Бот запущен!")
 print(f"👑 Главный админ ID: 5596589260 (уровень 4)")
-print("👕 Магазин одежды активен! 16 комплектов ждут покупателей!")
+print("🏙️ Система городов активна! 4 города ждут путешественников!")
+print("👕 Магазин одежды загружен с 16 комплектами!")
 print("📌 Админ команды: /adminhelp")
 bot.infinity_polling()
