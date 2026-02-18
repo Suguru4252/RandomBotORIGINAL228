@@ -461,46 +461,72 @@ def buy_clothes(user_id, item_name, photo_url, price):
     
     conn.commit()
     conn.close()
-    return True, f"✅ Ты купил {item_name}!"
+    return True, f"✅ Ты купил {item_name}! Он уже на тебе!"
 
-def show_shop_item(user_id, index):
+def show_shop_item(user_id, index, message_id=None):
     """Показывает товар в магазине"""
     item = SHOP_ITEMS[index]
     
-    text = (
-        f"🛍️ **Магазин одежды**\n\n"
-        f"✨ Мы подобрали для тебя самые лучшие и красивые комплекты одежды!\n\n"
-        f"━━━━━━━━━━━━━━━━━━\n"
-        f"**{item['name']}**\n"
-        f"💰 Цена: {item['price']:,} {CURRENCY}\n"
-        f"━━━━━━━━━━━━━━━━━━"
+    welcome_text = (
+        "🛍️ **Магазин одежды**\n\n"
+        "✨ Мы подобрали самые лучшие и красивые комплекты одежды!\n"
+        "Выбери какой захотите и нажми **✅ Купить**.\n\n"
+        "━━━━━━━━━━━━━━━━━━━━━\n\n"
     )
+    
+    item_text = (
+        f"**{item['name']}**\n"
+        f"💰 Цена: {item['price']:,} {CURRENCY}"
+    )
+    
+    full_text = welcome_text + item_text
     
     keyboard = types.InlineKeyboardMarkup(row_width=3)
     
+    # Верхний ряд навигации
     nav_buttons = []
     if index > 0:
-        nav_buttons.append(types.InlineKeyboardButton("◀️", callback_data=f"shop_prev_{index}"))
+        nav_buttons.append(types.InlineKeyboardButton("◀️ Назад", callback_data=f"shop_prev_{index}"))
     else:
         nav_buttons.append(types.InlineKeyboardButton("⬅️", callback_data="none"))
     
     nav_buttons.append(types.InlineKeyboardButton(f"{index+1}/{len(SHOP_ITEMS)}", callback_data="none"))
     
     if index < len(SHOP_ITEMS) - 1:
-        nav_buttons.append(types.InlineKeyboardButton("▶️", callback_data=f"shop_next_{index}"))
+        nav_buttons.append(types.InlineKeyboardButton("Дальше ▶️", callback_data=f"shop_next_{index}"))
     else:
         nav_buttons.append(types.InlineKeyboardButton("➡️", callback_data="none"))
     
     keyboard.row(*nav_buttons)
+    
+    # Нижний ряд действия
     keyboard.row(
         types.InlineKeyboardButton("✅ Купить", callback_data=f"shop_buy_{index}"),
-        types.InlineKeyboardButton("❌ Закрыть", callback_data="shop_close")
+        types.InlineKeyboardButton("❌ Отмена", callback_data="shop_cancel")
     )
     
     try:
-        bot.send_photo(user_id, item['photo'], caption=text, parse_mode="Markdown", reply_markup=keyboard)
+        if message_id:
+            bot.edit_message_media(
+                chat_id=user_id,
+                message_id=message_id,
+                media=types.InputMediaPhoto(
+                    media=item['photo'],
+                    caption=full_text,
+                    parse_mode="Markdown"
+                ),
+                reply_markup=keyboard
+            )
+        else:
+            bot.send_photo(
+                user_id,
+                item['photo'],
+                caption=full_text,
+                parse_mode="Markdown",
+                reply_markup=keyboard
+            )
     except Exception as e:
-        bot.send_message(user_id, f"{text}\n\n❌ Ошибка загрузки фото", parse_mode="Markdown", reply_markup=keyboard)
+        print(f"Ошибка магазина: {e}")
 
 # ========== АДМИН КОМАНДЫ ==========
 @bot.message_handler(commands=['adminhelp'])
@@ -1262,14 +1288,12 @@ def shop_callback(call):
     
     if data.startswith("shop_prev_"):
         index = int(data.split("_")[2])
-        bot.delete_message(user_id, call.message.message_id)
-        show_shop_item(user_id, index - 1)
+        show_shop_item(user_id, index - 1, call.message.message_id)
         bot.answer_callback_query(call.id)
     
     elif data.startswith("shop_next_"):
         index = int(data.split("_")[2])
-        bot.delete_message(user_id, call.message.message_id)
-        show_shop_item(user_id, index + 1)
+        show_shop_item(user_id, index + 1, call.message.message_id)
         bot.answer_callback_query(call.id)
     
     elif data.startswith("shop_buy_"):
@@ -1280,12 +1304,11 @@ def shop_callback(call):
         bot.answer_callback_query(call.id, msg, show_alert=True)
         
         if success:
-            bot.delete_message(user_id, call.message.message_id)
-            show_shop_item(user_id, index)
+            show_shop_item(user_id, index, call.message.message_id)
     
-    elif data == "shop_close":
+    elif data == "shop_cancel":
         bot.delete_message(user_id, call.message.message_id)
-        bot.send_message(user_id, "🚪 Выход из магазина", reply_markup=main_keyboard())
+        bot.send_message(user_id, "🚪 Ты вышел из магазина.", reply_markup=main_keyboard())
         bot.answer_callback_query(call.id)
 
 # ========== СТАРТ ==========
