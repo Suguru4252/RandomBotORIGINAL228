@@ -6,6 +6,7 @@ from datetime import datetime, timedelta
 from telebot import types
 import threading
 import time
+import re
 
 TOKEN = os.environ['TOKEN']
 bot = telebot.TeleBot(TOKEN)
@@ -35,9 +36,9 @@ if DB_PATH is None:
     print("⚠️ Постоянное хранилище не найдено, использую локальную БД")
 
 # ========== ГЛОБАЛЬНЫЕ ПЕРЕМЕННЫЕ (КЭШ) ==========
-ADMINS = {}  # Будет загружено из БД
-BANS = {}    # Будет загружено из БД
-WARNS = {}   # Будет загружено из БД
+ADMINS = {}
+BANS = {}
+WARNS = {}
 MAX_WARNS = 3
 
 # ========== БАЗА ДАННЫХ ==========
@@ -193,6 +194,22 @@ def init_db():
         )
     ''')
     
+    # ========== ТАБЛИЦА ДЛЯ СТАТИСТИКИ РУЛЕТКИ ==========
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS roulette_stats (
+            user_id INTEGER PRIMARY KEY,
+            games_played INTEGER DEFAULT 0,
+            wins INTEGER DEFAULT 0,
+            losses INTEGER DEFAULT 0,
+            total_bet INTEGER DEFAULT 0,
+            total_win INTEGER DEFAULT 0,
+            total_lose INTEGER DEFAULT 0,
+            biggest_win INTEGER DEFAULT 0,
+            biggest_lose INTEGER DEFAULT 0,
+            last_game TIMESTAMP
+        )
+    ''')
+    
     # Добавляем главного админа
     cursor.execute('INSERT OR IGNORE INTO admins (user_id, level) VALUES (?, ?)', (5596589260, 4))
     
@@ -274,10 +291,10 @@ def init_db():
     print("✅ База данных проверена/создана")
     print("🏙️ Система городов активирована!")
     print("👕 Магазин одежды загружен с 16 комплектами!")
+    print("🎰 Система рулетки активирована!")
 
 # ========== ЗАГРУЗКА ДАННЫХ ИЗ БД ==========
 def load_admins_from_db():
-    """Загружает админов из БД"""
     try:
         conn = get_db()
         cursor = conn.cursor()
@@ -293,7 +310,6 @@ def load_admins_from_db():
         return {5596589260: 4}
 
 def load_bans_from_db():
-    """Загружает баны из БД"""
     try:
         conn = get_db()
         cursor = conn.cursor()
@@ -312,7 +328,6 @@ def load_bans_from_db():
         return {}
 
 def load_warns_from_db():
-    """Загружает варны из БД"""
     try:
         conn = get_db()
         cursor = conn.cursor()
@@ -327,7 +342,6 @@ def load_warns_from_db():
         print(f"Ошибка загрузки варнов: {e}")
         return {}
 
-# Инициализация БД и загрузка данных
 init_db()
 ADMINS = load_admins_from_db()
 BANS = load_bans_from_db()
@@ -340,12 +354,9 @@ print(f"⚠️ Загружено варнов: {len(WARNS)}")
 # ========== ФУНКЦИИ ДЛЯ РАБОТЫ С АДМИНАМИ/БАНАМИ/ВАРНАМИ ==========
 
 def get_admin_level(user_id):
-    """Получает уровень админа"""
-    # Сначала проверяем в памяти (быстрее)
     if user_id in ADMINS:
         return ADMINS[user_id]
     
-    # Если нет в памяти, проверим в БД
     try:
         conn = get_db()
         cursor = conn.cursor()
@@ -354,7 +365,7 @@ def get_admin_level(user_id):
         
         if admin:
             level = admin['level']
-            ADMINS[user_id] = level  # Сохраняем в память
+            ADMINS[user_id] = level
             return level
     except:
         pass
@@ -365,24 +376,20 @@ def is_admin(user_id, required_level=1):
     return get_admin_level(user_id) >= required_level
 
 def add_admin(user_id, level):
-    """Добавляет админа в БД"""
     try:
         conn = get_db()
         cursor = conn.cursor()
         
-        # Проверяем, есть ли уже
         existing = cursor.execute('SELECT user_id FROM admins WHERE user_id = ?', (user_id,)).fetchone()
         
         if existing:
             conn.close()
             return False, "❌ Пользователь уже админ"
         
-        # Добавляем в БД
         cursor.execute('INSERT INTO admins (user_id, level) VALUES (?, ?)', (user_id, level))
         conn.commit()
         conn.close()
         
-        # Обновляем кэш в памяти
         ADMINS[user_id] = level
         
         return True, f"✅ Пользователь назначен админом {level} уровня"
@@ -391,7 +398,6 @@ def add_admin(user_id, level):
         return False, "❌ Ошибка при добавлении админа"
 
 def remove_admin(user_id):
-    """Удаляет админа из БД"""
     try:
         conn = get_db()
         cursor = conn.cursor()
@@ -399,7 +405,6 @@ def remove_admin(user_id):
         conn.commit()
         conn.close()
         
-        # Удаляем из кэша
         if user_id in ADMINS:
             del ADMINS[user_id]
         
@@ -409,7 +414,6 @@ def remove_admin(user_id):
         return False
 
 def set_admin_level(user_id, level):
-    """Изменяет уровень админа"""
     try:
         conn = get_db()
         cursor = conn.cursor()
@@ -417,7 +421,6 @@ def set_admin_level(user_id, level):
         conn.commit()
         conn.close()
         
-        # Обновляем кэш
         ADMINS[user_id] = level
         
         return True
@@ -426,8 +429,6 @@ def set_admin_level(user_id, level):
         return False
 
 def is_banned(user_id):
-    """Проверяет, забанен ли пользователь"""
-    # Проверяем в памяти
     if user_id in BANS:
         ban_info = BANS[user_id]
         if ban_info['until'] == 0:
@@ -435,9 +436,7 @@ def is_banned(user_id):
         elif datetime.now().timestamp() < ban_info['until']:
             return True
         else:
-            # Бан истек - удаляем
             del BANS[user_id]
-            # Удаляем из БД
             try:
                 conn = get_db()
                 cursor = conn.cursor()
@@ -448,7 +447,6 @@ def is_banned(user_id):
                 pass
             return False
     
-    # Если нет в памяти, проверим в БД
     try:
         conn = get_db()
         cursor = conn.cursor()
@@ -464,7 +462,6 @@ def is_banned(user_id):
                 BANS[user_id] = {'reason': 'unknown', 'until': until}
                 return True
             else:
-                # Бан истек - удаляем
                 conn = get_db()
                 cursor = conn.cursor()
                 cursor.execute('DELETE FROM bans WHERE user_id = ?', (user_id,))
@@ -476,23 +473,19 @@ def is_banned(user_id):
     return False
 
 def add_ban(user_id, hours=0, reason="admin"):
-    """Добавляет бан в БД"""
     try:
         conn = get_db()
         cursor = conn.cursor()
         
         until = 0 if hours == 0 else (datetime.now() + timedelta(hours=hours)).timestamp()
         
-        # Удаляем старый бан если был
         cursor.execute('DELETE FROM bans WHERE user_id = ?', (user_id,))
         
-        # Добавляем новый
         cursor.execute('INSERT INTO bans (user_id, reason, until) VALUES (?, ?, ?)', 
                       (user_id, reason, until))
         conn.commit()
         conn.close()
         
-        # Обновляем кэш
         BANS[user_id] = {'reason': reason, 'until': until}
         
         return True
@@ -501,7 +494,6 @@ def add_ban(user_id, hours=0, reason="admin"):
         return False
 
 def remove_ban(user_id):
-    """Снимает бан"""
     try:
         conn = get_db()
         cursor = conn.cursor()
@@ -509,7 +501,6 @@ def remove_ban(user_id):
         conn.commit()
         conn.close()
         
-        # Удаляем из кэша
         if user_id in BANS:
             del BANS[user_id]
         
@@ -519,26 +510,21 @@ def remove_ban(user_id):
         return False
 
 def add_warn(user_id):
-    """Добавляет варн"""
     try:
         current = WARNS.get(user_id, 0) + 1
         
         conn = get_db()
         cursor = conn.cursor()
         
-        # Обновляем в БД
         cursor.execute('INSERT OR REPLACE INTO warns (user_id, count, last_warn) VALUES (?, ?, ?)', 
                       (user_id, current, datetime.now().isoformat()))
         conn.commit()
         conn.close()
         
-        # Обновляем кэш
         WARNS[user_id] = current
         
         if current >= MAX_WARNS:
-            # Баним на 30 дней
             add_ban(user_id, hours=24*30, reason="warn")
-            # Сбрасываем варны
             WARNS[user_id] = 0
             conn = get_db()
             cursor = conn.cursor()
@@ -553,11 +539,9 @@ def add_warn(user_id):
         return False, "❌ Ошибка при добавлении варна"
 
 def get_warns(user_id):
-    """Получает количество варнов"""
     if user_id in WARNS:
         return WARNS[user_id]
     
-    # Проверяем в БД
     try:
         conn = get_db()
         cursor = conn.cursor()
@@ -755,7 +739,6 @@ def find_user_by_input(input_str):
 # ========== ФУНКЦИИ ДЛЯ ГОРОДОВ ==========
 
 def get_user_city(user_id):
-    """Получает текущий город пользователя"""
     try:
         conn = get_db()
         cursor = conn.cursor()
@@ -767,7 +750,6 @@ def get_user_city(user_id):
         return "Село Молочное"
 
 def set_user_city(user_id, city):
-    """Устанавливает город пользователя"""
     try:
         conn = get_db()
         cursor = conn.cursor()
@@ -779,7 +761,6 @@ def set_user_city(user_id, city):
         return False
 
 def get_city_info(city_name):
-    """Получает информацию о городе"""
     try:
         conn = get_db()
         cursor = conn.cursor()
@@ -791,9 +772,7 @@ def get_city_info(city_name):
         return None
 
 def start_travel(user_id, to_city, transport):
-    """Начинает поездку в другой город"""
     try:
-        # Проверяем, нет ли уже активной поездки
         conn = get_db()
         cursor = conn.cursor()
         active = cursor.execute('''
@@ -807,7 +786,6 @@ def start_travel(user_id, to_city, transport):
         
         from_city = get_user_city(user_id)
         
-        # Время поездки: рандом 30-60 секунд
         travel_time = random.randint(30, 60)
         end_time = datetime.now() + timedelta(seconds=travel_time)
         
@@ -825,7 +803,6 @@ def start_travel(user_id, to_city, transport):
         return False, "❌ Ошибка при начале поездки"
 
 def get_active_travel(user_id):
-    """Получает активную поездку пользователя"""
     try:
         conn = get_db()
         cursor = conn.cursor()
@@ -839,20 +816,17 @@ def get_active_travel(user_id):
         return None
 
 def complete_travel(travel_id, user_id):
-    """Завершает поездку"""
     try:
         conn = get_db()
         cursor = conn.cursor()
         travel = cursor.execute('SELECT * FROM travels WHERE id = ?', (travel_id,)).fetchone()
         
         if travel:
-            # Меняем город пользователя
             cursor.execute('UPDATE users SET current_city = ? WHERE user_id = ?', 
                          (travel['to_city'], user_id))
             cursor.execute('UPDATE travels SET completed = 1 WHERE id = ?', (travel_id,))
             conn.commit()
             
-            # Отправляем уведомление
             bot.send_message(
                 user_id,
                 f"✅ Вы прибыли в {travel['to_city']}!\n"
@@ -868,7 +842,6 @@ def complete_travel(travel_id, user_id):
 # ========== ФУНКЦИИ ДЛЯ МАГАЗИНА И ПРОФИЛЯ ==========
 
 def get_user_equipped_clothes(user_id):
-    """Получает надетую одежду пользователя"""
     try:
         conn = get_db()
         cursor = conn.cursor()
@@ -884,18 +857,15 @@ def get_user_equipped_clothes(user_id):
         return None
 
 def get_user_profile_photo(user_id):
-    """Возвращает фото для профиля пользователя"""
     equipped = get_user_equipped_clothes(user_id)
     if equipped and equipped['photo_url']:
         return equipped['photo_url']
-    return "https://iimg.su/i/waxabI"  # Стандартное фото
+    return "https://iimg.su/i/waxabI"
 
 def send_main_menu_with_profile(user_id, chat_id=None):
-    """Отправляет главное меню с фото профиля и городом"""
     if not chat_id:
         chat_id = user_id
     
-    # Получаем данные пользователя
     user_data = get_user_profile(user_id)
     if not user_data:
         return
@@ -904,15 +874,12 @@ def send_main_menu_with_profile(user_id, chat_id=None):
     display_name = get_user_display_name(user_data)
     current_city = get_user_city(user_id)
     
-    # Формируем подпись с городом
     caption = (f"👤 *{display_name}*\n\n"
                f"💰 Баланс: {balance:,} {CURRENCY}\n"
                f"📍 Город: {current_city}")
     
-    # Получаем фото профиля
     photo_url = get_user_profile_photo(user_id)
     
-    # Отправляем фото с подписью и клавиатурой
     bot.send_photo(
         chat_id,
         photo_url,
@@ -922,36 +889,29 @@ def send_main_menu_with_profile(user_id, chat_id=None):
     )
 
 def buy_clothes(user_id, clothes_id):
-    """Покупает одежду и сразу надевает её"""
     try:
         conn = get_db()
         cursor = conn.cursor()
         
-        # Получаем информацию о товаре
         clothes = cursor.execute('SELECT * FROM shop_clothes WHERE id = ?', (clothes_id,)).fetchone()
         if not clothes:
             conn.close()
             return False, "❌ Товар не найден"
         
-        # Проверяем баланс
         user = cursor.execute('SELECT balance FROM users WHERE user_id = ?', (user_id,)).fetchone()
         if not user or user['balance'] < clothes['price']:
             conn.close()
             return False, f"❌ Недостаточно средств! Нужно {clothes['price']:,} {CURRENCY}"
         
-        # Снимаем деньги
         cursor.execute('UPDATE users SET balance = balance - ? WHERE user_id = ?', (clothes['price'], user_id))
         
-        # Снимаем старую одежду (если была)
         cursor.execute('UPDATE user_clothes SET equipped = 0 WHERE user_id = ?', (user_id,))
         
-        # Добавляем новую покупку (сразу надетую)
         cursor.execute('''
             INSERT INTO user_clothes (user_id, clothes_id, equipped)
             VALUES (?, ?, 1)
         ''', (user_id, clothes_id))
         
-        # Обновляем equipped_clothes в users
         cursor.execute('UPDATE users SET equipped_clothes = ? WHERE user_id = ?', (clothes_id, user_id))
         
         conn.commit()
@@ -962,7 +922,6 @@ def buy_clothes(user_id, clothes_id):
         return False, "❌ Ошибка при покупке"
 
 def get_clothes_page(page=0):
-    """Получает страницу товаров (по 1 товару на страницу)"""
     try:
         conn = get_db()
         cursor = conn.cursor()
@@ -984,7 +943,6 @@ def get_clothes_page(page=0):
         return None, 0, 0
 
 def get_clothes_navigation_keyboard(current_page, total_items):
-    """Создает клавиатуру для навигации по магазину"""
     markup = types.InlineKeyboardMarkup(row_width=3)
     
     buttons = []
@@ -1004,6 +962,218 @@ def get_clothes_navigation_keyboard(current_page, total_items):
     markup.row(types.InlineKeyboardButton("❌ Закрыть", callback_data="shop_close"))
     
     return markup
+
+# ========== ФУНКЦИИ ДЛЯ РУЛЕТКИ ==========
+
+def update_roulette_stats(user_id, bet_amount, win_amount):
+    """Обновляет статистику рулетки"""
+    try:
+        conn = get_db()
+        cursor = conn.cursor()
+        
+        stats = cursor.execute('SELECT * FROM roulette_stats WHERE user_id = ?', (user_id,)).fetchone()
+        
+        if stats:
+            games_played = stats['games_played'] + 1
+            total_bet = stats['total_bet'] + bet_amount
+            total_win = stats['total_win'] + win_amount
+            total_lose = stats['total_lose'] + (bet_amount if win_amount == 0 else 0)
+            wins = stats['wins'] + (1 if win_amount > 0 else 0)
+            losses = stats['losses'] + (1 if win_amount == 0 else 0)
+            biggest_win = max(stats['biggest_win'], win_amount)
+            biggest_lose = max(stats['biggest_lose'], bet_amount if win_amount == 0 else 0)
+            
+            cursor.execute('''
+                UPDATE roulette_stats 
+                SET games_played = ?, wins = ?, losses = ?,
+                    total_bet = ?, total_win = ?, total_lose = ?,
+                    biggest_win = ?, biggest_lose = ?, last_game = ?
+                WHERE user_id = ?
+            ''', (games_played, wins, losses, total_bet, total_win, total_lose,
+                  biggest_win, biggest_lose, datetime.now().isoformat(), user_id))
+        else:
+            wins = 1 if win_amount > 0 else 0
+            losses = 1 if win_amount == 0 else 0
+            biggest_win = win_amount if win_amount > 0 else 0
+            biggest_lose = bet_amount if win_amount == 0 else 0
+            
+            cursor.execute('''
+                INSERT INTO roulette_stats 
+                (user_id, games_played, wins, losses, total_bet, total_win, total_lose, biggest_win, biggest_lose, last_game)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ''', (user_id, 1, wins, losses, bet_amount, win_amount, 
+                  (bet_amount if win_amount == 0 else 0), biggest_win, biggest_lose, datetime.now().isoformat()))
+        
+        conn.commit()
+        conn.close()
+        return True
+    except Exception as e:
+        print(f"Ошибка обновления статистики рулетки: {e}")
+        return False
+
+def get_roulette_stats(user_id):
+    """Получает статистику рулетки пользователя"""
+    try:
+        conn = get_db()
+        cursor = conn.cursor()
+        stats = cursor.execute('SELECT * FROM roulette_stats WHERE user_id = ?', (user_id,)).fetchone()
+        conn.close()
+        return stats
+    except:
+        return None
+
+def get_top_roulette(limit=10):
+    """Получает топ игроков по выигрышам в рулетке"""
+    try:
+        conn = get_db()
+        cursor = conn.cursor()
+        top = cursor.execute('''
+            SELECT user_id, total_win, wins, losses, total_bet 
+            FROM roulette_stats 
+            ORDER BY total_win DESC 
+            LIMIT ?
+        ''', (limit,)).fetchall()
+        conn.close()
+        return top
+    except:
+        return []
+
+def get_roulette_result(number):
+    """Определяет цвет и название числа"""
+    if number == 0:
+        return {'name': 'Зеро', 'emoji': '🟢', 'color': 'green'}
+    
+    red_numbers = [1,3,5,7,9,12,14,16,18,19,21,23,25,27,30,32,34,36]
+    if number in red_numbers:
+        return {'name': 'Красное', 'emoji': '🔴', 'color': 'red'}
+    else:
+        return {'name': 'Черное', 'emoji': '⚫', 'color': 'black'}
+
+def check_roulette_win(number, bet_type, bet_amount):
+    """Проверяет выигрыш в рулетке"""
+    
+    if bet_type == 'red':
+        red_numbers = [1,3,5,7,9,12,14,16,18,19,21,23,25,27,30,32,34,36]
+        if number in red_numbers:
+            return bet_amount * 2
+    
+    elif bet_type == 'black':
+        black_numbers = [2,4,6,8,10,11,13,15,17,20,22,24,26,28,29,31,33,35]
+        if number in black_numbers:
+            return bet_amount * 2
+    
+    elif bet_type == 'even':
+        if number != 0 and number % 2 == 0:
+            return bet_amount * 2
+    
+    elif bet_type == 'odd':
+        if number % 2 == 1:
+            return bet_amount * 2
+    
+    elif bet_type == 'high':
+        if 19 <= number <= 36:
+            return bet_amount * 2
+    
+    elif bet_type == 'low':
+        if 1 <= number <= 18:
+            return bet_amount * 2
+    
+    elif bet_type == '1-12':
+        if 1 <= number <= 12:
+            return bet_amount * 3
+    
+    elif bet_type == '13-24':
+        if 13 <= number <= 24:
+            return bet_amount * 3
+    
+    elif bet_type == '25-36':
+        if 25 <= number <= 36:
+            return bet_amount * 3
+    
+    elif bet_type == '0':
+        if number == 0:
+            return bet_amount * 36
+    
+    elif bet_type.startswith('num_'):
+        target = int(bet_type.split('_')[1])
+        if number == target:
+            return bet_amount * 36
+    
+    return 0
+
+def generate_animation(final_number):
+    """Генерирует анимацию выпадения"""
+    numbers = []
+    for _ in range(5):
+        numbers.append(str(random.randint(0, 36)))
+    numbers.append(str(final_number))
+    
+    return "[" + "] [".join(numbers) + "]"
+
+def get_bet_name(bet_type):
+    """Возвращает название ставки"""
+    names = {
+        'red': '🔴 КРАСНОЕ',
+        'black': '⚫ ЧЕРНОЕ',
+        'even': '💰 ЧЕТНОЕ',
+        'odd': '📊 НЕЧЕТНОЕ',
+        'high': '📈 БОЛЬШОЕ (19-36)',
+        'low': '📉 МАЛЕНЬКОЕ (1-18)',
+        '1-12': '🎯 1-12',
+        '13-24': '🎯 13-24',
+        '25-36': '🎯 25-36',
+        '0': '🎰 ЗЕРО',
+    }
+    
+    if bet_type.startswith('num_'):
+        number = bet_type.split('_')[1]
+        return f"⚡ ЧИСЛО {number}"
+    
+    return names.get(bet_type, bet_type)
+
+def parse_roulette_bet(text):
+    """Парсит сообщение вида 'рул крас 1000'"""
+    text = text.lower().strip()
+    words = text.split()
+    
+    if not (words[0].startswith('рул') or words[0].startswith('рулетка')):
+        return None
+    
+    if len(words) != 3:
+        return None
+    
+    try:
+        bet_amount = int(words[2])
+        if bet_amount < 1:
+            return None
+    except:
+        return None
+    
+    bet_word = words[1]
+    
+    bet_types = {
+        'крас': 'red', 'красное': 'red',
+        'чер': 'black', 'черное': 'black',
+        'чет': 'even', 'четное': 'even',
+        'нечет': 'odd', 'нечетное': 'odd',
+        'бол': 'high', 'большое': 'high',
+        'мал': 'low', 'маленькое': 'low',
+        '1-12': '1-12',
+        '13-24': '13-24',
+        '25-36': '25-36',
+        'зеро': '0',
+    }
+    
+    for key, value in bet_types.items():
+        if bet_word == key or bet_word in key.split():
+            return (value, bet_amount)
+    
+    if bet_word.isdigit():
+        num = int(bet_word)
+        if 0 <= num <= 36:
+            return (f'num_{num}', bet_amount)
+    
+    return None
 
 # ========== АДМИН КОМАНДЫ ==========
 @bot.message_handler(commands=['adminhelp'])
@@ -1225,14 +1395,14 @@ def profile_command(message):
         business = get_user_business(target_id)
         business_info = "Нет" if not business else f"{business['business_name']} (ур.{business['level']})"
         
-        # Получаем надетую одежду
         equipped_clothes = get_user_equipped_clothes(target_id)
         clothes_info = "Нет" if not equipped_clothes else f"{equipped_clothes['name']}"
         
-        # Получаем город и транспорт
         current_city = get_user_city(target_id)
-        has_car = "Да" if user_data[14] else "Нет"  # Индекс 14 - has_car
-        has_plane = "Да" if user_data[15] else "Нет"  # Индекс 15 - has_plane
+        
+        user_profile = get_user_profile(target_id)
+        has_car = "Да" if user_profile and user_profile[14] else "Нет"
+        has_plane = "Да" if user_profile and user_profile[15] else "Нет"
         
         display_name = get_user_display_name(user_data)
         
@@ -1256,6 +1426,23 @@ def profile_command(message):
             msg += f"🚚 В доставке: {business['raw_in_delivery']}\n"
             msg += f"💵 Вложено: {business['total_invested']:,}\n"
             msg += f"💎 Прибыль на складе: {business['stored_profit']:,}"
+        
+        # Статистика рулетки
+        roulette_stats = get_roulette_stats(target_id)
+        if roulette_stats:
+            profit = roulette_stats['total_win'] - roulette_stats['total_lose']
+            profit_sign = "+" if profit >= 0 else ""
+            win_rate = (roulette_stats['wins'] / roulette_stats['games_played'] * 100) if roulette_stats['games_played'] > 0 else 0
+            
+            msg += f"\n\n🎰 **РУЛЕТКА:**\n"
+            msg += f"🎮 Сыграно игр: {roulette_stats['games_played']}\n"
+            msg += f"✅ Побед: {roulette_stats['wins']} ({win_rate:.1f}%)\n"
+            msg += f"❌ Поражений: {roulette_stats['losses']}\n"
+            msg += f"💰 Всего выиграно: {roulette_stats['total_win']:,}\n"
+            msg += f"💸 Всего проиграно: {roulette_stats['total_lose']:,}\n"
+            msg += f"📈 Чистая прибыль: {profit_sign}{profit:,}\n"
+            msg += f"🏆 Лучший выигрыш: {roulette_stats['biggest_win']:,}\n"
+            msg += f"💔 Худший проигрыш: {roulette_stats['biggest_lose']:,}"
         
         bot.reply_to(message, msg, parse_mode="Markdown")
         
@@ -1362,6 +1549,7 @@ def reset_account(message):
         cursor.execute('DELETE FROM travels WHERE user_id = ?', (target_id,))
         cursor.execute('DELETE FROM warns WHERE user_id = ?', (target_id,))
         cursor.execute('DELETE FROM bans WHERE user_id = ?', (target_id,))
+        cursor.execute('DELETE FROM roulette_stats WHERE user_id = ?', (target_id,))
         
         cursor.execute('''
             UPDATE users 
@@ -1374,7 +1562,6 @@ def reset_account(message):
         conn.commit()
         conn.close()
         
-        # Очищаем кэш
         if target_id in WARNS:
             del WARNS[target_id]
         if target_id in BANS:
@@ -1655,7 +1842,8 @@ def top_command(message):
     markup = types.InlineKeyboardMarkup(row_width=2)
     markup.add(
         types.InlineKeyboardButton("💰 Топ по деньгам", callback_data="top_money"),
-        types.InlineKeyboardButton("⭐ Топ по опыту", callback_data="top_exp")
+        types.InlineKeyboardButton("⭐ Топ по опыту", callback_data="top_exp"),
+        types.InlineKeyboardButton("🎰 Топ казино", callback_data="top_casino")
     )
     
     bot.send_message(
@@ -1667,7 +1855,6 @@ def top_command(message):
     )
 
 def send_top_by_type(user_id, top_type):
-    """Отправляет топ по указанному типу"""
     try:
         conn = get_db()
         cursor = conn.cursor()
@@ -1680,8 +1867,8 @@ def send_top_by_type(user_id, top_type):
                 LIMIT 10
             ''')
             title = "💰 ТОП 10 ПО ДЕНЬГАМ"
-            value_name = "Баланс"
-        else:  # exp
+        
+        elif top_type == "exp":
             cursor.execute('''
                 SELECT first_name, username, custom_name, exp 
                 FROM users 
@@ -1689,7 +1876,42 @@ def send_top_by_type(user_id, top_type):
                 LIMIT 10
             ''')
             title = "⭐ ТОП 10 ПО ОПЫТУ"
-            value_name = "Опыт"
+        
+        else:  # casino
+            cursor.execute('''
+                SELECT user_id, total_win, total_lose, wins, games_played 
+                FROM roulette_stats 
+                ORDER BY total_win DESC 
+                LIMIT 10
+            ''')
+            title = "🎰 ТОП 10 КАЗИНО (ПО ВЫИГРЫШАМ)"
+            casino_top = cursor.fetchall()
+            conn.close()
+            
+            if not casino_top:
+                bot.send_message(user_id, "❌ В топе казино пока никого нет!")
+                return
+            
+            msg = f"🏆 **{title}**\n\n"
+            for i, row in enumerate(casino_top, 1):
+                medal = "🥇" if i == 1 else "🥈" if i == 2 else "🥉" if i == 3 else f"{i}."
+                
+                player_data = get_user_profile(row['user_id'])
+                if player_data:
+                    display_name = get_user_display_name((player_data[0], player_data[1], player_data[2], player_data[3], 0))
+                else:
+                    display_name = f"ID: {row['user_id']}"
+                
+                profit = row['total_win'] - row['total_lose']
+                profit_sign = "+" if profit >= 0 else ""
+                win_rate = (row['wins'] / row['games_played'] * 100) if row['games_played'] > 0 else 0
+                
+                msg += f"{medal} {display_name}\n"
+                msg += f"   💰 Выиграно: {row['total_win']:,} | {profit_sign}{profit:,}\n"
+                msg += f"   🎮 Игр: {row['games_played']} | Побед: {win_rate:.1f}%\n\n"
+            
+            bot.send_message(user_id, msg, parse_mode="Markdown")
+            return
         
         top = cursor.fetchall()
         conn.close()
@@ -1739,7 +1961,6 @@ def main_keyboard():
     return markup
 
 def cities_keyboard():
-    """Клавиатура выбора города"""
     markup = types.ReplyKeyboardMarkup(row_width=2, resize_keyboard=True)
     markup.row(
         types.KeyboardButton("🏙️ Кропоткин"),
@@ -1753,7 +1974,6 @@ def cities_keyboard():
     return markup
 
 def transport_keyboard(city):
-    """Клавиатура выбора транспорта"""
     markup = types.ReplyKeyboardMarkup(row_width=2, resize_keyboard=True)
     markup.row(
         types.KeyboardButton("🚕 Такси"),
@@ -1766,12 +1986,10 @@ def transport_keyboard(city):
     return markup
 
 def city_menu_keyboard(city_name):
-    """Клавиатура меню города"""
     markup = types.ReplyKeyboardMarkup(row_width=2, resize_keyboard=True)
     
     city_info = get_city_info(city_name)
     
-    # Базовые кнопки для всех городов
     markup.row(
         types.KeyboardButton("💼 Работы"),
         types.KeyboardButton("🏭 Бизнесы")
@@ -1781,7 +1999,6 @@ def city_menu_keyboard(city_name):
         types.KeyboardButton("👕 Магазин одежды")
     )
     
-    # Дополнительные кнопки в зависимости от города
     extra_buttons = []
     if city_info and city_info['has_house_shop']:
         extra_buttons.append("🏠 Магазин домов")
@@ -1895,6 +2112,7 @@ def start(message):
             "🏭 **Покупать бизнесы** и получать пассивный доход\n"
             "🏙️ **Путешествовать по городам** и открывать новые магазины\n"
             "👕 **Покупать крутую одежду** и менять свой стиль\n"
+            "🎰 **Играть в рулетку** и выигрывать миллионы\n"
             "🏆 **Соревноваться** с другими игроками (/top)\n\n"
             "✨ Но сначала выбери себе игровой никнейм!\n"
             "Он будет отображаться в топе и в игре."
@@ -1966,7 +2184,8 @@ def process_name_step(message):
             "🎉 Теперь ты готов к приключениям!\n"
             "💰 У тебя 0 монет, но это временно.\n"
             "💪 Работай, зарабатывай, покупай бизнесы и путешествуй по городам!\n"
-            "👕 Загляни в **МАГАЗИН ОДЕЖДЫ** - там есть очень крутые комплекты!\n\n"
+            "👕 Загляни в **МАГАЗИН ОДЕЖДЫ** - там есть очень крутые комплекты!\n"
+            "🎰 А в **РУЛЕТКЕ** можешь испытать удачу!\n\n"
             "👇 Твоё главное меню с фото профиля:"
         )
         bot.send_message(user_id, success_text, parse_mode="Markdown")
@@ -2028,6 +2247,146 @@ def change_nickname_step(message):
         )
         bot.register_next_step_handler(message, change_nickname_step)
 
+# ========== ОБРАБОТЧИК РУЛЕТКИ ==========
+@bot.message_handler(func=lambda message: message.text and message.text.lower().strip().startswith(('рул', 'рулетка')))
+def roulette_handler(message):
+    user_id = message.from_user.id
+    
+    if is_banned(user_id):
+        return
+    
+    bet_info = parse_roulette_bet(message.text)
+    if not bet_info:
+        bot.reply_to(message, 
+            "❌ **Неправильный формат!**\n\n"
+            "📝 **Примеры ставок:**\n"
+            "• `рул крас 5000` - на красное\n"
+            "• `рулетка чер 1000` - на черное\n"
+            "• `рул чет 200` - на четное\n"
+            "• `рул нечет 777` - на нечетное\n"
+            "• `рул бол 15000` - на 19-36\n"
+            "• `рул мал 3000` - на 1-18\n"
+            "• `рул 1-12 5000` - первая дюжина\n"
+            "• `рул 13-24 5000` - вторая дюжина\n"
+            "• `рул 25-36 5000` - третья дюжина\n"
+            "• `рул зеро 1000` - на зеро (0)\n"
+            "• `рул 7 500` - на число 7\n\n"
+            "💰 Можно ставить **от 1 до всего баланса**!")
+        return
+    
+    bet_type, bet_amount = bet_info
+    
+    balance = get_balance(user_id)
+    if balance < bet_amount:
+        bot.reply_to(message, f"❌ Недостаточно средств! Твой баланс: {balance:,} {CURRENCY}")
+        return
+    
+    number = random.randint(0, 36)
+    result = get_roulette_result(number)
+    
+    win_amount = check_roulette_win(number, bet_type, bet_amount)
+    
+    if win_amount > 0:
+        add_balance(user_id, win_amount - bet_amount)
+        new_balance = get_balance(user_id)
+        update_roulette_stats(user_id, bet_amount, win_amount)
+        
+        response = (
+            f"🎡 **КРУТИМ РУЛЕТКУ!**\n\n"
+            f"👤 Игрок: {message.from_user.first_name}\n"
+            f"💰 Ставка: {bet_amount:,} на {get_bet_name(bet_type)}\n\n"
+            f"⚪ Шарик скачет по цифрам...\n"
+            f"{generate_animation(number)}\n\n"
+            f"🎯 Выпало: **{number} {result['emoji']} {result['name']}**!\n\n"
+            f"🎉 **ВЫИГРЫШ!** +{win_amount:,}💰\n"
+            f"💎 Новый баланс: {new_balance:,} {CURRENCY}"
+        )
+    else:
+        add_balance(user_id, -bet_amount)
+        new_balance = get_balance(user_id)
+        update_roulette_stats(user_id, bet_amount, 0)
+        
+        response = (
+            f"🎡 **КРУТИМ РУЛЕТКУ!**\n\n"
+            f"👤 Игрок: {message.from_user.first_name}\n"
+            f"💰 Ставка: {bet_amount:,} на {get_bet_name(bet_type)}\n\n"
+            f"⚪ Шарик скачет по цифрам...\n"
+            f"{generate_animation(number)}\n\n"
+            f"🎯 Выпало: **{number} {result['emoji']} {result['name']}**!\n\n"
+            f"😭 **ПРОИГРЫШ** -{bet_amount:,}💰\n"
+            f"💎 Новый баланс: {new_balance:,} {CURRENCY}"
+        )
+    
+    bot.send_message(message.chat.id, response, parse_mode="Markdown")
+
+# ========== ОБРАБОТЧИК СТАТИСТИКИ КАЗИНО ==========
+@bot.message_handler(func=lambda message: message.text and message.text.lower().strip() in [
+    'статистика', 'стата', 'статс', 
+    'моя статистика', 'моя стата', 'моя статс',
+    'общая статистика', 'статистика казино'
+])
+def casino_stats_handler(message):
+    user_id = message.from_user.id
+    
+    if is_banned(user_id):
+        return
+    
+    text = message.text.lower().strip()
+    
+    # Общая статистика (топ)
+    if text in ['общая статистика', 'статистика казино']:
+        top = get_top_roulette(10)
+        
+        if not top:
+            bot.reply_to(message, "📊 В казино пока никто не играл! Будь первым!")
+            return
+        
+        msg = "🏆 **ТОП КАЗИНО**\n\n"
+        for i, row in enumerate(top, 1):
+            medal = "🥇" if i == 1 else "🥈" if i == 2 else "🥉" if i == 3 else f"{i}."
+            
+            player_data = get_user_profile(row['user_id'])
+            if player_data:
+                display_name = get_user_display_name((player_data[0], player_data[1], player_data[2], player_data[3], 0))
+            else:
+                display_name = f"Игрок {row['user_id']}"
+            
+            profit = row['total_win'] - row['total_lose']
+            profit_sign = "+" if profit >= 0 else ""
+            win_rate = (row['wins'] / row['games_played'] * 100) if row['games_played'] > 0 else 0
+            
+            msg += f"{medal} {display_name}\n"
+            msg += f"   💰 Выиграно: {row['total_win']:,} ({profit_sign}{profit:,})\n"
+            msg += f"   🎮 Игр: {row['games_played']} | Побед: {win_rate:.1f}%\n\n"
+        
+        bot.reply_to(message, msg, parse_mode="Markdown")
+        return
+    
+    # Личная статистика
+    stats = get_roulette_stats(user_id)
+    
+    if not stats:
+        bot.reply_to(message, "📊 Ты еще не играл в казино! Попробуй рулетку: `рул крас 1000`")
+        return
+    
+    profit = stats['total_win'] - stats['total_lose']
+    profit_sign = "+" if profit >= 0 else ""
+    win_rate = (stats['wins'] / stats['games_played'] * 100) if stats['games_played'] > 0 else 0
+    
+    msg = (
+        f"🎰 **ТВОЯ СТАТИСТИКА КАЗИНО**\n\n"
+        f"🎮 Сыграно игр: {stats['games_played']}\n"
+        f"✅ Побед: {stats['wins']} ({win_rate:.1f}%)\n"
+        f"❌ Поражений: {stats['losses']}\n\n"
+        f"💰 Всего выиграно: {stats['total_win']:,} {CURRENCY}\n"
+        f"💸 Всего проиграно: {stats['total_lose']:,} {CURRENCY}\n"
+        f"📈 Чистая прибыль: {profit_sign}{profit:,} {CURRENCY}\n\n"
+        f"🏆 Лучший выигрыш: {stats['biggest_win']:,} {CURRENCY}\n"
+        f"💔 Худший проигрыш: {stats['biggest_lose']:,} {CURRENCY}"
+    )
+    
+    bot.reply_to(message, msg, parse_mode="Markdown")
+
 # ========== ОБРАБОТЧИК КОЛБЭКОВ ==========
 @bot.callback_query_handler(func=lambda call: True)
 def callback_handler(call):
@@ -2039,7 +2398,6 @@ def callback_handler(call):
     
     data = call.data
     
-    # Обработка топов
     if data == "top_money":
         bot.delete_message(user_id, call.message.message_id)
         send_top_by_type(user_id, "money")
@@ -2050,7 +2408,11 @@ def callback_handler(call):
         send_top_by_type(user_id, "exp")
         bot.answer_callback_query(call.id)
     
-    # Навигация по магазину
+    elif data == "top_casino":
+        bot.delete_message(user_id, call.message.message_id)
+        send_top_by_type(user_id, "casino")
+        bot.answer_callback_query(call.id)
+    
     elif data.startswith("shop_page_"):
         page = int(data.split("_")[2])
         clothes, current_page, total = get_clothes_page(page)
@@ -2079,13 +2441,11 @@ def callback_handler(call):
         
         bot.answer_callback_query(call.id)
     
-    # Покупка
     elif data.startswith("shop_buy_"):
         page = int(data.split("_")[2])
         clothes, current_page, total = get_clothes_page(page)
         
         if clothes:
-            # Проверяем, не куплена ли уже эта одежда
             conn = get_db()
             cursor = conn.cursor()
             existing = cursor.execute('''
@@ -2100,11 +2460,9 @@ def callback_handler(call):
             
             conn.close()
             
-            # Пытаемся купить
             success, message_text = buy_clothes(user_id, clothes['id'])
             
             if success:
-                # Обновляем сообщение
                 caption = (f"👕 *{clothes['name']}*\n\n"
                           f"💰 Цена: {clothes['price']:,} {CURRENCY}\n\n"
                           f"✅ *КУПЛЕНО!* Комплект надет на тебя!")
@@ -2127,13 +2485,11 @@ def callback_handler(call):
             else:
                 bot.answer_callback_query(call.id, message_text, show_alert=True)
     
-    # Закрыть магазин
     elif data == "shop_close":
         bot.delete_message(user_id, call.message.message_id)
         send_main_menu_with_profile(user_id)
         bot.answer_callback_query(call.id)
     
-    # Заглушка для неактивных кнопок
     elif data == "noop":
         bot.answer_callback_query(call.id)
 
@@ -2166,14 +2522,11 @@ def handle(message):
     user_data = get_user_profile(user_id)
     display_name = get_user_display_name(user_data) if user_data else "Игрок"
     
-    # Проверяем, нет ли активной поездки
     active_travel = get_active_travel(user_id)
     if active_travel:
-        # Проверяем, не пора ли прибыть
         end_time = datetime.fromisoformat(active_travel['end_time'])
         if datetime.now() >= end_time:
             complete_travel(active_travel['id'], user_id)
-            # После завершения показываем меню города прибытия
             current_city = get_user_city(user_id)
             bot.send_message(
                 user_id,
@@ -2182,7 +2535,6 @@ def handle(message):
             )
             return
     
-    # ===== ГОРОДА =====
     if text == "🏙️ ГОРОДА":
         markup = cities_keyboard()
         bot.send_message(
@@ -2193,36 +2545,28 @@ def handle(message):
             reply_markup=markup
         )
     
-    # Выбор конкретного города
     elif text in ["🏙️ Кропоткин", "🏙️ Москва", "🏙️ Мурино", "🏙️ Село Молочное"]:
         city_name = text.replace("🏙️ ", "")
         current_city = get_user_city(user_id)
         
         if city_name == current_city:
-            # Если уже в этом городе - сразу показываем меню
             bot.send_message(
                 user_id,
                 f"🏙️ Ты уже находишься в городе {city_name}",
                 reply_markup=city_menu_keyboard(city_name)
             )
         else:
-            # Если в другом - предлагаем выбрать транспорт
             bot.send_message(
                 user_id,
                 f"🚀 Выбери транспорт для поездки в {city_name}:",
                 reply_markup=transport_keyboard(city_name)
             )
-            # Сохраняем выбранный город в контексте (через следующий шаг)
             bot.register_next_step_handler(message, process_travel, city_name)
     
-    # ===== ТРАНСПОРТ =====
     elif text in ["🚕 Такси", "🚗 Личная машина", "✈️ Личный самолет"]:
-        # Этот случай обрабатывается в process_travel
         pass
     
-    # ===== МЕНЮ ГОРОДА =====
     elif text == "👕 Магазин одежды":
-        # Магазин одежды (работает в любом городе)
         clothes, current_page, total = get_clothes_page(0)
         
         if clothes:
@@ -2253,20 +2597,16 @@ def handle(message):
     elif text == "✈️ Магазин самолетов":
         bot.send_message(user_id, "✈️ Магазин самолетов скоро откроется! Следи за обновлениями!")
     
-    # ===== КНОПКА ОБНОВЛЕНИЯ =====
     elif text == "🔄":
         current_city = get_user_city(user_id)
         send_main_menu_with_profile(user_id)
     
-    # ===== РАБОТЫ =====
     elif text == "💼 Работы":
         bot.send_message(user_id, "🔨 Выбери работу:", reply_markup=jobs_keyboard(user_id))
     
-    # ===== БИЗНЕСЫ =====
     elif text == "🏭 Бизнесы":
         bot.send_message(user_id, "🏪 Управление бизнесом:", reply_markup=businesses_main_keyboard())
     
-    # ===== СТАТИСТИКА =====
     elif text == "📊 Статистика":
         exp, level, work_count, total = get_user_stats(user_id)
         equipped = get_user_equipped_clothes(user_id)
@@ -2282,7 +2622,6 @@ def handle(message):
         msg += f"💰 Всего заработано: {total:,}"
         bot.send_message(user_id, msg, parse_mode="Markdown")
     
-    # ===== ЕЖЕДНЕВНО =====
     elif text == "🎁 Ежедневно":
         try:
             conn = get_db()
@@ -2314,7 +2653,6 @@ def handle(message):
             print(f"Ошибка daily: {e}")
             bot.send_message(user_id, "❌ Ошибка")
     
-    # ===== НАСТРОЙКИ =====
     elif text == "⚙️ Настройки":
         bot.send_message(user_id, "🔧 **НАСТРОЙКИ**\n\nВыбери что хочешь изменить:", reply_markup=settings_keyboard(), parse_mode="Markdown")
     
@@ -2363,8 +2701,13 @@ def handle(message):
             "• Покупай крутые комплекты одежды\n"
             "• При покупке комплект сразу надевается\n"
             "• Одежда видна в главном меню и статистике\n\n"
+            "🎰 **РУЛЕТКА**\n"
+            "• Играй прямо в чате: `рул крас 1000`\n"
+            "• Можно ставить на цвет, число, дюжины\n"
+            "• Ставка от 1 до всего баланса\n"
+            "• Вся статистика сохраняется!\n\n"
             "🏆 **ТОП 10** (команда /top)\n"
-            "• Можно выбрать топ по деньгам или по опыту\n"
+            "• Можно выбрать топ по деньгам, опыту или казино\n"
             "• Соревнуйся с другими игроками\n\n"
             "🎁 **ЕЖЕДНЕВНЫЙ БОНУС**\n"
             "• Получай бонус раз в 24 часа\n"
@@ -2379,6 +2722,7 @@ def handle(message):
         help_text += "🏭 Бизнесы - управление бизнесом\n"
         help_text += "🏙️ Города - путешествуй между городами\n"
         help_text += "👕 Магазин одежды - покупай крутые комплекты\n"
+        help_text += "🎰 Рулетка - играй в чате: рул крас 1000\n"
         help_text += "📊 Статистика - твои показатели\n"
         help_text += "🏆 Топ 10 - лучшие игроки (команда /top)\n"
         help_text += "🎁 Ежедневно - бонус каждый день\n"
@@ -2391,7 +2735,6 @@ def handle(message):
         
         bot.send_message(user_id, help_text, parse_mode="Markdown")
     
-    # ===== РАБОТЫ =====
     elif any(job in text for job in ["🚚 Грузчик", "🧹 Уборщик", "📦 Курьер", "🔧 Механик", "💻 Программист", "🕵️ Детектив", "👨‍🔧 Инженер", "👨‍⚕️ Врач", "👨‍🎤 Артист", "👨‍🚀 Космонавт"]):
         rewards = {
             "🚚 Грузчик": (10, 50, 5),
@@ -2421,7 +2764,6 @@ def handle(message):
             else:
                 bot.send_message(user_id, "❌ Ошибка, попробуй позже")
     
-    # ===== УПРАВЛЕНИЕ БИЗНЕСОМ =====
     elif text == "📊 Мой бизнес":
         business = get_user_business(user_id)
         if not business:
@@ -2563,7 +2905,6 @@ def handle(message):
                 bot.send_message(user_id, "❌ Ошибка при продаже")
                 add_balance(user_id, -sell_price)
     
-    # ===== ПОКУПКА БИЗНЕСА =====
     elif text in ["🥤 Киоск", "🍔 Фастфуд", "🏪 Минимаркет", "⛽ Заправка", "🏨 Отель"]:
         
         if get_user_business(user_id):
@@ -2598,14 +2939,10 @@ def handle(message):
                 bot.send_message(user_id, "❌ Ошибка при покупке")
                 add_balance(user_id, price)
     
-    # ===== ВОЗВРАЩЕНИЕ В ГЛАВНОЕ МЕНЮ =====
     elif text == "🔙 Назад":
-        # Проверяем, откуда вернулись
         if "🏙️" in text or "🚕" in text or "🚗" in text or "✈️" in text:
-            # Если из городов - показываем главное меню
             send_main_menu_with_profile(user_id)
         else:
-            # Если из других разделов - показываем меню текущего города
             current_city = get_user_city(user_id)
             bot.send_message(
                 user_id,
@@ -2614,7 +2951,6 @@ def handle(message):
             )
 
 def process_travel(message, target_city):
-    """Обрабатывает выбор транспорта и начинает поездку"""
     user_id = message.from_user.id
     transport = message.text
     
@@ -2627,20 +2963,17 @@ def process_travel(message, target_city):
         send_main_menu_with_profile(user_id)
         return
     
-    # Получаем данные пользователя для проверки наличия транспорта
     conn = get_db()
     cursor = conn.cursor()
     user = cursor.execute('SELECT has_car, has_plane FROM users WHERE user_id = ?', (user_id,)).fetchone()
     conn.close()
     
-    # Проверяем наличие машины
     if transport == "🚗 Личная машина" and (not user or user['has_car'] == 0):
         bot.send_message(
             user_id, 
             "❌ У вас нет личной машины!\n"
             "🚕 Можете воспользоваться такси или купить машину позже."
         )
-        # Возвращаем к выбору транспорта
         bot.send_message(
             user_id,
             f"🚀 Выбери транспорт для поездки в {target_city}:",
@@ -2648,14 +2981,12 @@ def process_travel(message, target_city):
         )
         return
     
-    # Проверяем наличие самолета
     if transport == "✈️ Личный самолет" and (not user or user['has_plane'] == 0):
         bot.send_message(
             user_id, 
             "❌ У вас нет личного самолета!\n"
             "🚕 Можете воспользоваться такси или купить самолет позже."
         )
-        # Возвращаем к выбору транспорта
         bot.send_message(
             user_id,
             f"🚀 Выбери транспорт для поездки в {target_city}:",
@@ -2663,12 +2994,10 @@ def process_travel(message, target_city):
         )
         return
     
-    # Если всё ок - начинаем поездку
     success, msg = start_travel(user_id, target_city, transport)
     
     if success:
         bot.send_message(user_id, msg)
-        # Показываем ожидание (главное меню с городом откуда уехали)
         current_city = get_user_city(user_id)
         bot.send_message(
             user_id,
@@ -2678,7 +3007,6 @@ def process_travel(message, target_city):
         )
     else:
         bot.send_message(user_id, msg)
-        # Возвращаем в меню городов
         bot.send_message(
             user_id,
             "🏙️ Выбери город:",
@@ -2687,7 +3015,6 @@ def process_travel(message, target_city):
 
 # ========== ФОНОВАЯ ПРОВЕРКА ПОЕЗДОК ==========
 def check_travels():
-    """Проверяет завершенные поездки"""
     while True:
         try:
             conn = get_db()
@@ -2699,7 +3026,6 @@ def check_travels():
             ''', (datetime.now().isoformat(),)).fetchall()
             
             for t in travels:
-                # Завершаем поездку
                 cursor.execute('UPDATE users SET current_city = ? WHERE user_id = ?', 
                              (t['to_city'], t['user_id']))
                 cursor.execute('UPDATE travels SET completed = 1 WHERE id = ?', (t['id'],))
@@ -2819,7 +3145,6 @@ def check_deliveries():
             print(f"Ошибка в доставках: {e}")
             time.sleep(30)
 
-# Запускаем фоновые потоки
 threading.Thread(target=process_raw_material, daemon=True).start()
 threading.Thread(target=check_deliveries, daemon=True).start()
 threading.Thread(target=check_travels, daemon=True).start()
@@ -2848,5 +3173,6 @@ print(f"🔨 Загружено банов: {len(BANS)}")
 print(f"⚠️ Загружено варнов: {len(WARNS)}")
 print("🏙️ Система городов активна! 4 города ждут путешественников!")
 print("👕 Магазин одежды загружен с 16 комплектами!")
+print("🎰 Рулетка активна! Играй: рул крас 1000")
 print("📌 Админ команды: /adminhelp")
 bot.infinity_polling()
