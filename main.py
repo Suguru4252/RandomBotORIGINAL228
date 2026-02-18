@@ -65,17 +65,12 @@ def get_db():
     return conn
 
 def init_db():
-    try:
-        os.remove('bot.db')
-        print("🗑️ Старая база удалена")
-    except:
-        pass
-    
+    # База данных НЕ УДАЛЯЕТСЯ, только создаётся если её нет
     conn = get_db()
     cursor = conn.cursor()
     
     cursor.execute('''
-        CREATE TABLE users (
+        CREATE TABLE IF NOT EXISTS users (
             user_id INTEGER PRIMARY KEY,
             username TEXT,
             first_name TEXT,
@@ -93,7 +88,7 @@ def init_db():
     ''')
     
     cursor.execute('''
-        CREATE TABLE jobs (
+        CREATE TABLE IF NOT EXISTS jobs (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             job_name TEXT UNIQUE,
             min_exp INTEGER,
@@ -105,7 +100,7 @@ def init_db():
     ''')
     
     cursor.execute('''
-        CREATE TABLE businesses (
+        CREATE TABLE IF NOT EXISTS businesses (
             user_id INTEGER PRIMARY KEY,
             business_name TEXT,
             level INTEGER DEFAULT 1,
@@ -120,7 +115,7 @@ def init_db():
     ''')
     
     cursor.execute('''
-        CREATE TABLE deliveries (
+        CREATE TABLE IF NOT EXISTS deliveries (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             user_id INTEGER,
             amount INTEGER,
@@ -130,7 +125,7 @@ def init_db():
     ''')
     
     cursor.execute('''
-        CREATE TABLE referrals (
+        CREATE TABLE IF NOT EXISTS referrals (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             referrer_id INTEGER,
             referral_id INTEGER,
@@ -140,7 +135,7 @@ def init_db():
     ''')
     
     cursor.execute('''
-        CREATE TABLE business_data (
+        CREATE TABLE IF NOT EXISTS business_data (
             name TEXT PRIMARY KEY,
             price INTEGER,
             emoji TEXT,
@@ -150,7 +145,7 @@ def init_db():
         )
     ''')
     
-    # ДАННЫЕ БИЗНЕСОВ - ЦЕНА ЗА 1 ЕДИНИЦУ СЫРЬЯ
+    # ДАННЫЕ БИЗНЕСОВ - вставляем только если их нет
     businesses_data = [
         ("🥤 Киоск", 500_000, "🥤", 1_000, 2_000, 60),
         ("🍔 Фастфуд", 5_000_000, "🍔", 2_500, 5_000, 60),
@@ -186,7 +181,7 @@ def init_db():
     
     conn.commit()
     conn.close()
-    print("✅ Новая база данных создана")
+    print("✅ База данных проверена/создана")
 
 init_db()
 
