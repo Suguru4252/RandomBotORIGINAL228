@@ -117,7 +117,8 @@ def init_db():
             emoji TEXT,
             raw_cost_per_unit INTEGER,
             profit_per_raw INTEGER,
-            base_time INTEGER
+            base_time INTEGER,
+            photo_url TEXT
         )
     ''')
     
@@ -253,18 +254,19 @@ def init_db():
             VALUES (?, ?, ?)
         ''', clothes_data)
     
+    # Обновляем business_data с фото
     businesses_data = [
-        ("🥤 Киоск", 500_000, "🥤", 1_000, 2_000, 60),
-        ("🍔 Фастфуд", 5_000_000, "🍔", 2_500, 5_000, 60),
-        ("🏪 Минимаркет", 15_000_000, "🏪", 30_000, 60_000, 60),
-        ("⛽ Заправка", 50_000_000, "⛽", 200_000, 400_000, 60),
-        ("🏨 Отель", 1_000_000_000, "🏨", 1_000_000, 2_000_000, 120)
+        ("🥤 Киоск", 500_000, "🥤", 1_000, 2_000, 60, "https://th.bing.com/th/id/R.4634fab1300b0376abe417c30426a9b7?rik=xcaYMuQThvYHig&riu=http%3a%2f%2fidei-biz.com%2fwp-content%2fuploads%2f2015%2f04%2fkak-otkryt-kiosk.gif&ehk=Vgms8Tfzm6kKm5Me0BE8ByekknYG3Df%2fjHuMD3NjPGM%3d&risl=&pid=ImgRaw&r=0"),
+        ("🍔 Фастфуд", 5_000_000, "🍔", 2_500, 5_000, 60, "https://tse1.mm.bing.net/th/id/OIP.HEYen4QlXTiaZzGiYuutCQHaEc?cb=defcache2&defcache=1&rs=1&pid=ImgDetMain&o=7&rm=3"),
+        ("🏪 Минимаркет", 15_000_000, "🏪", 30_000, 60_000, 60, "https://tse1.mm.bing.net/th/id/OIP.JQQSzTluO8SxcChv5ZrjWAHaE7?cb=defcache2&defcache=1&rs=1&pid=ImgDetMain&o=7&rm=3"),
+        ("⛽ Заправка", 50_000_000, "⛽", 200_000, 400_000, 60, "https://th.bing.com/th/id/R.1b578b96a209d5a4b42fafe640c98c06?rik=fhxZHgYsQRp5Yw&riu=http%3a%2f%2fcdn.motorpage.ru%2fPhotos%2f800%2f213FE.jpg&ehk=kQHdWpflr8ztgGn9DA3XNkz%2fkSj6dzlVhm3%2biuromWk%3d&risl=&pid=ImgRaw&r=0"),
+        ("🏨 Отель", 1_000_000_000, "🏨", 1_000_000, 2_000_000, 120, "https://tse1.mm.bing.net/th/id/OIP.oa6wkUpT9KjcmuimacYq3gHaE6?cb=defcache2&defcache=1&rs=1&pid=ImgDetMain&o=7&rm=3")
     ]
     
     for bd in businesses_data:
         cursor.execute('''
-            INSERT OR IGNORE INTO business_data (name, price, emoji, raw_cost_per_unit, profit_per_raw, base_time)
-            VALUES (?, ?, ?, ?, ?, ?)
+            INSERT OR REPLACE INTO business_data (name, price, emoji, raw_cost_per_unit, profit_per_raw, base_time, photo_url)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
         ''', bd)
     
     jobs_data = [
@@ -292,6 +294,7 @@ def init_db():
     print("🏙️ Система городов активирована!")
     print("👕 Магазин одежды загружен с 16 комплектами!")
     print("🎰 Система рулетки активирована!")
+    print("📸 Фото для бизнесов загружены!")
 
 # ========== ЗАГРУЗКА ДАННЫХ ИЗ БД ==========
 def load_admins_from_db():
@@ -1107,22 +1110,6 @@ def get_roulette_stats(user_id):
     except:
         return None
 
-def get_top_roulette(limit=10):
-    """Получает топ игроков по выигрышам в рулетке"""
-    try:
-        conn = get_db()
-        cursor = conn.cursor()
-        top = cursor.execute('''
-            SELECT user_id, total_win, wins, losses, total_bet 
-            FROM roulette_stats 
-            ORDER BY total_win DESC 
-            LIMIT ?
-        ''', (limit,)).fetchall()
-        conn.close()
-        return top
-    except:
-        return []
-
 def get_roulette_result(number):
     """Определяет цвет и название числа"""
     if number == 0:
@@ -1215,6 +1202,156 @@ def get_bet_name(bet_type):
         return f"⚡ ЧИСЛО {number}"
     
     return names.get(bet_type, bet_type)
+
+# ========== НОВЫЕ ФУНКЦИИ ДЛЯ ЧАТА ==========
+
+def send_profile_to_chat(chat_id, user_id, target_id=None):
+    """Отправляет профиль в чат"""
+    if target_id is None:
+        target_id = user_id
+    
+    user_data = get_user_profile(target_id)
+    if not user_data:
+        bot.send_message(chat_id, "❌ Пользователь не найден")
+        return
+    
+    balance = get_balance(target_id)
+    display_name = get_user_display_name(user_data)
+    current_city = get_user_city(target_id)
+    
+    stats = get_user_stats(target_id)
+    exp, level, work_count, total = stats
+    
+    equipped_clothes = get_user_equipped_clothes(target_id)
+    clothes_info = f", одет: {equipped_clothes['name']}" if equipped_clothes else ""
+    
+    business = get_user_business(target_id)
+    business_info = "Нет" if not business else f"{business['business_name']} (ур.{business['level']})"
+    
+    msg = f"👤 **ПРОФИЛЬ ИГРОКА**\n\n"
+    msg += f"👤 Игрок: {display_name}{clothes_info}\n"
+    msg += f"📍 Город: {current_city}\n"
+    msg += f"💰 Баланс: {balance:,} {CURRENCY}\n"
+    msg += f"⭐ Опыт: {exp} (ур.{level})\n"
+    msg += f"🔨 Работ: {work_count}\n"
+    msg += f"💵 Всего заработано: {total:,}\n"
+    msg += f"🏭 Бизнес: {business_info}\n"
+    
+    if business:
+        msg += f"📦 Сырье: {business['raw_material']}/1000\n"
+        msg += f"💰 Прибыль на складе: {business['stored_profit']:,}"
+    
+    # Статистика рулетки
+    roulette_stats = get_roulette_stats(target_id)
+    if roulette_stats:
+        profit = roulette_stats['total_win'] - roulette_stats['total_lose']
+        profit_sign = "+" if profit >= 0 else ""
+        win_rate = (roulette_stats['wins'] / roulette_stats['games_played'] * 100) if roulette_stats['games_played'] > 0 else 0
+        
+        msg += f"\n\n🎰 **РУЛЕТКА:**\n"
+        msg += f"🎮 Игр: {roulette_stats['games_played']} | Побед: {win_rate:.1f}%\n"
+        msg += f"💰 Выиграно: {roulette_stats['total_win']:,}\n"
+        msg += f"💸 Проиграно: {roulette_stats['total_lose']:,}\n"
+        msg += f"📈 Прибыль: {profit_sign}{profit:,}"
+    
+    # Отправляем фото профиля если есть
+    photo_url = get_user_profile_photo(target_id)
+    if photo_url:
+        bot.send_photo(chat_id, photo_url, caption=msg, parse_mode="Markdown")
+    else:
+        bot.send_message(chat_id, msg, parse_mode="Markdown")
+
+def process_raw_order(user_id, chat_id):
+    """Обрабатывает заказ сырья 'все'"""
+    business = get_user_business(user_id)
+    if not business:
+        bot.send_message(chat_id, "❌ У тебя нет бизнеса!")
+        return
+    
+    data = get_business_data(business['business_name'])
+    if not data:
+        bot.send_message(chat_id, "❌ Ошибка загрузки данных бизнеса")
+        return
+    
+    balance = get_balance(user_id)
+    raw_cost = data['raw_cost_per_unit']
+    max_by_money = balance // raw_cost
+    
+    total_raw = business['raw_material'] + business['raw_in_delivery']
+    free_space = 1000 - total_raw
+    
+    amount = min(max_by_money, free_space)
+    
+    if amount <= 0:
+        if free_space <= 0:
+            bot.send_message(chat_id, f"❌ Склад переполнен! Свободно места: 0/1000")
+        else:
+            bot.send_message(chat_id, f"❌ У тебя недостаточно денег! Нужно минимум {raw_cost:,} {CURRENCY}")
+        return
+    
+    total_cost = amount * raw_cost
+    
+    if not add_balance(user_id, -total_cost):
+        bot.send_message(chat_id, "❌ Ошибка при списании денег")
+        return
+    
+    if has_active_delivery(user_id):
+        bot.send_message(chat_id, "❌ У тебя уже есть активная доставка! Дождись её завершения.")
+        add_balance(user_id, total_cost)
+        return
+    
+    conn = get_db()
+    cursor = conn.cursor()
+    
+    end_time = datetime.now() + timedelta(minutes=15)
+    cursor.execute('''
+        INSERT INTO deliveries (user_id, amount, end_time, delivered)
+        VALUES (?, ?, ?, 0)
+    ''', (user_id, amount, end_time.isoformat()))
+    
+    cursor.execute('''
+        UPDATE businesses 
+        SET raw_in_delivery = raw_in_delivery + ?,
+            total_invested = total_invested + ?
+        WHERE user_id = ?
+    ''', (amount, total_cost, user_id))
+    
+    conn.commit()
+    conn.close()
+    
+    new_total = total_raw + amount
+    bot.send_message(chat_id, f"✅ Заказ на {amount} сырья оформлен!\n💰 Стоимость: {total_cost:,} {CURRENCY}\n📦 Будет: {new_total}/1000\n⏱️ Доставка через 15 минут")
+
+def send_top_to_chat(chat_id):
+    """Отправляет топ в чат"""
+    try:
+        conn = get_db()
+        cursor = conn.cursor()
+        cursor.execute('SELECT first_name, username, custom_name, balance FROM users ORDER BY balance DESC LIMIT 10')
+        top = cursor.fetchall()
+        conn.close()
+        
+        if not top:
+            bot.send_message(chat_id, "❌ В топе пока никого нет!")
+            return
+        
+        msg = "🏆 **ТОП 10 БОГАЧЕЙ**\n\n"
+        for i, (first_name, username, custom_name, balance) in enumerate(top, 1):
+            medal = "🥇" if i == 1 else "🥈" if i == 2 else "🥉" if i == 3 else f"{i}."
+            
+            if custom_name:
+                display_name = custom_name
+            elif username and username != "NoUsername":
+                display_name = f"@{username}"
+            else:
+                display_name = first_name
+            
+            msg += f"{medal} {display_name}: {balance:,} {CURRENCY}\n"
+        
+        bot.send_message(chat_id, msg, parse_mode="Markdown")
+    except Exception as e:
+        print(f"Ошибка топа: {e}")
+        bot.send_message(chat_id, "❌ Ошибка загрузки топа")
 
 # ========== АДМИН КОМАНДЫ ==========
 @bot.message_handler(commands=['adminhelp'])
@@ -1424,68 +1561,9 @@ def profile_command(message):
             return
         
         target_id = user_data[0]
-        target_name = user_data[1]
-        target_username = user_data[2]
-        custom_name = user_data[3]
-        warns = user_data[4] or 0
-        
-        stats = get_user_stats(target_id)
-        exp, level, work_count, total = stats
-        balance = get_balance(target_id)
-        
-        business = get_user_business(target_id)
-        business_info = "Нет" if not business else f"{business['business_name']} (ур.{business['level']})"
-        
-        equipped_clothes = get_user_equipped_clothes(target_id)
-        clothes_info = "Нет" if not equipped_clothes else f"{equipped_clothes['name']}"
-        
-        current_city = get_user_city(target_id)
-        
-        user_profile = get_user_profile(target_id)
-        has_car = "Да" if user_profile and user_profile[14] else "Нет"
-        has_plane = "Да" if user_profile and user_profile[15] else "Нет"
-        
         display_name = get_user_display_name(user_data)
         
-        msg = f"👤 **ПРОФИЛЬ ПОЛЬЗОВАТЕЛЯ**\n\n"
-        msg += f"👤 Отображается как: {display_name}\n"
-        msg += f"🆔 ID: `{target_id}`\n"
-        msg += f"⚠️ Варны: {warns}/3\n"
-        msg += f"👕 Одежда: {clothes_info}\n"
-        msg += f"📍 Город: {current_city}\n"
-        msg += f"🚗 Машина: {has_car}\n"
-        msg += f"✈️ Самолет: {has_plane}\n\n"
-        msg += f"💰 Баланс: {balance:,} {CURRENCY}\n"
-        msg += f"⭐ Опыт: {exp}\n"
-        msg += f"📈 Уровень: {level}\n"
-        msg += f"🔨 Работ: {work_count}\n"
-        msg += f"💵 Всего заработано: {total:,}\n"
-        msg += f"🏭 Бизнес: {business_info}\n"
-        
-        if business:
-            msg += f"📦 Сырье: {business['raw_material']}/1000\n"
-            msg += f"🚚 В доставке: {business['raw_in_delivery']}\n"
-            msg += f"💵 Вложено: {business['total_invested']:,}\n"
-            msg += f"💎 Прибыль на складе: {business['stored_profit']:,}"
-        
-        # Статистика рулетки
-        roulette_stats = get_roulette_stats(target_id)
-        if roulette_stats:
-            profit = roulette_stats['total_win'] - roulette_stats['total_lose']
-            profit_sign = "+" if profit >= 0 else ""
-            win_rate = (roulette_stats['wins'] / roulette_stats['games_played'] * 100) if roulette_stats['games_played'] > 0 else 0
-            
-            msg += f"\n\n🎰 **РУЛЕТКА:**\n"
-            msg += f"🎮 Сыграно игр: {roulette_stats['games_played']}\n"
-            msg += f"✅ Побед: {roulette_stats['wins']} ({win_rate:.1f}%)\n"
-            msg += f"❌ Поражений: {roulette_stats['losses']}\n"
-            msg += f"💰 Всего выиграно: {roulette_stats['total_win']:,}\n"
-            msg += f"💸 Всего проиграно: {roulette_stats['total_lose']:,}\n"
-            msg += f"📈 Чистая прибыль: {profit_sign}{profit:,}\n"
-            msg += f"🏆 Лучший выигрыш: {roulette_stats['biggest_win']:,}\n"
-            msg += f"💔 Худший проигрыш: {roulette_stats['biggest_lose']:,}"
-        
-        bot.reply_to(message, msg, parse_mode="Markdown")
+        send_profile_to_chat(message.chat.id, user_id, target_id)
         
     except Exception as e:
         bot.reply_to(message, f"❌ Ошибка: {e}")
@@ -1883,8 +1961,7 @@ def top_command(message):
     markup = types.InlineKeyboardMarkup(row_width=2)
     markup.add(
         types.InlineKeyboardButton("💰 Топ по деньгам", callback_data="top_money"),
-        types.InlineKeyboardButton("⭐ Топ по опыту", callback_data="top_exp"),
-        types.InlineKeyboardButton("🎰 Топ казино", callback_data="top_casino")
+        types.InlineKeyboardButton("⭐ Топ по опыту", callback_data="top_exp")
     )
     
     bot.send_message(
@@ -1908,8 +1985,7 @@ def send_top_by_type(user_id, top_type):
                 LIMIT 10
             ''')
             title = "💰 ТОП 10 ПО ДЕНЬГАМ"
-        
-        elif top_type == "exp":
+        else:  # exp
             cursor.execute('''
                 SELECT first_name, username, custom_name, exp 
                 FROM users 
@@ -1917,42 +1993,6 @@ def send_top_by_type(user_id, top_type):
                 LIMIT 10
             ''')
             title = "⭐ ТОП 10 ПО ОПЫТУ"
-        
-        else:  # casino
-            cursor.execute('''
-                SELECT user_id, total_win, total_lose, wins, games_played 
-                FROM roulette_stats 
-                ORDER BY total_win DESC 
-                LIMIT 10
-            ''')
-            title = "🎰 ТОП 10 КАЗИНО (ПО ВЫИГРЫШАМ)"
-            casino_top = cursor.fetchall()
-            conn.close()
-            
-            if not casino_top:
-                bot.send_message(user_id, "❌ В топе казино пока никого нет!")
-                return
-            
-            msg = f"🏆 **{title}**\n\n"
-            for i, row in enumerate(casino_top, 1):
-                medal = "🥇" if i == 1 else "🥈" if i == 2 else "🥉" if i == 3 else f"{i}."
-                
-                player_data = get_user_profile(row['user_id'])
-                if player_data:
-                    display_name = get_user_display_name((player_data[0], player_data[1], player_data[2], player_data[3], 0))
-                else:
-                    display_name = f"ID: {row['user_id']}"
-                
-                profit = row['total_win'] - row['total_lose']
-                profit_sign = "+" if profit >= 0 else ""
-                win_rate = (row['wins'] / row['games_played'] * 100) if row['games_played'] > 0 else 0
-                
-                msg += f"{medal} {display_name}\n"
-                msg += f"   💰 Выиграно: {row['total_win']:,} | {profit_sign}{profit:,}\n"
-                msg += f"   🎮 Игр: {row['games_played']} | Побед: {win_rate:.1f}%\n\n"
-            
-            bot.send_message(user_id, msg, parse_mode="Markdown")
-            return
         
         top = cursor.fetchall()
         conn.close()
@@ -2405,31 +2445,7 @@ def casino_stats_handler(message):
     
     # Общая статистика (топ)
     if text in ['общая статистика', 'статистика казино']:
-        top = get_top_roulette(10)
-        
-        if not top:
-            bot.reply_to(message, "📊 В казино пока никто не играл! Будь первым!")
-            return
-        
-        msg = "🏆 **ТОП КАЗИНО**\n\n"
-        for i, row in enumerate(top, 1):
-            medal = "🥇" if i == 1 else "🥈" if i == 2 else "🥉" if i == 3 else f"{i}."
-            
-            player_data = get_user_profile(row['user_id'])
-            if player_data:
-                display_name = get_user_display_name((player_data[0], player_data[1], player_data[2], player_data[3], 0))
-            else:
-                display_name = f"Игрок {row['user_id']}"
-            
-            profit = row['total_win'] - row['total_lose']
-            profit_sign = "+" if profit >= 0 else ""
-            win_rate = (row['wins'] / row['games_played'] * 100) if row['games_played'] > 0 else 0
-            
-            msg += f"{medal} {display_name}\n"
-            msg += f"   💰 Выиграно: {row['total_win']:,} ({profit_sign}{profit:,})\n"
-            msg += f"   🎮 Игр: {row['games_played']} | Побед: {win_rate:.1f}%\n\n"
-        
-        bot.reply_to(message, msg, parse_mode="Markdown")
+        send_top_to_chat(message.chat.id)
         return
     
     # Личная статистика
@@ -2457,6 +2473,38 @@ def casino_stats_handler(message):
     
     bot.reply_to(message, msg, parse_mode="Markdown")
 
+# ========== НОВЫЕ ОБРАБОТЧИКИ ДЛЯ ЧАТА ==========
+
+@bot.message_handler(func=lambda message: message.text and message.text.lower().strip() == 'я')
+def me_command(message):
+    """Обработчик команды 'я' - показывает профиль"""
+    user_id = message.from_user.id
+    
+    if is_banned(user_id):
+        return
+    
+    send_profile_to_chat(message.chat.id, user_id, user_id)
+
+@bot.message_handler(func=lambda message: message.text and message.text.lower().strip() == 'сырье все')
+def raw_all_command(message):
+    """Обработчик команды 'сырье все' - заказывает сырьё на всё"""
+    user_id = message.from_user.id
+    
+    if is_banned(user_id):
+        return
+    
+    process_raw_order(user_id, message.chat.id)
+
+@bot.message_handler(func=lambda message: message.text and message.text.lower().strip() == 'топ')
+def top_chat_command(message):
+    """Обработчик команды 'топ' для чата"""
+    user_id = message.from_user.id
+    
+    if is_banned(user_id):
+        return
+    
+    send_top_to_chat(message.chat.id)
+
 # ========== ОБРАБОТЧИК КОЛБЭКОВ ==========
 @bot.callback_query_handler(func=lambda call: True)
 def callback_handler(call):
@@ -2476,11 +2524,6 @@ def callback_handler(call):
     elif data == "top_exp":
         bot.delete_message(user_id, call.message.message_id)
         send_top_by_type(user_id, "exp")
-        bot.answer_callback_query(call.id)
-    
-    elif data == "top_casino":
-        bot.delete_message(user_id, call.message.message_id)
-        send_top_by_type(user_id, "casino")
         bot.answer_callback_query(call.id)
     
     elif data.startswith("shop_page_"):
@@ -2778,7 +2821,7 @@ def handle(message):
             "• Команда `рул крас все` - поставить весь баланс\n"
             "• Вся статистика сохраняется!\n\n"
             "🏆 **ТОП 10** (команда /top)\n"
-            "• Можно выбрать топ по деньгам, опыту или казино\n"
+            "• Можно выбрать топ по деньгам или опыту\n"
             "• Соревнуйся с другими игроками\n\n"
             "🎁 **ЕЖЕДНЕВНЫЙ БОНУС**\n"
             "• Получай бонус раз в 24 часа\n"
@@ -2863,7 +2906,11 @@ def handle(message):
         msg += f"💵 Всего вложено: {business['total_invested']:,} {CURRENCY}\n"
         msg += f"🎯 Потенциальная прибыль: {total_potential:,} {CURRENCY}"
         
-        bot.send_message(user_id, msg, parse_mode="Markdown")
+        # Отправляем фото бизнеса
+        if data['photo_url']:
+            bot.send_photo(user_id, data['photo_url'], caption=msg, parse_mode="Markdown")
+        else:
+            bot.send_message(user_id, msg, parse_mode="Markdown")
     
     elif text == "💰 Собрать прибыль":
         business = get_user_business(user_id)
@@ -3245,5 +3292,7 @@ print(f"⚠️ Загружено варнов: {len(WARNS)}")
 print("🏙️ Система городов активна! 4 города ждут путешественников!")
 print("👕 Магазин одежды загружен с 16 комплектами!")
 print("🎰 Рулетка активна! Играй: рул крас 1000")
+print("📸 Фото для бизнесов загружены!")
 print("📌 Админ команды: /adminhelp")
+print("📢 Команды для чата: я, топ, сырье все")
 bot.infinity_polling()
