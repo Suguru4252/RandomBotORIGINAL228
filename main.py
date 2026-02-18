@@ -211,6 +211,20 @@ def init_db():
         )
     ''')
     
+    # ========== ТАБЛИЦА ДЛЯ СТАТИСТИКИ МИНИ-ИГР ==========
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS work_stats (
+            user_id INTEGER,
+            job_type TEXT,
+            games_played INTEGER DEFAULT 0,
+            perfect_games INTEGER DEFAULT 0,
+            best_time REAL,
+            total_earned INTEGER DEFAULT 0,
+            avg_score INTEGER DEFAULT 0,
+            PRIMARY KEY (user_id, job_type)
+        )
+    ''')
+    
     # Добавляем главного админа
     cursor.execute('INSERT OR IGNORE INTO admins (user_id, level) VALUES (?, ?)', (5596589260, 4))
     
@@ -295,6 +309,7 @@ def init_db():
     print("👕 Магазин одежды загружен с 16 комплектами!")
     print("🎰 Система рулетки активирована!")
     print("📸 Фото для бизнесов загружены!")
+    print("🎮 Мини-игры для работ активированы!")
 
 # ========== ЗАГРУЗКА ДАННЫХ ИЗ БД ==========
 def load_admins_from_db():
@@ -1203,6 +1218,180 @@ def get_bet_name(bet_type):
     
     return names.get(bet_type, bet_type)
 
+# ========== ФУНКЦИИ ДЛЯ МИНИ-ИГР ==========
+
+def update_work_stats(user_id, job_type, score, time_spent, earned):
+    """Обновляет статистику работ"""
+    try:
+        conn = get_db()
+        cursor = conn.cursor()
+        
+        stats = cursor.execute('SELECT * FROM work_stats WHERE user_id = ? AND job_type = ?', 
+                              (user_id, job_type)).fetchone()
+        
+        if stats:
+            games_played = stats['games_played'] + 1
+            perfect_games = stats['perfect_games'] + (1 if score == 100 else 0)
+            best_time = min(stats['best_time'], time_spent) if stats['best_time'] > 0 else time_spent
+            total_earned = stats['total_earned'] + earned
+            avg_score = (stats['avg_score'] * stats['games_played'] + score) // games_played
+            
+            cursor.execute('''
+                UPDATE work_stats 
+                SET games_played = ?, perfect_games = ?, best_time = ?,
+                    total_earned = ?, avg_score = ?
+                WHERE user_id = ? AND job_type = ?
+            ''', (games_played, perfect_games, best_time, total_earned, avg_score, user_id, job_type))
+        else:
+            cursor.execute('''
+                INSERT INTO work_stats (user_id, job_type, games_played, perfect_games, best_time, total_earned, avg_score)
+                VALUES (?, ?, 1, ?, ?, ?, ?)
+            ''', (user_id, job_type, 1 if score == 100 else 0, time_spent, earned, score))
+        
+        conn.commit()
+        conn.close()
+        return True
+    except Exception as e:
+        print(f"Ошибка обновления статистики работ: {e}")
+        return False
+
+def start_loader_game(user_id, job_name):
+    """Игра для грузчика - собирай коробки"""
+    
+    # Создаем поле 3x3 с коробками
+    boxes = list(range(1, 10))
+    random.shuffle(boxes)
+    target_boxes = random.sample(range(1, 10), 3)  # 3 цели
+    
+    markup = types.InlineKeyboardMarkup(row_width=3)
+    row = []
+    for i in range(9):
+        btn = types.InlineKeyboardButton(f"📦 {i+1}", callback_data=f"loader_{i+1}")
+        row.append(btn)
+        if (i+1) % 3 == 0:
+            markup.row(*row)
+            row = []
+    
+    game_data = {
+        'boxes': boxes,
+        'targets': target_boxes,
+        'collected': [],
+        'start_time': time.time()
+    }
+    
+    # Сохраняем состояние игры в памяти (можно сделать в БД)
+    loader_games[user_id] = game_data
+    
+    msg = (
+        f"🚚 **{job_name} - Загрузи фуру!**\n\n"
+        f"🎯 Нужно найти коробки с номерами: {target_boxes}\n"
+        f"📦 Нажимай на кнопки с правильными номерами!\n\n"
+        f"⏱️ Время пошло!"
+    )
+    
+    return markup, msg
+
+def check_loader_click(user_id, box_num):
+    """Проверяет клик в игре грузчика"""
+    if user_id not in loader_games:
+        return None
+    
+    game = loader_games[user_id]
+    
+    if box_num in game['targets'] and box_num not in game['collected']:
+        game['collected'].append(box_num)
+        
+        if len(game['collected']) == len(game['targets']):
+            # Победа!
+            time_spent = time.time() - game['start_time']
+            score = 100  # Идеально
+            del loader_games[user_id]
+            return {'win': True, 'time': time_spent, 'score': score}
+    
+    return {'win': False, 'collected': len(game['collected']), 'total': len(game['targets'])}
+
+def start_courier_game(user_id, job_name):
+    """Игра для курьера - выбери маршрут"""
+    
+    routes = [
+        {'name': 'Кратчайший', 'time': 15, 'correct': True},
+        {'name': 'Быстрый', 'time': 25, 'correct': False},
+        {'name': 'Объезд', 'time': 40, 'correct': False}
+    ]
+    random.shuffle(routes)
+    
+    markup = types.InlineKeyboardMarkup(row_width=1)
+    for r in routes:
+        markup.add(types.InlineKeyboardButton(
+            f"🚦 {r['name']} ({r['time']} сек)", 
+            callback_data=f"courier_{r['correct']}_{r['time']}"
+        ))
+    
+    courier_games[user_id] = {'start_time': time.time()}
+    
+    msg = (
+        f"📦 **{job_name} - Выбери маршрут!**\n\n"
+        f"🗺️ Нужно доставить заказ за 30 секунд\n"
+        f"Какой маршрут выберешь?\n\n"
+        f"⏱️ Время пошло!"
+    )
+    
+    return markup, msg
+
+def check_courier_choice(user_id, is_correct, route_time):
+    """Проверяет выбор курьера"""
+    if user_id not in courier_games:
+        return None
+    
+    time_spent = time.time() - courier_games[user_id]['start_time']
+    del courier_games[user_id]
+    
+    if is_correct == 'True' and time_spent <= route_time:
+        return {'win': True, 'time': time_spent, 'score': 100}
+    else:
+        return {'win': False, 'time': time_spent, 'score': 0}
+
+def start_programmer_game(user_id, job_name):
+    """Игра для программиста - найди баг"""
+    
+    bugs = [
+        {'code': 'x = 10\ny = "5"\nprint(x + y)', 'answer': 'Тип данных', 'correct': 1},
+        {'code': 'for i in range(10)\n    print(i)', 'answer': 'Синтаксис', 'correct': 2},
+        {'code': 'if x = 5:\n    print("ok")', 'answer': 'Синтаксис', 'correct': 2}
+    ]
+    bug = random.choice(bugs)
+    
+    markup = types.InlineKeyboardMarkup(row_width=1)
+    options = ['Тип данных', 'Синтаксис', 'Логика']
+    for i, opt in enumerate(options, 1):
+        callback = f"programmer_{'correct' if i == bug['correct'] else 'wrong'}"
+        markup.add(types.InlineKeyboardButton(f"{opt}", callback_data=callback))
+    
+    programmer_games[user_id] = {'start_time': time.time()}
+    
+    msg = (
+        f"💻 **{job_name} - Найди баг!**\n\n"
+        f"```python\n{bug['code']}\n```\n\n"
+        f"❓ Какая здесь ошибка?\n\n"
+        f"⏱️ Время пошло!"
+    )
+    
+    return markup, msg
+
+def check_programmer_choice(user_id, is_correct):
+    """Проверяет выбор программиста"""
+    if user_id not in programmer_games:
+        return None
+    
+    time_spent = time.time() - programmer_games[user_id]['start_time']
+    del programmer_games[user_id]
+    
+    if is_correct == 'correct':
+        score = max(100 - int(time_spent), 50)  # Чем быстрее, тем выше балл
+        return {'win': True, 'time': time_spent, 'score': score}
+    else:
+        return {'win': False, 'time': time_spent, 'score': 0}
+
 # ========== НОВЫЕ ФУНКЦИИ ДЛЯ ЧАТА ==========
 
 def send_profile_to_chat(chat_id, user_id, target_id=None):
@@ -1352,6 +1541,11 @@ def send_top_to_chat(chat_id):
     except Exception as e:
         print(f"Ошибка топа: {e}")
         bot.send_message(chat_id, "❌ Ошибка загрузки топа")
+
+# ========== ХРАНИЛИЩЕ ДЛЯ ИГР ==========
+loader_games = {}
+courier_games = {}
+programmer_games = {}
 
 # ========== АДМИН КОМАНДЫ ==========
 @bot.message_handler(commands=['adminhelp'])
@@ -1669,6 +1863,7 @@ def reset_account(message):
         cursor.execute('DELETE FROM warns WHERE user_id = ?', (target_id,))
         cursor.execute('DELETE FROM bans WHERE user_id = ?', (target_id,))
         cursor.execute('DELETE FROM roulette_stats WHERE user_id = ?', (target_id,))
+        cursor.execute('DELETE FROM work_stats WHERE user_id = ?', (target_id,))
         
         cursor.execute('''
             UPDATE users 
@@ -2189,7 +2384,7 @@ def start(message):
             "🌟 **ДОБРО ПОЖАЛОВАТЬ В МИР SuguruCoins!** 🌟\n\n"
             f"👋 Рады видеть тебя, {first_name}!\n\n"
             "🎮 Здесь ты сможешь:\n"
-            "💼 **Работать** и зарабатывать деньги\n"
+            "💼 **Работать** в мини-играх и зарабатывать деньги\n"
             "🏭 **Покупать бизнесы** и получать пассивный доход\n"
             "🏙️ **Путешествовать по городам** и открывать новые магазины\n"
             "👕 **Покупать крутую одежду** и менять свой стиль\n"
@@ -2264,7 +2459,7 @@ def process_name_step(message):
             f"✅ **Отлично!** Твой никнейм `{custom_name}` сохранен!\n\n"
             "🎉 Теперь ты готов к приключениям!\n"
             "💰 У тебя 0 монет, но это временно.\n"
-            "💪 Работай, зарабатывай, покупай бизнесы и путешествуй по городам!\n"
+            "💪 Работай в мини-играх, зарабатывай, покупай бизнесы и путешествуй!\n"
             "👕 Загляни в **МАГАЗИН ОДЕЖДЫ** - там есть очень крутые комплекты!\n"
             "🎰 А в **РУЛЕТКЕ** можешь испытать удачу!\n\n"
             "👇 Твоё главное меню с фото профиля:"
@@ -2526,6 +2721,113 @@ def callback_handler(call):
         send_top_by_type(user_id, "exp")
         bot.answer_callback_query(call.id)
     
+    # ===== ОБРАБОТЧИКИ МИНИ-ИГР =====
+    elif data.startswith("loader_"):
+        box_num = int(data.split("_")[1])
+        result = check_loader_click(user_id, box_num)
+        
+        if result is None:
+            bot.answer_callback_query(call.id, "❌ Игра не найдена или уже закончилась")
+            return
+        
+        if result['win']:
+            # Расчет награды
+            base_reward = 50
+            exp_reward = 10
+            speed_bonus = max(1.0, 30 / result['time'])  # Чем быстрее, тем больше
+            total = int(base_reward * speed_bonus)
+            
+            add_balance(user_id, total)
+            add_exp(user_id, exp_reward)
+            update_work_stats(user_id, "Грузчик", result['score'], result['time'], total)
+            
+            bot.edit_message_text(
+                f"✅ **ПОБЕДА!**\n\n"
+                f"⏱️ Время: {result['time']:.1f} сек\n"
+                f"💰 Награда: +{total} {CURRENCY}\n"
+                f"⭐ Опыт: +{exp_reward}\n\n"
+                f"Можешь поработать еще!",
+                chat_id=user_id,
+                message_id=call.message.message_id
+            )
+        else:
+            bot.answer_callback_query(call.id, f"✅ Собрано {result['collected']}/{result['total']}")
+    
+    elif data.startswith("courier_"):
+        parts = data.split("_")
+        is_correct = parts[1]
+        route_time = int(parts[2])
+        
+        result = check_courier_choice(user_id, is_correct, route_time)
+        
+        if result is None:
+            bot.answer_callback_query(call.id, "❌ Игра не найдена или уже закончилась")
+            return
+        
+        if result['win']:
+            base_reward = 70
+            exp_reward = 15
+            speed_bonus = max(1.0, 20 / result['time'])
+            total = int(base_reward * speed_bonus)
+            
+            add_balance(user_id, total)
+            add_exp(user_id, exp_reward)
+            update_work_stats(user_id, "Курьер", result['score'], result['time'], total)
+            
+            bot.edit_message_text(
+                f"✅ **ДОСТАВЛЕНО!**\n\n"
+                f"⏱️ Время: {result['time']:.1f} сек\n"
+                f"💰 Награда: +{total} {CURRENCY}\n"
+                f"⭐ Опыт: +{exp_reward}\n\n"
+                f"Отличная работа!",
+                chat_id=user_id,
+                message_id=call.message.message_id
+            )
+        else:
+            bot.edit_message_text(
+                f"❌ **НЕУДАЧА**\n\n"
+                f"Ты выбрал неправильный маршрут!\n"
+                f"Попробуй еще раз!",
+                chat_id=user_id,
+                message_id=call.message.message_id
+            )
+    
+    elif data.startswith("programmer_"):
+        is_correct = data.split("_")[1]
+        
+        result = check_programmer_choice(user_id, is_correct)
+        
+        if result is None:
+            bot.answer_callback_query(call.id, "❌ Игра не найдена или уже закончилась")
+            return
+        
+        if result['win']:
+            base_reward = 100
+            exp_reward = 20
+            total = int(base_reward * (result['score'] / 100))
+            
+            add_balance(user_id, total)
+            add_exp(user_id, exp_reward)
+            update_work_stats(user_id, "Программист", result['score'], result['time'], total)
+            
+            bot.edit_message_text(
+                f"✅ **БАГ ИСПРАВЛЕН!**\n\n"
+                f"⏱️ Время: {result['time']:.1f} сек\n"
+                f"📊 Точность: {result['score']}%\n"
+                f"💰 Награда: +{total} {CURRENCY}\n"
+                f"⭐ Опыт: +{exp_reward}\n\n"
+                f"Ты настоящий кодер!",
+                chat_id=user_id,
+                message_id=call.message.message_id
+            )
+        else:
+            bot.edit_message_text(
+                f"❌ **НЕПРАВИЛЬНО**\n\n"
+                f"Попробуй еще раз найти баг!",
+                chat_id=user_id,
+                message_id=call.message.message_id
+            )
+    
     elif data.startswith("shop_page_"):
         page = int(data.split("_")[2])
         clothes, current_page, total = get_clothes_page(page)
@@ -2679,7 +2981,7 @@ def handle(message):
     elif text in ["🚕 Такси", "🚗 Личная машина", "✈️ Личный самолет"]:
         pass
     
-    # ===== ИСПРАВЛЕННЫЕ КНОПКИ МАГАЗИНОВ (теперь с lower()) =====
+    # ===== МАГАЗИНЫ =====
     elif text.lower() == "👕 магазин одежды":
         clothes, current_page, total = get_clothes_page(0)
         
@@ -2715,9 +3017,49 @@ def handle(message):
         current_city = get_user_city(user_id)
         send_main_menu_with_profile(user_id)
     
+    # ===== РАБОТЫ С МИНИ-ИГРАМИ =====
     elif text == "💼 Работы":
         bot.send_message(user_id, "🔨 Выбери работу:", reply_markup=jobs_keyboard(user_id))
     
+    elif text in ["🚚 Грузчик", "🧹 Уборщик", "📦 Курьер", "🔧 Механик", "💻 Программист", "🕵️ Детектив", "👨‍🔧 Инженер", "👨‍⚕️ Врач", "👨‍🎤 Артист", "👨‍🚀 Космонавт"]:
+        job_name = text
+        
+        if "Грузчик" in job_name:
+            markup, msg = start_loader_game(user_id, job_name)
+            bot.send_message(user_id, msg, reply_markup=markup)
+        
+        elif "Курьер" in job_name:
+            markup, msg = start_courier_game(user_id, job_name)
+            bot.send_message(user_id, msg, reply_markup=markup)
+        
+        elif "Программист" in job_name:
+            markup, msg = start_programmer_game(user_id, job_name)
+            bot.send_message(user_id, msg, parse_mode="Markdown", reply_markup=markup)
+        
+        else:
+            # Для остальных работ пока старая система
+            rewards = {
+                "🚚 Грузчик": (10, 50, 5),
+                "🧹 Уборщик": (15, 70, 7),
+                "📦 Курьер": (20, 100, 10),
+                "🔧 Механик": (30, 150, 12),
+                "💻 Программист": (50, 300, 15),
+                "🕵️ Детектив": (100, 500, 20),
+                "👨‍🔧 Инженер": (200, 800, 25),
+                "👨‍⚕️ Врач": (300, 1200, 30),
+                "👨‍🎤 Артист": (500, 2000, 35),
+                "👨‍🚀 Космонавт": (1000, 5000, 50)
+            }
+            
+            min_r, max_r, exp_r = rewards[job_name]
+            earn = random.randint(min_r, max_r)
+            
+            if add_balance(user_id, earn) and add_exp(user_id, exp_r):
+                bot.send_message(user_id, f"✅ {job_name}\n💰 +{earn}\n⭐ +{exp_r} опыта")
+            else:
+                bot.send_message(user_id, "❌ Ошибка, попробуй позже")
+    
+    # ===== БИЗНЕСЫ =====
     elif text == "🏭 Бизнесы":
         bot.send_message(user_id, "🏪 Управление бизнесом:", reply_markup=businesses_main_keyboard())
     
@@ -2789,8 +3131,8 @@ def handle(message):
             "📚 **ПОЛНОЕ РУКОВОДСТВО ПО ИГРЕ** 📚\n\n"
             "💼 **РАБОТЫ**\n"
             "• Доступно 10 видов работ\n"
-            "• Каждая работа дает деньги и опыт\n"
-            "• Чем выше опыт - тем круче работы открываются\n"
+            "• Некоторые работы теперь с мини-играми!\n"
+            "• Чем лучше сыграешь - тем больше денег\n"
             "• Работы можно выполнять бесконечно\n\n"
             "🏭 **БИЗНЕСЫ**\n"
             "• Можно купить только один бизнес\n"
@@ -2833,7 +3175,7 @@ def handle(message):
     
     elif text == "❓ Помощь":
         help_text = "🤖 **ПОМОЩЬ**\n\n"
-        help_text += "💼 Работы - зарабатывай деньги и опыт (открываются с опытом)\n"
+        help_text += "💼 Работы - работай в мини-играх\n"
         help_text += "🏭 Бизнесы - управление бизнесом\n"
         help_text += "🏙️ Города - путешествуй между городами\n"
         help_text += "👕 Магазин одежды - покупай крутые комплекты\n"
@@ -2850,35 +3192,7 @@ def handle(message):
         
         bot.send_message(user_id, help_text, parse_mode="Markdown")
     
-    elif any(job in text for job in ["🚚 Грузчик", "🧹 Уборщик", "📦 Курьер", "🔧 Механик", "💻 Программист", "🕵️ Детектив", "👨‍🔧 Инженер", "👨‍⚕️ Врач", "👨‍🎤 Артист", "👨‍🚀 Космонавт"]):
-        rewards = {
-            "🚚 Грузчик": (10, 50, 5),
-            "🧹 Уборщик": (15, 70, 7),
-            "📦 Курьер": (20, 100, 10),
-            "🔧 Механик": (30, 150, 12),
-            "💻 Программист": (50, 300, 15),
-            "🕵️ Детектив": (100, 500, 20),
-            "👨‍🔧 Инженер": (200, 800, 25),
-            "👨‍⚕️ Врач": (300, 1200, 30),
-            "👨‍🎤 Артист": (500, 2000, 35),
-            "👨‍🚀 Космонавт": (1000, 5000, 50)
-        }
-        
-        job_name = None
-        for name in rewards.keys():
-            if name in text:
-                job_name = name
-                break
-        
-        if job_name:
-            min_r, max_r, exp_r = rewards[job_name]
-            earn = random.randint(min_r, max_r)
-            
-            if add_balance(user_id, earn) and add_exp(user_id, exp_r):
-                bot.send_message(user_id, f"✅ {job_name}\n💰 +{earn}\n⭐ +{exp_r} опыта")
-            else:
-                bot.send_message(user_id, "❌ Ошибка, попробуй позже")
-    
+    # ===== УПРАВЛЕНИЕ БИЗНЕСОМ =====
     elif text == "📊 Мой бизнес":
         business = get_user_business(user_id)
         if not business:
@@ -3294,6 +3608,7 @@ print("🏙️ Система городов активна! 4 города жд
 print("👕 Магазин одежды загружен с 16 комплектами!")
 print("🎰 Рулетка активна! Играй: рул крас 1000")
 print("📸 Фото для бизнесов загружены!")
+print("🎮 Мини-игры для работ активированы! (Грузчик, Курьер, Программист)")
 print("📌 Админ команды: /adminhelp")
 print("📢 Команды для чата: я, топ, сырье все")
 bot.infinity_polling()
