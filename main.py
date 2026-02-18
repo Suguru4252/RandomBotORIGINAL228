@@ -12,19 +12,17 @@ bot = telebot.TeleBot(TOKEN)
 CURRENCY = "💰 SuguruCoins"
 
 # ========== ПУТЬ К БАЗЕ ДАННЫХ (ПОСТОЯННОЕ ХРАНИЛИЩЕ) ==========
-# Пробуем разные пути для постоянного хранения (Render, Railway, локально)
 POSSIBLE_PATHS = [
-    '/data/bot.db',                    # Render/Railway с диском
-    '/storage/bot.db',                  # Railway
-    '/opt/render/project/src/data/bot.db', # Render старый
-    './bot.db'                           # локально (запасной)
+    '/data/bot.db',
+    '/storage/bot.db',
+    '/opt/render/project/src/data/bot.db',
+    './bot.db'
 ]
 
 DB_PATH = None
 for path in POSSIBLE_PATHS:
     try:
         dir_path = os.path.dirname(path)
-        # Проверяем, существует ли папка и можно ли в неё писать
         if os.path.exists(dir_path) and os.access(dir_path, os.W_OK):
             DB_PATH = path
             print(f"✅ База будет храниться в: {DB_PATH}")
@@ -35,6 +33,26 @@ for path in POSSIBLE_PATHS:
 if DB_PATH is None:
     DB_PATH = 'bot.db'
     print("⚠️ Постоянное хранилище не найдено, использую локальную БД")
+
+# ========== МАГАЗИН ОДЕЖДЫ ==========
+SHOP_ITEMS = [
+    {"name": "Любит_поспать", "price": 160_000_000, "photo": "https://iimg.su/i/DeILfi"},
+    {"name": "БоссFKC", "price": 700_000_000, "photo": "https://iimg.su/i/mZUtyC"},
+    {"name": "Фермер", "price": 400_000_000, "photo": "https://iimg.su/i/1ChPnG"},
+    {"name": "Крутой", "price": 100_000_000, "photo": "https://iimg.su/i/RqexQt"},
+    {"name": "Шалун", "price": 150_000_000, "photo": "https://iimg.su/i/He6eQH"},
+    {"name": "Пепе", "price": 350_000_000, "photo": "https://iimg.su/i/eQKrdn"},
+    {"name": "С_улицы", "price": 70_000_000, "photo": "https://iimg.su/i/Jn88sT"},
+    {"name": "Спринг_бонни", "price": 700_000_000, "photo": "https://iimg.su/i/wOy6tw"},
+    {"name": "Качок", "price": 400_000_000, "photo": "https://iimg.su/i/XI1uhf"},
+    {"name": "Платье", "price": 80_000_000, "photo": "https://iimg.su/i/UBQvJy"},
+    {"name": "Скелет", "price": 666_666_666_666, "photo": "https://iimg.su/i/RnLRY8"},
+    {"name": "Гангстер", "price": 250_000_000, "photo": "https://iimg.su/i/dk8sE2"},
+    {"name": "Тяги", "price": 67_000_000, "photo": "https://iimg.su/i/sQ6ns5"},
+    {"name": "Модный", "price": 20_000_000, "photo": "https://iimg.su/i/8UkPmY"},
+    {"name": "Романтик2.0", "price": 100_000_000, "photo": "https://iimg.su/i/qryc9I"},
+    {"name": "Романтик", "price": 50_000_000, "photo": "https://iimg.su/i/8l70sn"}
+]
 
 # ========== АДМИНЫ ==========
 ADMINS = {
@@ -90,7 +108,6 @@ def get_db():
     return conn
 
 def init_db():
-    # База данных НЕ УДАЛЯЕТСЯ, только создаётся если её нет
     conn = get_db()
     cursor = conn.cursor()
     
@@ -170,7 +187,16 @@ def init_db():
         )
     ''')
     
-    # ДАННЫЕ БИЗНЕСОВ - вставляем только если их нет
+    # ========== ТАБЛИЦА ДЛЯ МАГАЗИНА ОДЕЖДЫ ==========
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS clothes (
+            user_id INTEGER PRIMARY KEY,
+            item_name TEXT,
+            photo_url TEXT,
+            purchased_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    ''')
+    
     businesses_data = [
         ("🥤 Киоск", 500_000, "🥤", 1_000, 2_000, 60),
         ("🍔 Фастфуд", 5_000_000, "🍔", 2_500, 5_000, 60),
@@ -316,6 +342,21 @@ def get_user_display_name(user_data):
         return user_data[1]
     return "Игрок"
 
+def get_user_display_name_with_clothes(user_id):
+    """Получить отображаемое имя с учётом купленной одежды"""
+    user_data = get_user_profile(user_id)
+    clothes_data = get_user_clothes(user_id)
+    
+    if not user_data:
+        return "Игрок"
+    
+    base_name = get_user_display_name(user_data)
+    
+    if clothes_data:
+        return f"👕 {base_name}"
+    
+    return base_name
+
 def set_custom_name(user_id, name):
     try:
         conn = get_db()
@@ -389,6 +430,44 @@ def find_user_by_input(input_str):
         return get_user_by_username(username)
     else:
         return get_user_by_custom_name(input_str)
+
+# ========== ФУНКЦИИ ДЛЯ МАГАЗИНА ==========
+def get_user_clothes(user_id):
+    """Получить купленную одежду пользователя"""
+    try:
+        conn = get_db()
+        cursor = conn.cursor()
+        cursor.execute('SELECT item_name, photo_url FROM clothes WHERE user_id = ?', (user_id,))
+        clothes = cursor.fetchone()
+        conn.close()
+        return clothes
+    except:
+        return None
+
+def buy_clothes(user_id, item_name, photo_url, price):
+    """Купить одежду"""
+    balance = get_balance(user_id)
+    if balance < price:
+        return False, f"❌ Не хватает {price - balance:,} {CURRENCY}"
+    
+    conn = get_db()
+    cursor = conn.cursor()
+    
+    # Удаляем старую одежду, если была
+    cursor.execute('DELETE FROM clothes WHERE user_id = ?', (user_id,))
+    
+    # Добавляем новую
+    cursor.execute('''
+        INSERT INTO clothes (user_id, item_name, photo_url)
+        VALUES (?, ?, ?)
+    ''', (user_id, item_name, photo_url))
+    
+    # Списываем деньги
+    cursor.execute('UPDATE users SET balance = balance - ? WHERE user_id = ?', (price, user_id))
+    
+    conn.commit()
+    conn.close()
+    return True, f"✅ Ты купил {item_name}!"
 
 # ========== АДМИН КОМАНДЫ ==========
 @bot.message_handler(commands=['adminhelp'])
@@ -610,12 +689,19 @@ def profile_command(message):
         business = get_user_business(target_id)
         business_info = "Нет" if not business else f"{business['business_name']} (ур.{business['level']})"
         
+        # Получаем купленную одежду
+        clothes = get_user_clothes(target_id)
+        clothes_info = "Нет" if not clothes else clothes[0]
+        
         display_name = get_user_display_name(user_data)
+        if clothes:
+            display_name = f"👕 {display_name}"
         
         msg = f"👤 **ПРОФИЛЬ ПОЛЬЗОВАТЕЛЯ**\n\n"
         msg += f"👤 Отображается как: {display_name}\n"
         msg += f"🆔 ID: `{target_id}`\n"
-        msg += f"⚠️ Варны: {warns}/3\n\n"
+        msg += f"⚠️ Варны: {warns}/3\n"
+        msg += f"👕 Одежда: {clothes_info}\n\n"
         msg += f"💰 Баланс: {balance:,} {CURRENCY}\n"
         msg += f"⭐ Опыт: {exp}\n"
         msg += f"📈 Уровень: {level}\n"
@@ -690,7 +776,10 @@ def admin_list(message):
         try:
             user_data = get_user_profile(admin_id)
             if user_data:
+                clothes = get_user_clothes(admin_id)
                 display = get_user_display_name((user_data[0], user_data[1], user_data[2], user_data[3], 0))
+                if clothes:
+                    display = f"👕 {display}"
                 admins_info.append(f"• {display} - уровень {level} (`{admin_id}`)")
             else:
                 admins_info.append(f"• Админ с ID: `{admin_id}` - уровень {level}")
@@ -730,6 +819,7 @@ def reset_account(message):
         
         cursor.execute('DELETE FROM businesses WHERE user_id = ?', (target_id,))
         cursor.execute('DELETE FROM deliveries WHERE user_id = ?', (target_id,))
+        cursor.execute('DELETE FROM clothes WHERE user_id = ?', (target_id,))
         
         cursor.execute('''
             UPDATE users 
@@ -1026,6 +1116,35 @@ def set_admin_level_command(message):
     except Exception as e:
         bot.reply_to(message, f"❌ Ошибка: {e}")
 
+@bot.message_handler(commands=['top'])
+def top_command(message):
+    user_id = message.from_user.id
+    
+    try:
+        conn = get_db()
+        cursor = conn.cursor()
+        cursor.execute('SELECT user_id, custom_name, first_name, username, balance FROM users ORDER BY balance DESC LIMIT 10')
+        top = cursor.fetchall()
+        conn.close()
+        
+        msg = "🏆 **ТОП 10 БОГАЧЕЙ**\n\n"
+        for i, (uid, custom, first, username, balance) in enumerate(top, 1):
+            medal = "🥇" if i == 1 else "🥈" if i == 2 else "🥉" if i == 3 else f"{i}."
+            
+            # Получаем одежду пользователя
+            clothes = get_user_clothes(uid)
+            fake_data = (uid, first, username, custom, 0)
+            display = get_user_display_name(fake_data)
+            if clothes:
+                display = f"👕 {display}"
+            
+            msg += f"{medal} {display}: {balance:,} {CURRENCY}\n"
+        
+        bot.send_message(user_id, msg, parse_mode="Markdown")
+    except Exception as e:
+        print(f"Ошибка топа: {e}")
+        bot.send_message(user_id, "❌ Ошибка загрузки топа")
+
 # ========== КЛАВИАТУРЫ ==========
 def main_keyboard():
     markup = types.ReplyKeyboardMarkup(row_width=2, resize_keyboard=True)
@@ -1034,16 +1153,15 @@ def main_keyboard():
         types.KeyboardButton("🏭 Бизнесы")
     )
     markup.row(
-        types.KeyboardButton("💰 Баланс"),
-        types.KeyboardButton("📊 Статистика")
-    )
-    markup.row(
-        types.KeyboardButton("👥 Рефералы"),
-        types.KeyboardButton("🏆 Топ 10")
+        types.KeyboardButton("📊 Статистика"),
+        types.KeyboardButton("👥 Рефералы")
     )
     markup.row(
         types.KeyboardButton("🎁 Ежедневно"),
         types.KeyboardButton("⚙️ Настройки")
+    )
+    markup.row(
+        types.KeyboardButton("🔄 Магазин")
     )
     return markup
 
@@ -1100,6 +1218,33 @@ def settings_keyboard():
     markup.row(
         types.KeyboardButton("🔙 Назад")
     )
+    return markup
+
+def shop_keyboard(current_index, total_items):
+    markup = types.InlineKeyboardMarkup(row_width=3)
+    
+    # Кнопки навигации
+    nav_buttons = []
+    if current_index > 0:
+        nav_buttons.append(types.InlineKeyboardButton("◀️", callback_data=f"shop_prev_{current_index}"))
+    else:
+        nav_buttons.append(types.InlineKeyboardButton("⬅️", callback_data="noop"))
+    
+    nav_buttons.append(types.InlineKeyboardButton(f"{current_index+1}/{total_items}", callback_data="noop"))
+    
+    if current_index < total_items - 1:
+        nav_buttons.append(types.InlineKeyboardButton("▶️", callback_data=f"shop_next_{current_index}"))
+    else:
+        nav_buttons.append(types.InlineKeyboardButton("➡️", callback_data="noop"))
+    
+    markup.row(*nav_buttons)
+    
+    # Кнопка покупки
+    markup.row(
+        types.InlineKeyboardButton("✅ Купить", callback_data=f"shop_buy_{current_index}"),
+        types.InlineKeyboardButton("❌ Отмена", callback_data="shop_cancel")
+    )
+    
     return markup
 
 # ========== СТАРТ ==========
@@ -1269,6 +1414,81 @@ def change_nickname_step(message):
         )
         bot.register_next_step_handler(message, change_nickname_step)
 
+# ========== ОБРАБОТЧИК МАГАЗИНА ==========
+def show_shop_item(user_id, index):
+    """Показать товар в магазине"""
+    item = SHOP_ITEMS[index]
+    caption = (
+        f"🛍️ **Магазин одежды**\n\n"
+        f"**{item['name']}**\n"
+        f"💰 Цена: {item['price']:,} {CURRENCY}\n\n"
+        f"Нажми ✅ Купить, чтобы приобрести этот стиль!"
+    )
+    
+    keyboard = shop_keyboard(index, len(SHOP_ITEMS))
+    
+    try:
+        bot.send_photo(
+            user_id,
+            item['photo'],
+            caption=caption,
+            parse_mode="Markdown",
+            reply_markup=keyboard
+        )
+    except Exception as e:
+        print(f"Ошибка отправки фото: {e}")
+        bot.send_message(
+            user_id,
+            f"❌ Не удалось загрузить фото товара.\n\n{caption}",
+            parse_mode="Markdown",
+            reply_markup=keyboard
+        )
+
+@bot.callback_query_handler(func=lambda call: True)
+def shop_callback(call):
+    user_id = call.from_user.id
+    data = call.data
+    
+    if data == "noop":
+        bot.answer_callback_query(call.id)
+        return
+    
+    if data.startswith("shop_prev_"):
+        # Удаляем старое сообщение с фото
+        bot.delete_message(user_id, call.message.message_id)
+        # Показываем предыдущий товар
+        current = int(data.split("_")[2])
+        show_shop_item(user_id, current - 1)
+        bot.answer_callback_query(call.id)
+    
+    elif data.startswith("shop_next_"):
+        bot.delete_message(user_id, call.message.message_id)
+        current = int(data.split("_")[2])
+        show_shop_item(user_id, current + 1)
+        bot.answer_callback_query(call.id)
+    
+    elif data.startswith("shop_buy_"):
+        index = int(data.split("_")[2])
+        item = SHOP_ITEMS[index]
+        
+        success, msg = buy_clothes(user_id, item['name'], item['photo'], item['price'])
+        bot.answer_callback_query(call.id, msg, show_alert=True)
+        
+        if success:
+            # Обновляем сообщение после покупки
+            bot.edit_message_caption(
+                chat_id=user_id,
+                message_id=call.message.message_id,
+                caption=f"✅ **Покупка совершена!**\n\nТы приобрёл **{item['name']}**!\nОн уже на тебе в профиле.",
+                parse_mode="Markdown",
+                reply_markup=None
+            )
+    
+    elif data == "shop_cancel":
+        bot.delete_message(user_id, call.message.message_id)
+        bot.send_message(user_id, "🚪 Выход из магазина", reply_markup=main_keyboard())
+        bot.answer_callback_query(call.id)
+
 # ========== ОСНОВНОЙ ОБРАБОТЧИК ==========
 @bot.message_handler(func=lambda message: True)
 def handle(message):
@@ -1296,7 +1516,7 @@ def handle(message):
         pass
     
     user_data = get_user_profile(user_id)
-    display_name = get_user_display_name(user_data) if user_data else "Игрок"
+    display_name = get_user_display_name_with_clothes(user_id)
     
     # ===== ГЛАВНОЕ МЕНЮ =====
     if text == "💼 Работы":
@@ -1304,11 +1524,6 @@ def handle(message):
     
     elif text == "🏭 Бизнесы":
         bot.send_message(user_id, "🏪 Управление бизнесом:", reply_markup=businesses_main_keyboard())
-    
-    elif text == "💰 Баланс":
-        balance = get_balance(user_id)
-        exp = get_user_stats(user_id)[0]
-        bot.send_message(user_id, f"💰 Баланс: {balance:,} {CURRENCY}\n⭐ Опыт: {exp}")
     
     elif text == "📊 Статистика":
         exp, level, work_count, total = get_user_stats(user_id)
@@ -1327,28 +1542,6 @@ def handle(message):
         msg += f"🔗 Твоя ссылка:\n{link}\n\n"
         msg += f"💡 Приглашай друзей и получай бонусы!"
         bot.send_message(user_id, msg, parse_mode="Markdown")
-    
-    elif text == "🏆 Топ 10":
-        try:
-            conn = get_db()
-            cursor = conn.cursor()
-            cursor.execute('SELECT user_id, custom_name, first_name, username, balance FROM users ORDER BY balance DESC LIMIT 10')
-            top = cursor.fetchall()
-            conn.close()
-            
-            msg = "🏆 **ТОП 10 БОГАЧЕЙ**\n\n"
-            for i, (uid, custom, first, username, balance) in enumerate(top, 1):
-                medal = "🥇" if i == 1 else "🥈" if i == 2 else "🥉" if i == 3 else f"{i}."
-                
-                fake_data = (uid, first, username, custom, 0)
-                display = get_user_display_name(fake_data)
-                
-                msg += f"{medal} {display}: {balance:,} {CURRENCY}\n"
-            
-            bot.send_message(user_id, msg, parse_mode="Markdown")
-        except Exception as e:
-            print(f"Ошибка топа: {e}")
-            bot.send_message(user_id, "❌ Ошибка загрузки топа")
     
     elif text == "🎁 Ежедневно":
         try:
@@ -1434,7 +1627,12 @@ def handle(message):
             "• За каждого друга бонус 100💰 и 50⭐\n\n"
             
             "🏆 **ТОП 10**\n"
-            "• Соревнуйся с другими игроками\n\n"
+            "• Соревнуйся с другими игроками (команда /top)\n\n"
+            
+            "🛍️ **МАГАЗИН**\n"
+            "• Покупай уникальную одежду\n"
+            "• Одежда отображается в профиле и топе\n"
+            "• Можно менять образ в любое время\n\n"
             
             "🎁 **ЕЖЕДНЕВНЫЙ БОНУС**\n"
             "• Получай бонус раз в 24 часа\n"
@@ -1443,18 +1641,15 @@ def handle(message):
         )
         bot.send_message(user_id, help_text, parse_mode="Markdown")
     
-    elif text == "❓ Помощь":
-        help_text = "🤖 **ПОМОЩЬ**\n\n"
-        help_text += "💼 Работы - зарабатывай деньги и опыт (открываются с опытом)\n"
-        help_text += "🏭 Бизнесы - управление бизнесом\n"
-        help_text += "💰 Баланс - проверить деньги\n"
-        help_text += "📊 Статистика - твои показатели\n"
-        help_text += "👥 Рефералы - приглашай друзей\n"
-        help_text += "🏆 Топ 10 - лучшие игроки\n"
-        help_text += "🎁 Ежедневно - бонус каждый день\n"
-        help_text += "⚙️ Настройки - изменить никнейм и полная помощь"
-        
-        bot.send_message(user_id, help_text, parse_mode="Markdown")
+    elif text == "🔄 Магазин":
+        welcome_text = (
+            "🛍️ **Добро пожаловать в магазин одежды!**\n\n"
+            "Мы подобрали самые лучшие и красивые комплекты одежды.\n"
+            "Выберите понравившийся и нажмите **✅ Купить**.\n\n"
+            "При покупке одежда сразу надевается на вашего персонажа!"
+        )
+        bot.send_message(user_id, welcome_text, parse_mode="Markdown")
+        show_shop_item(user_id, 0)
     
     # ===== РАБОТЫ =====
     elif any(job in text for job in ["🚚 Грузчик", "🧹 Уборщик", "📦 Курьер", "🔧 Механик", "💻 Программист", "🕵️ Детектив", "👨‍🔧 Инженер", "👨‍⚕️ Врач", "👨‍🎤 Артист", "👨‍🚀 Космонавт"]):
@@ -1667,7 +1862,7 @@ def handle(message):
     elif text == "🔙 Назад":
         # Получаем данные пользователя
         user_data = get_user_profile(user_id)
-        display_name = get_user_display_name(user_data) if user_data else "Игрок"
+        display_name = get_user_display_name_with_clothes(user_id)
         balance = get_balance(user_id)
         
         # Формируем текст приветствия
