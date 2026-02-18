@@ -34,52 +34,11 @@ if DB_PATH is None:
     DB_PATH = 'bot.db'
     print("⚠️ Постоянное хранилище не найдено, использую локальную БД")
 
-# ========== АДМИНЫ ==========
-ADMINS = {
-    5596589260: 4
-}
-
-# ========== БАНЫ И ВАРНЫ ==========
-BANS = {}
-WARNS = {}
+# ========== ГЛОБАЛЬНЫЕ ПЕРЕМЕННЫЕ (КЭШ) ==========
+ADMINS = {}  # Будет загружено из БД
+BANS = {}    # Будет загружено из БД
+WARNS = {}   # Будет загружено из БД
 MAX_WARNS = 3
-BAN_WARN_DAYS = 30
-
-def get_admin_level(user_id):
-    return ADMINS.get(user_id, 0)
-
-def is_admin(user_id, required_level=1):
-    return get_admin_level(user_id) >= required_level
-
-def add_admin(user_id, level):
-    if user_id in ADMINS:
-        return False, "❌ Пользователь уже админ"
-    ADMINS[user_id] = level
-    return True, f"✅ Пользователь назначен админом {level} уровня"
-
-def is_banned(user_id):
-    if user_id in BANS:
-        ban_info = BANS[user_id]
-        if ban_info['until'] == 0:
-            return True
-        elif datetime.now().timestamp() < ban_info['until']:
-            return True
-        else:
-            del BANS[user_id]
-    return False
-
-def add_warn(user_id):
-    global WARNS
-    current = WARNS.get(user_id, 0) + 1
-    WARNS[user_id] = current
-    
-    if current >= MAX_WARNS:
-        ban_time = datetime.now() + timedelta(days=30)
-        BANS[user_id] = {'reason': 'warn', 'until': ban_time.timestamp()}
-        WARNS[user_id] = 0
-        return True, f"❌ Получен 3 варн! Бан на 30 дней."
-    
-    return False, f"⚠️ Варн {current}/{MAX_WARNS}"
 
 # ========== БАЗА ДАННЫХ ==========
 def get_db():
@@ -184,7 +143,7 @@ def init_db():
         )
     ''')
     
-    # ========== НОВЫЕ ТАБЛИЦЫ ДЛЯ ГОРОДОВ ==========
+    # ========== ТАБЛИЦЫ ДЛЯ ГОРОДОВ ==========
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS cities (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -207,6 +166,35 @@ def init_db():
             completed INTEGER DEFAULT 0
         )
     ''')
+    
+    # ========== ТАБЛИЦЫ ДЛЯ АДМИНОВ, БАНОВ И ВАРНОВ ==========
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS admins (
+            user_id INTEGER PRIMARY KEY,
+            level INTEGER DEFAULT 1,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    ''')
+    
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS bans (
+            user_id INTEGER PRIMARY KEY,
+            reason TEXT,
+            until REAL,
+            banned_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    ''')
+    
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS warns (
+            user_id INTEGER PRIMARY KEY,
+            count INTEGER DEFAULT 0,
+            last_warn TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    ''')
+    
+    # Добавляем главного админа
+    cursor.execute('INSERT OR IGNORE INTO admins (user_id, level) VALUES (?, ?)', (5596589260, 4))
     
     # Заполняем города
     cursor.execute('SELECT COUNT(*) FROM cities')
@@ -287,7 +275,302 @@ def init_db():
     print("🏙️ Система городов активирована!")
     print("👕 Магазин одежды загружен с 16 комплектами!")
 
+# ========== ЗАГРУЗКА ДАННЫХ ИЗ БД ==========
+def load_admins_from_db():
+    """Загружает админов из БД"""
+    try:
+        conn = get_db()
+        cursor = conn.cursor()
+        admins = cursor.execute('SELECT user_id, level FROM admins').fetchall()
+        conn.close()
+        
+        admin_dict = {}
+        for admin in admins:
+            admin_dict[admin['user_id']] = admin['level']
+        return admin_dict
+    except Exception as e:
+        print(f"Ошибка загрузки админов: {e}")
+        return {5596589260: 4}
+
+def load_bans_from_db():
+    """Загружает баны из БД"""
+    try:
+        conn = get_db()
+        cursor = conn.cursor()
+        bans = cursor.execute('SELECT user_id, reason, until FROM bans').fetchall()
+        conn.close()
+        
+        ban_dict = {}
+        for ban in bans:
+            ban_dict[ban['user_id']] = {
+                'reason': ban['reason'],
+                'until': ban['until']
+            }
+        return ban_dict
+    except Exception as e:
+        print(f"Ошибка загрузки банов: {e}")
+        return {}
+
+def load_warns_from_db():
+    """Загружает варны из БД"""
+    try:
+        conn = get_db()
+        cursor = conn.cursor()
+        warns = cursor.execute('SELECT user_id, count FROM warns').fetchall()
+        conn.close()
+        
+        warn_dict = {}
+        for warn in warns:
+            warn_dict[warn['user_id']] = warn['count']
+        return warn_dict
+    except Exception as e:
+        print(f"Ошибка загрузки варнов: {e}")
+        return {}
+
+# Инициализация БД и загрузка данных
 init_db()
+ADMINS = load_admins_from_db()
+BANS = load_bans_from_db()
+WARNS = load_warns_from_db()
+
+print(f"👑 Загружено админов: {len(ADMINS)}")
+print(f"🔨 Загружено банов: {len(BANS)}")
+print(f"⚠️ Загружено варнов: {len(WARNS)}")
+
+# ========== ФУНКЦИИ ДЛЯ РАБОТЫ С АДМИНАМИ/БАНАМИ/ВАРНАМИ ==========
+
+def get_admin_level(user_id):
+    """Получает уровень админа"""
+    # Сначала проверяем в памяти (быстрее)
+    if user_id in ADMINS:
+        return ADMINS[user_id]
+    
+    # Если нет в памяти, проверим в БД
+    try:
+        conn = get_db()
+        cursor = conn.cursor()
+        admin = cursor.execute('SELECT level FROM admins WHERE user_id = ?', (user_id,)).fetchone()
+        conn.close()
+        
+        if admin:
+            level = admin['level']
+            ADMINS[user_id] = level  # Сохраняем в память
+            return level
+    except:
+        pass
+    
+    return 0
+
+def is_admin(user_id, required_level=1):
+    return get_admin_level(user_id) >= required_level
+
+def add_admin(user_id, level):
+    """Добавляет админа в БД"""
+    try:
+        conn = get_db()
+        cursor = conn.cursor()
+        
+        # Проверяем, есть ли уже
+        existing = cursor.execute('SELECT user_id FROM admins WHERE user_id = ?', (user_id,)).fetchone()
+        
+        if existing:
+            conn.close()
+            return False, "❌ Пользователь уже админ"
+        
+        # Добавляем в БД
+        cursor.execute('INSERT INTO admins (user_id, level) VALUES (?, ?)', (user_id, level))
+        conn.commit()
+        conn.close()
+        
+        # Обновляем кэш в памяти
+        ADMINS[user_id] = level
+        
+        return True, f"✅ Пользователь назначен админом {level} уровня"
+    except Exception as e:
+        print(f"Ошибка добавления админа: {e}")
+        return False, "❌ Ошибка при добавлении админа"
+
+def remove_admin(user_id):
+    """Удаляет админа из БД"""
+    try:
+        conn = get_db()
+        cursor = conn.cursor()
+        cursor.execute('DELETE FROM admins WHERE user_id = ?', (user_id,))
+        conn.commit()
+        conn.close()
+        
+        # Удаляем из кэша
+        if user_id in ADMINS:
+            del ADMINS[user_id]
+        
+        return True
+    except Exception as e:
+        print(f"Ошибка удаления админа: {e}")
+        return False
+
+def set_admin_level(user_id, level):
+    """Изменяет уровень админа"""
+    try:
+        conn = get_db()
+        cursor = conn.cursor()
+        cursor.execute('UPDATE admins SET level = ? WHERE user_id = ?', (level, user_id))
+        conn.commit()
+        conn.close()
+        
+        # Обновляем кэш
+        ADMINS[user_id] = level
+        
+        return True
+    except Exception as e:
+        print(f"Ошибка изменения уровня админа: {e}")
+        return False
+
+def is_banned(user_id):
+    """Проверяет, забанен ли пользователь"""
+    # Проверяем в памяти
+    if user_id in BANS:
+        ban_info = BANS[user_id]
+        if ban_info['until'] == 0:
+            return True
+        elif datetime.now().timestamp() < ban_info['until']:
+            return True
+        else:
+            # Бан истек - удаляем
+            del BANS[user_id]
+            # Удаляем из БД
+            try:
+                conn = get_db()
+                cursor = conn.cursor()
+                cursor.execute('DELETE FROM bans WHERE user_id = ?', (user_id,))
+                conn.commit()
+                conn.close()
+            except:
+                pass
+            return False
+    
+    # Если нет в памяти, проверим в БД
+    try:
+        conn = get_db()
+        cursor = conn.cursor()
+        ban = cursor.execute('SELECT until FROM bans WHERE user_id = ?', (user_id,)).fetchone()
+        conn.close()
+        
+        if ban:
+            until = ban['until']
+            if until == 0:
+                BANS[user_id] = {'reason': 'unknown', 'until': 0}
+                return True
+            elif datetime.now().timestamp() < until:
+                BANS[user_id] = {'reason': 'unknown', 'until': until}
+                return True
+            else:
+                # Бан истек - удаляем
+                conn = get_db()
+                cursor = conn.cursor()
+                cursor.execute('DELETE FROM bans WHERE user_id = ?', (user_id,))
+                conn.commit()
+                conn.close()
+    except:
+        pass
+    
+    return False
+
+def add_ban(user_id, hours=0, reason="admin"):
+    """Добавляет бан в БД"""
+    try:
+        conn = get_db()
+        cursor = conn.cursor()
+        
+        until = 0 if hours == 0 else (datetime.now() + timedelta(hours=hours)).timestamp()
+        
+        # Удаляем старый бан если был
+        cursor.execute('DELETE FROM bans WHERE user_id = ?', (user_id,))
+        
+        # Добавляем новый
+        cursor.execute('INSERT INTO bans (user_id, reason, until) VALUES (?, ?, ?)', 
+                      (user_id, reason, until))
+        conn.commit()
+        conn.close()
+        
+        # Обновляем кэш
+        BANS[user_id] = {'reason': reason, 'until': until}
+        
+        return True
+    except Exception as e:
+        print(f"Ошибка добавления бана: {e}")
+        return False
+
+def remove_ban(user_id):
+    """Снимает бан"""
+    try:
+        conn = get_db()
+        cursor = conn.cursor()
+        cursor.execute('DELETE FROM bans WHERE user_id = ?', (user_id,))
+        conn.commit()
+        conn.close()
+        
+        # Удаляем из кэша
+        if user_id in BANS:
+            del BANS[user_id]
+        
+        return True
+    except Exception as e:
+        print(f"Ошибка снятия бана: {e}")
+        return False
+
+def add_warn(user_id):
+    """Добавляет варн"""
+    try:
+        current = WARNS.get(user_id, 0) + 1
+        
+        conn = get_db()
+        cursor = conn.cursor()
+        
+        # Обновляем в БД
+        cursor.execute('INSERT OR REPLACE INTO warns (user_id, count, last_warn) VALUES (?, ?, ?)', 
+                      (user_id, current, datetime.now().isoformat()))
+        conn.commit()
+        conn.close()
+        
+        # Обновляем кэш
+        WARNS[user_id] = current
+        
+        if current >= MAX_WARNS:
+            # Баним на 30 дней
+            add_ban(user_id, hours=24*30, reason="warn")
+            # Сбрасываем варны
+            WARNS[user_id] = 0
+            conn = get_db()
+            cursor = conn.cursor()
+            cursor.execute('UPDATE warns SET count = 0 WHERE user_id = ?', (user_id,))
+            conn.commit()
+            conn.close()
+            return True, f"❌ Получен 3 варн! Бан на 30 дней."
+        
+        return False, f"⚠️ Варн {current}/{MAX_WARNS}"
+    except Exception as e:
+        print(f"Ошибка добавления варна: {e}")
+        return False, "❌ Ошибка при добавлении варна"
+
+def get_warns(user_id):
+    """Получает количество варнов"""
+    if user_id in WARNS:
+        return WARNS[user_id]
+    
+    # Проверяем в БД
+    try:
+        conn = get_db()
+        cursor = conn.cursor()
+        warn = cursor.execute('SELECT count FROM warns WHERE user_id = ?', (user_id,)).fetchone()
+        conn.close()
+        
+        if warn:
+            WARNS[user_id] = warn['count']
+            return warn['count']
+    except:
+        pass
+    
+    return 0
 
 # ========== ФУНКЦИИ ==========
 def add_balance(user_id, amount):
@@ -469,7 +752,7 @@ def find_user_by_input(input_str):
     else:
         return get_user_by_custom_name(input_str)
 
-# ========== НОВЫЕ ФУНКЦИИ ДЛЯ ГОРОДОВ ==========
+# ========== ФУНКЦИИ ДЛЯ ГОРОДОВ ==========
 
 def get_user_city(user_id):
     """Получает текущий город пользователя"""
@@ -946,8 +1229,10 @@ def profile_command(message):
         equipped_clothes = get_user_equipped_clothes(target_id)
         clothes_info = "Нет" if not equipped_clothes else f"{equipped_clothes['name']}"
         
-        # Получаем город
+        # Получаем город и транспорт
         current_city = get_user_city(target_id)
+        has_car = "Да" if user_data[14] else "Нет"  # Индекс 14 - has_car
+        has_plane = "Да" if user_data[15] else "Нет"  # Индекс 15 - has_plane
         
         display_name = get_user_display_name(user_data)
         
@@ -956,7 +1241,9 @@ def profile_command(message):
         msg += f"🆔 ID: `{target_id}`\n"
         msg += f"⚠️ Варны: {warns}/3\n"
         msg += f"👕 Одежда: {clothes_info}\n"
-        msg += f"📍 Город: {current_city}\n\n"
+        msg += f"📍 Город: {current_city}\n"
+        msg += f"🚗 Машина: {has_car}\n"
+        msg += f"✈️ Самолет: {has_plane}\n\n"
         msg += f"💰 Баланс: {balance:,} {CURRENCY}\n"
         msg += f"⭐ Опыт: {exp}\n"
         msg += f"📈 Уровень: {level}\n"
@@ -1073,6 +1360,8 @@ def reset_account(message):
         cursor.execute('DELETE FROM deliveries WHERE user_id = ?', (target_id,))
         cursor.execute('DELETE FROM user_clothes WHERE user_id = ?', (target_id,))
         cursor.execute('DELETE FROM travels WHERE user_id = ?', (target_id,))
+        cursor.execute('DELETE FROM warns WHERE user_id = ?', (target_id,))
+        cursor.execute('DELETE FROM bans WHERE user_id = ?', (target_id,))
         
         cursor.execute('''
             UPDATE users 
@@ -1084,6 +1373,12 @@ def reset_account(message):
         
         conn.commit()
         conn.close()
+        
+        # Очищаем кэш
+        if target_id in WARNS:
+            del WARNS[target_id]
+        if target_id in BANS:
+            del BANS[target_id]
         
         bot.send_message(target_id, "♻️ Ваш аккаунт был полностью сброшен администратором.")
         bot.reply_to(message, f"✅ Аккаунт {display_name} полностью обнулен")
@@ -1157,16 +1452,12 @@ def ban_user(message):
         target_id = user_data[0]
         display_name = get_user_display_name(user_data)
         
-        if hours == 0:
-            BANS[target_id] = {'reason': 'admin', 'until': 0}
-            ban_text = "навсегда"
+        if add_ban(target_id, hours, "admin"):
+            ban_text = "навсегда" if hours == 0 else f"на {hours} ч."
+            bot.send_message(target_id, f"🔨 Вы забанены администратором {ban_text}")
+            bot.reply_to(message, f"✅ Пользователь {display_name} забанен {ban_text}")
         else:
-            ban_time = datetime.now() + timedelta(hours=hours)
-            BANS[target_id] = {'reason': 'admin', 'until': ban_time.timestamp()}
-            ban_text = f"на {hours} ч."
-        
-        bot.send_message(target_id, f"🔨 Вы забанены администратором {ban_text}")
-        bot.reply_to(message, f"✅ Пользователь {display_name} забанен {ban_text}")
+            bot.reply_to(message, "❌ Ошибка при бане")
         
     except ValueError:
         bot.reply_to(message, "❌ Часы должны быть числом")
@@ -1198,12 +1489,11 @@ def unban_user(message):
         target_id = user_data[0]
         display_name = get_user_display_name(user_data)
         
-        if target_id in BANS:
-            del BANS[target_id]
+        if remove_ban(target_id):
             bot.send_message(target_id, "✅ Вы разбанены администратором")
             bot.reply_to(message, f"✅ Пользователь {display_name} разбанен")
         else:
-            bot.reply_to(message, f"❌ Пользователь не в бане")
+            bot.reply_to(message, f"❌ Ошибка при разбане")
         
     except Exception as e:
         bot.reply_to(message, f"❌ Ошибка: {e}")
@@ -1233,21 +1523,10 @@ def warn_user(message):
         target_id = user_data[0]
         display_name = get_user_display_name(user_data)
         
-        banned, msg = add_warn(target_id)
+        banned, msg_text = add_warn(target_id)
         
-        conn = get_db()
-        cursor = conn.cursor()
-        cursor.execute('UPDATE users SET warns = ? WHERE user_id = ?', (WARNS.get(target_id, 0), target_id))
-        
-        if banned:
-            ban_until = datetime.fromtimestamp(BANS[target_id]['until']).isoformat() if BANS[target_id]['until'] != 0 else "forever"
-            cursor.execute('UPDATE users SET banned_until = ? WHERE user_id = ?', (ban_until, target_id))
-        
-        conn.commit()
-        conn.close()
-        
-        bot.send_message(target_id, msg)
-        bot.reply_to(message, f"✅ Варн выдан {display_name}\n{msg}")
+        bot.send_message(target_id, msg_text)
+        bot.reply_to(message, f"✅ Варн выдан {display_name}\n{msg_text}")
         
     except Exception as e:
         bot.reply_to(message, f"❌ Ошибка: {e}")
@@ -1276,7 +1555,7 @@ def show_warns(message):
         
         target_id = user_data[0]
         display_name = get_user_display_name(user_data)
-        warns = user_data[4] or 0
+        warns = get_warns(target_id)
         
         bot.reply_to(message, f"⚠️ У {display_name} {warns}/3 варнов")
         
@@ -1313,12 +1592,11 @@ def remove_admin_command(message):
             bot.reply_to(message, "❌ Нельзя снять права с главного администратора!")
             return
         
-        if target_id in ADMINS:
-            del ADMINS[target_id]
+        if remove_admin(target_id):
             bot.send_message(target_id, "👑 Ваши права администратора были сняты")
             bot.reply_to(message, f"✅ Права администратора сняты с {display_name}")
         else:
-            bot.reply_to(message, f"❌ Пользователь не является администратором")
+            bot.reply_to(message, f"❌ Ошибка при снятии прав")
             
     except Exception as e:
         bot.reply_to(message, f"❌ Ошибка: {e}")
@@ -1358,8 +1636,7 @@ def set_admin_level_command(message):
             bot.reply_to(message, "❌ Нельзя изменить уровень главного администратора!")
             return
         
-        if target_id in ADMINS:
-            ADMINS[target_id] = level
+        if set_admin_level(target_id, level):
             bot.send_message(target_id, f"👑 Ваш уровень администратора изменен на {level}")
             bot.reply_to(message, f"✅ Уровень администратора {display_name} изменен на {level}")
         else:
@@ -1449,7 +1726,7 @@ def main_keyboard():
     )
     markup.row(
         types.KeyboardButton("📊 Статистика"),
-        types.KeyboardButton("🏙️ ГОРОДА")  # Вместо рефералов
+        types.KeyboardButton("🏙️ ГОРОДА")
     )
     markup.row(
         types.KeyboardButton("🎁 Ежедневно"),
@@ -2080,7 +2357,8 @@ def handle(message):
             "• Можно путешествовать между 4 городами\n"
             "• В каждом городе свои магазины\n"
             "• Время в пути: 30-60 секунд\n"
-            "• Транспорт: Такси, Личная машина, Личный самолет\n\n"
+            "• Транспорт: Такси, Личная машина, Личный самолет\n"
+            "• Для машины и самолета нужно их купить\n\n"
             "👕 **МАГАЗИН ОДЕЖДЫ**\n"
             "• Покупай крутые комплекты одежды\n"
             "• При покупке комплект сразу надевается\n"
@@ -2349,7 +2627,43 @@ def process_travel(message, target_city):
         send_main_menu_with_profile(user_id)
         return
     
-    # Начинаем поездку
+    # Получаем данные пользователя для проверки наличия транспорта
+    conn = get_db()
+    cursor = conn.cursor()
+    user = cursor.execute('SELECT has_car, has_plane FROM users WHERE user_id = ?', (user_id,)).fetchone()
+    conn.close()
+    
+    # Проверяем наличие машины
+    if transport == "🚗 Личная машина" and (not user or user['has_car'] == 0):
+        bot.send_message(
+            user_id, 
+            "❌ У вас нет личной машины!\n"
+            "🚕 Можете воспользоваться такси или купить машину позже."
+        )
+        # Возвращаем к выбору транспорта
+        bot.send_message(
+            user_id,
+            f"🚀 Выбери транспорт для поездки в {target_city}:",
+            reply_markup=transport_keyboard(target_city)
+        )
+        return
+    
+    # Проверяем наличие самолета
+    if transport == "✈️ Личный самолет" and (not user or user['has_plane'] == 0):
+        bot.send_message(
+            user_id, 
+            "❌ У вас нет личного самолета!\n"
+            "🚕 Можете воспользоваться такси или купить самолет позже."
+        )
+        # Возвращаем к выбору транспорта
+        bot.send_message(
+            user_id,
+            f"🚀 Выбери транспорт для поездки в {target_city}:",
+            reply_markup=transport_keyboard(target_city)
+        )
+        return
+    
+    # Если всё ок - начинаем поездку
     success, msg = start_travel(user_id, target_city, transport)
     
     if success:
@@ -2403,7 +2717,7 @@ def check_travels():
                 conn.commit()
             
             conn.close()
-            time.sleep(5)  # Проверяем каждые 5 секунд
+            time.sleep(5)
         except Exception as e:
             print(f"Ошибка проверки поездок: {e}")
             time.sleep(5)
@@ -2529,7 +2843,9 @@ def keep_alive():
 
 keep_alive()
 print("✅ Бот запущен!")
-print(f"👑 Главный админ ID: 5596589260 (уровень 4)")
+print(f"👑 Загружено админов: {len(ADMINS)}")
+print(f"🔨 Загружено банов: {len(BANS)}")
+print(f"⚠️ Загружено варнов: {len(WARNS)}")
 print("🏙️ Система городов активна! 4 города ждут путешественников!")
 print("👕 Магазин одежды загружен с 16 комплектами!")
 print("📌 Админ команды: /adminhelp")
