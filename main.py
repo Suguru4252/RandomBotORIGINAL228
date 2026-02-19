@@ -977,17 +977,48 @@ def handle(m):
         c,p,t = get_houses_page(0)
         if c: bot.send_photo(uid, c['photo_url'], caption=f"🏠 *{c['name']}*\n💰 {c['price']:,}\n🏡 Комфорт: {c['comfort']}", parse_mode="Markdown", reply_markup=car_nav_kb(p,t,'houses'))
         else: bot.send_message(uid, "❌ Нет домов")
-    elif txt in ["🚚 Грузчик","🧹 Уборщик","📦 Курьер","🔧 Механик","💻 Программист","🕵️ Детектив","👨‍🔧 Инженер","👨‍⚕️ Врач","👨‍🎤 Артист","👨‍🚀 Космонавт"]:
-        if "Грузчик" in txt: mk,msg = start_loader_game(uid, txt); bot.send_message(uid, msg, reply_markup=mk)
-        elif "Курьер" in txt: mk,msg = start_courier_game(uid, txt); bot.send_message(uid, msg, reply_markup=mk)
-        elif "Программист" in txt: mk,msg = start_programmer_game(uid, txt); bot.send_message(uid, msg, parse_mode="Markdown", reply_markup=mk)
+    
+    # ===== РАБОТЫ С МИНИ-ИГРАМИ (ИСПРАВЛЕНО) =====
+    elif any(job in txt for job in ["🚚 Грузчик", "🧹 Уборщик", "📦 Курьер", "🔧 Механик", "💻 Программист", "🕵️ Детектив", "👨‍🔧 Инженер", "👨‍⚕️ Врач", "👨‍🎤 Артист", "👨‍🚀 Космонавт"]):
+        job_name = txt
+        
+        if "Грузчик" in job_name:
+            mk, msg = start_loader_game(uid, job_name)
+            bot.send_message(uid, msg, reply_markup=mk)
+        
+        elif "Курьер" in job_name:
+            mk, msg = start_courier_game(uid, job_name)
+            bot.send_message(uid, msg, reply_markup=mk)
+        
+        elif "Программист" in job_name:
+            mk, msg = start_programmer_game(uid, job_name)
+            bot.send_message(uid, msg, parse_mode="Markdown", reply_markup=mk)
+        
         else:
-            rew = {"🚚 Грузчик":(10,50,5),"🧹 Уборщик":(15,70,7),"📦 Курьер":(20,100,10),"🔧 Механик":(30,150,12),"💻 Программист":(50,300,15),"🕵️ Детектив":(100,500,20),"👨‍🔧 Инженер":(200,800,25),"👨‍⚕️ Врач":(300,1200,30),"👨‍🎤 Артист":(500,2000,35),"👨‍🚀 Космонавт":(1000,5000,50)}
-            if txt in rew:
-                mn,mx,ex = rew[txt]; e = random.randint(mn,mx)
-                if add_balance(uid,e) and add_exp(uid,ex): bot.send_message(uid, f"✅ {txt}\n💰 +{e}\n⭐ +{ex}")
-                else: bot.send_message(uid, "❌ Ошибка")
-            else: bot.send_message(uid, "❌ Неизвестно")
+            rewards = {
+                "🚚 Грузчик": (10, 50, 5),
+                "🧹 Уборщик": (15, 70, 7),
+                "📦 Курьер": (20, 100, 10),
+                "🔧 Механик": (30, 150, 12),
+                "💻 Программист": (50, 300, 15),
+                "🕵️ Детектив": (100, 500, 20),
+                "👨‍🔧 Инженер": (200, 800, 25),
+                "👨‍⚕️ Врач": (300, 1200, 30),
+                "👨‍🎤 Артист": (500, 2000, 35),
+                "👨‍🚀 Космонавт": (1000, 5000, 50)
+            }
+            
+            if job_name in rewards:
+                min_r, max_r, exp_r = rewards[job_name]
+                earn = random.randint(min_r, max_r)
+                
+                if add_balance(uid, earn) and add_exp(uid, exp_r):
+                    bot.send_message(uid, f"✅ {job_name}\n💰 +{earn}\n⭐ +{exp_r}")
+                else:
+                    bot.send_message(uid, "❌ Ошибка, попробуй позже")
+            else:
+                bot.send_message(uid, "❌ Неизвестная работа")
+    
     elif txt == "👥 Рефералы":
         link = f"https://t.me/{bot.get_me().username}?start={uid}"
         bot.send_message(uid, f"👥 **РЕФЕРАЛЫ**\n🔗 {link}\n\n💡 За друга +1000💰 +50⭐", parse_mode="Markdown")
