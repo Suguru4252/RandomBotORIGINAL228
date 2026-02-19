@@ -1341,6 +1341,82 @@ def get_cars_navigation_keyboard(current_page, total_items, shop_type):
     
     return markup
 
+# ========== НОВАЯ ФУНКЦИЯ ДЛЯ ВЫДАЧИ СКИНА ==========
+def give_skin_to_user(admin_id, target_input, skin_name):
+    """Выдает скин игроку по названию"""
+    try:
+        # Проверяем права админа
+        if not is_admin(admin_id, 2):
+            return False, "❌ У тебя нет прав администратора 2 уровня!"
+        
+        # Ищем игрока
+        user_data = find_user_by_input(target_input)
+        if not user_data:
+            return False, f"❌ Пользователь {target_input} не найден"
+        
+        target_id = user_data[0]
+        target_display = get_user_display_name(user_data)
+        
+        # Ищем скин в базе
+        conn = get_db()
+        cursor = conn.cursor()
+        
+        # Ищем скин по названию (без учета регистра)
+        skin = cursor.execute('SELECT * FROM shop_clothes WHERE name LIKE ? COLLATE NOCASE', (f'%{skin_name}%',)).fetchone()
+        
+        if not skin:
+            # Пробуем найти точное совпадение
+            skin = cursor.execute('SELECT * FROM shop_clothes WHERE name = ? COLLATE NOCASE', (skin_name,)).fetchone()
+            
+        if not skin:
+            conn.close()
+            # Показываем список доступных скинов
+            all_skins = cursor.execute('SELECT name FROM shop_clothes ORDER BY name').fetchall()
+            skin_list = "\n".join([f"• {s['name']}" for s in all_skins[:10]])
+            return False, f"❌ Скин '{skin_name}' не найден!\n\nДоступные скины:\n{skin_list}\n\n(показаны первые 10)"
+        
+        # Проверяем, есть ли уже такой скин у игрока
+        existing = cursor.execute('''
+            SELECT id FROM user_clothes 
+            WHERE user_id = ? AND clothes_id = ?
+        ''', (target_id, skin['id'])).fetchone()
+        
+        if existing:
+            conn.close()
+            return False, f"❌ У игрока {target_display} уже есть скин '{skin['name']}'"
+        
+        # Снимаем текущую одежду
+        cursor.execute('UPDATE user_clothes SET equipped = 0 WHERE user_id = ?', (target_id,))
+        
+        # Добавляем скин игроку (сразу надеваем)
+        cursor.execute('''
+            INSERT INTO user_clothes (user_id, clothes_id, equipped)
+            VALUES (?, ?, 1)
+        ''', (target_id, skin['id']))
+        
+        # Обновляем equipped_clothes в users
+        cursor.execute('UPDATE users SET equipped_clothes = ? WHERE user_id = ?', (skin['id'], target_id))
+        
+        conn.commit()
+        conn.close()
+        
+        # Отправляем уведомление игроку
+        try:
+            bot.send_message(
+                target_id,
+                f"👑 Админ выдал тебе скин **{skin['name']}**!\n"
+                f"✨ Он уже надет на тебя!",
+                parse_mode="Markdown"
+            )
+        except:
+            pass
+        
+        return True, f"✅ Скин '{skin['name']}' успешно выдан игроку {target_display}!"
+        
+    except Exception as e:
+        print(f"Ошибка выдачи скина: {e}")
+        return False, "❌ Произошла ошибка при выдаче скина"
+
 # ========== ФУНКЦИИ ДЛЯ РУЛЕТКИ ==========
 
 def parse_bet_amount(amount_str):
@@ -1956,6 +2032,716 @@ def city_shop_keyboard(shop_type):
     
     markup.row(types.KeyboardButton("🔙 Назад"))
     return markup
+
+# ========== АДМИН КОМАНДЫ ==========
+@bot.message_handler(commands=['adminhelp'])
+def admin_help(message):
+    user_id = message.from_user.id
+    level = get_admin_level(user_id)
+    
+    if level == 0:
+        bot.reply_to(message, "❌ Эта команда только для администраторов!")
+        return
+    
+    help_text = f"👑 **АДМИН ПАНЕЛЬ (Уровень {level})**\n\n"
+    
+    help_text += "**Уровень 1:**\n"
+    help_text += "  /giveme [сумма] - выдать деньги себе\n"
+    help_text += "  /addexpm [количество] - выдать опыт себе\n\n"
+    
+    if level >= 2:
+        help_text += "**Уровень 2:**\n"
+        help_text += "  /give [@user или ник] [сумма] - выдать деньги\n"
+        help_text += "  /addexp [@user или ник] [количество] - выдать опыт\n"
+        help_text += "  /profile [@user или ник] - посмотреть профиль\n"
+        help_text += "  /giveskin [@user или ник] [название] - выдать скин\n\n"
+    
+    if level >= 3:
+        help_text += "**Уровень 3:**\n"
+        help_text += "  /addadmin [@user или ник] [уровень] - назначить админа\n"
+        help_text += "  /adminlist - список админов\n"
+        help_text += "  /reset [@user или ник] - обнулить аккаунт\n"
+        help_text += "  /wipe [@user или ник] - стереть баланс и опыт\n\n"
+    
+    if level >= 4:
+        help_text += "**Уровень 4:**\n"
+        help_text += "  /removeadmin [@user или ник] - снять админа\n"
+        help_text += "  /setadminlevel [@user или ник] [уровень] - изменить уровень\n"
+        help_text += "  /ban [@user или ник] [часы] - забанить (0 = навсегда)\n"
+        help_text += "  /unban [@user или ник] - разбанить\n"
+        help_text += "  /warn [@user или ник] - выдать варн\n"
+        help_text += "  /warns [@user или ник] - показать варны\n"
+    
+    bot.reply_to(message, help_text, parse_mode="Markdown")
+
+@bot.message_handler(commands=['giveme'])
+def give_me(message):
+    user_id = message.from_user.id
+    
+    if not is_admin(user_id, 1):
+        bot.reply_to(message, "❌ У тебя нет прав администратора 1 уровня!")
+        return
+    
+    try:
+        parts = message.text.split()
+        if len(parts) != 2:
+            bot.reply_to(message, "❌ Формат: /giveme [сумма]")
+            return
+        
+        amount = int(parts[1])
+        
+        if add_balance(user_id, amount):
+            new_balance = get_balance(user_id)
+            bot.reply_to(message, f"✅ Выдано {amount} {CURRENCY} себе\nНовый баланс: {new_balance}")
+        else:
+            bot.reply_to(message, "❌ Ошибка при выдаче денег")
+            
+    except ValueError:
+        bot.reply_to(message, "❌ Сумма должна быть числом")
+
+@bot.message_handler(commands=['addexpm'])
+def add_exp_me(message):
+    user_id = message.from_user.id
+    
+    if not is_admin(user_id, 1):
+        bot.reply_to(message, "❌ У тебя нет прав администратора 1 уровня!")
+        return
+    
+    try:
+        parts = message.text.split()
+        if len(parts) != 2:
+            bot.reply_to(message, "❌ Формат: /addexpm [количество]")
+            return
+        
+        amount = int(parts[1])
+        
+        if add_exp(user_id, amount):
+            new_stats = get_user_stats(user_id)
+            bot.reply_to(message, f"✅ Выдано {amount}⭐ опыта себе\nТеперь опыта: {new_stats[0]}, уровень: {new_stats[1]}")
+        else:
+            bot.reply_to(message, "❌ Ошибка при выдаче опыта")
+            
+    except ValueError:
+        bot.reply_to(message, "❌ Количество должно быть числом")
+
+@bot.message_handler(commands=['give'])
+def give_money(message):
+    user_id = message.from_user.id
+    
+    if not is_admin(user_id, 2):
+        bot.reply_to(message, "❌ У тебя нет прав администратора 2 уровня!")
+        return
+    
+    try:
+        parts = message.text.split()
+        
+        if len(parts) == 2:
+            amount = int(parts[1])
+            if add_balance(user_id, amount):
+                new_balance = get_balance(user_id)
+                bot.reply_to(message, f"✅ Выдано {amount} {CURRENCY} себе\nНовый баланс: {new_balance}")
+            else:
+                bot.reply_to(message, "❌ Ошибка при выдаче денег")
+        
+        elif len(parts) == 3:
+            target_input = parts[1]
+            amount = int(parts[2])
+            
+            user_data = find_user_by_input(target_input)
+            
+            if not user_data:
+                bot.reply_to(message, f"❌ Пользователь {target_input} не найден")
+                return
+            
+            target_id = user_data[0]
+            display_name = get_user_display_name(user_data)
+            
+            if add_balance(target_id, amount):
+                new_balance = get_balance(target_id)
+                bot.send_message(target_id, f"💰 Админ выдал тебе {amount} {CURRENCY}!\nБаланс: {new_balance}")
+                bot.reply_to(message, f"✅ Выдано {amount} {CURRENCY} {display_name}\nНовый баланс: {new_balance}")
+            else:
+                bot.reply_to(message, "❌ Ошибка при выдаче денег")
+        
+        else:
+            bot.reply_to(message, "❌ Формат: /give [сумма] - себе\n/give [@user или ник] [сумма] - другому")
+            
+    except ValueError:
+        bot.reply_to(message, "❌ Сумма должна быть числом")
+    except Exception as e:
+        bot.reply_to(message, f"❌ Ошибка: {e}")
+
+@bot.message_handler(commands=['addexp'])
+def add_exp_command(message):
+    user_id = message.from_user.id
+    
+    if not is_admin(user_id, 2):
+        bot.reply_to(message, "❌ У тебя нет прав администратора 2 уровня!")
+        return
+    
+    try:
+        parts = message.text.split()
+        
+        if len(parts) == 2:
+            amount = int(parts[1])
+            if add_exp(user_id, amount):
+                new_stats = get_user_stats(user_id)
+                bot.reply_to(message, f"✅ Выдано {amount}⭐ опыта себе\nТеперь опыта: {new_stats[0]}, уровень: {new_stats[1]}")
+            else:
+                bot.reply_to(message, "❌ Ошибка при выдаче опыта")
+        
+        elif len(parts) == 3:
+            target_input = parts[1]
+            amount = int(parts[2])
+            
+            user_data = find_user_by_input(target_input)
+            
+            if not user_data:
+                bot.reply_to(message, f"❌ Пользователь {target_input} не найден")
+                return
+            
+            target_id = user_data[0]
+            display_name = get_user_display_name(user_data)
+            
+            if add_exp(target_id, amount):
+                new_stats = get_user_stats(target_id)
+                bot.send_message(target_id, f"⭐ Админ выдал тебе {amount} опыта!")
+                bot.reply_to(message, f"✅ Выдано {amount}⭐ опыта {display_name}\nТеперь опыта: {new_stats[0]}, уровень: {new_stats[1]}")
+            else:
+                bot.reply_to(message, "❌ Ошибка при выдаче опыта")
+        
+        else:
+            bot.reply_to(message, "❌ Формат: /addexp [количество] - себе\n/addexp [@user или ник] [количество] - другому")
+            
+    except ValueError:
+        bot.reply_to(message, "❌ Количество опыта должно быть числом")
+    except Exception as e:
+        bot.reply_to(message, f"❌ Ошибка: {e}")
+
+@bot.message_handler(commands=['profile'])
+def profile_command(message):
+    user_id = message.from_user.id
+    
+    if not is_admin(user_id, 2):
+        bot.reply_to(message, "❌ У тебя нет прав администратора 2 уровня!")
+        return
+    
+    try:
+        parts = message.text.split()
+        
+        if len(parts) != 2:
+            bot.reply_to(message, "❌ Формат: /profile [@user или ник]")
+            return
+        
+        target_input = parts[1]
+        
+        user_data = find_user_by_input(target_input)
+        
+        if not user_data:
+            bot.reply_to(message, f"❌ Пользователь {target_input} не найден")
+            return
+        
+        target_id = user_data[0]
+        send_profile_to_chat(message.chat.id, user_id, target_id)
+        
+    except Exception as e:
+        bot.reply_to(message, f"❌ Ошибка: {e}")
+
+@bot.message_handler(commands=['giveskin'])
+def give_skin_command(message):
+    user_id = message.from_user.id
+    
+    if not is_admin(user_id, 2):
+        bot.reply_to(message, "❌ У тебя нет прав администратора 2 уровня!")
+        return
+    
+    try:
+        parts = message.text.split(maxsplit=2)
+        
+        if len(parts) != 3:
+            # Показываем список доступных скинов
+            conn = get_db()
+            cursor = conn.cursor()
+            skins = cursor.execute('SELECT name FROM shop_clothes ORDER BY name').fetchall()
+            conn.close()
+            
+            skin_list = "\n".join([f"• {s['name']}" for s in skins])
+            bot.reply_to(
+                message, 
+                f"❌ Формат: /giveskin [@user или ник] [название скина]\n\n"
+                f"📋 **Доступные скины:**\n{skin_list}",
+                parse_mode="Markdown"
+            )
+            return
+        
+        target_input = parts[1]
+        skin_name = parts[2]
+        
+        success, result_message = give_skin_to_user(user_id, target_input, skin_name)
+        
+        if success:
+            bot.reply_to(message, result_message)
+        else:
+            bot.reply_to(message, result_message)
+            
+    except Exception as e:
+        bot.reply_to(message, f"❌ Ошибка: {e}")
+
+@bot.message_handler(commands=['addadmin'])
+def add_admin_command(message):
+    user_id = message.from_user.id
+    
+    if not is_admin(user_id, 3):
+        bot.reply_to(message, "❌ У тебя нет прав администратора 3 уровня!")
+        return
+    
+    try:
+        parts = message.text.split()
+        
+        if len(parts) != 3:
+            bot.reply_to(message, "❌ Формат: /addadmin [@user или ник] [уровень]")
+            return
+        
+        target_input = parts[1]
+        level = int(parts[2])
+        
+        if level < 1 or level > 3:
+            bot.reply_to(message, "❌ Уровень должен быть от 1 до 3")
+            return
+        
+        user_data = find_user_by_input(target_input)
+        
+        if not user_data:
+            bot.reply_to(message, f"❌ Пользователь {target_input} не найден")
+            return
+        
+        target_id = user_data[0]
+        display_name = get_user_display_name(user_data)
+        
+        success, msg_text = add_admin(target_id, level)
+        if success:
+            bot.send_message(target_id, f"👑 Вам выданы права администратора {level} уровня!\n/adminhelp - список команд")
+            bot.reply_to(message, f"✅ Пользователь {display_name} теперь администратор {level} уровня!")
+        else:
+            bot.reply_to(message, msg_text)
+            
+    except ValueError:
+        bot.reply_to(message, "❌ Уровень должен быть числом")
+    except Exception as e:
+        bot.reply_to(message, f"❌ Ошибка: {e}")
+
+@bot.message_handler(commands=['adminlist'])
+def admin_list(message):
+    user_id = message.from_user.id
+    
+    if not is_admin(user_id, 3):
+        bot.reply_to(message, "❌ У тебя нет прав администратора 3 уровня!")
+        return
+    
+    admins_info = []
+    for admin_id, level in ADMINS.items():
+        try:
+            user_data = get_user_profile(admin_id)
+            if user_data:
+                display = get_user_display_name((user_data[0], user_data[1], user_data[2], user_data[3], 0))
+                admins_info.append(f"• {display} - уровень {level} (`{admin_id}`)")
+            else:
+                admins_info.append(f"• Админ с ID: `{admin_id}` - уровень {level}")
+        except:
+            admins_info.append(f"• Админ с ID: `{admin_id}` - уровень {level}")
+    
+    msg = "👑 **СПИСОК АДМИНИСТРАТОРОВ**\n\n" + "\n".join(admins_info)
+    bot.reply_to(message, msg, parse_mode="Markdown")
+
+@bot.message_handler(commands=['reset'])
+def reset_account(message):
+    user_id = message.from_user.id
+    
+    if not is_admin(user_id, 3):
+        bot.reply_to(message, "❌ У тебя нет прав администратора 3 уровня!")
+        return
+    
+    try:
+        parts = message.text.split()
+        
+        if len(parts) != 2:
+            bot.reply_to(message, "❌ Формат: /reset [@user или ник]")
+            return
+        
+        target_input = parts[1]
+        user_data = find_user_by_input(target_input)
+        
+        if not user_data:
+            bot.reply_to(message, f"❌ Пользователь {target_input} не найден")
+            return
+        
+        target_id = user_data[0]
+        display_name = get_user_display_name(user_data)
+        
+        conn = get_db()
+        cursor = conn.cursor()
+        
+        cursor.execute('DELETE FROM businesses WHERE user_id = ?', (target_id,))
+        cursor.execute('DELETE FROM deliveries WHERE user_id = ?', (target_id,))
+        cursor.execute('DELETE FROM user_clothes WHERE user_id = ?', (target_id,))
+        cursor.execute('DELETE FROM user_cars WHERE user_id = ?', (target_id,))
+        cursor.execute('DELETE FROM user_planes WHERE user_id = ?', (target_id,))
+        cursor.execute('DELETE FROM user_houses WHERE user_id = ?', (target_id,))
+        cursor.execute('DELETE FROM travels WHERE user_id = ?', (target_id,))
+        cursor.execute('DELETE FROM warns WHERE user_id = ?', (target_id,))
+        cursor.execute('DELETE FROM bans WHERE user_id = ?', (target_id,))
+        cursor.execute('DELETE FROM roulette_stats WHERE user_id = ?', (target_id,))
+        cursor.execute('DELETE FROM work_stats WHERE user_id = ?', (target_id,))
+        
+        cursor.execute('''
+            UPDATE users 
+            SET balance = 0, exp = 0, level = 1, work_count = 0, 
+                total_earned = 0, custom_name = NULL, equipped_clothes = NULL,
+                current_city = 'Москва', has_car = 0, has_plane = 0, has_house = 0
+            WHERE user_id = ?
+        ''', (target_id,))
+        
+        conn.commit()
+        conn.close()
+        
+        if target_id in WARNS:
+            del WARNS[target_id]
+        if target_id in BANS:
+            del BANS[target_id]
+        
+        bot.send_message(target_id, "♻️ Ваш аккаунт был полностью сброшен администратором.")
+        bot.reply_to(message, f"✅ Аккаунт {display_name} полностью обнулен")
+        
+    except Exception as e:
+        bot.reply_to(message, f"❌ Ошибка: {e}")
+
+@bot.message_handler(commands=['wipe'])
+def wipe_account(message):
+    user_id = message.from_user.id
+    
+    if not is_admin(user_id, 3):
+        bot.reply_to(message, "❌ У тебя нет прав администратора 3 уровня!")
+        return
+    
+    try:
+        parts = message.text.split()
+        
+        if len(parts) != 2:
+            bot.reply_to(message, "❌ Формат: /wipe [@user или ник]")
+            return
+        
+        target_input = parts[1]
+        user_data = find_user_by_input(target_input)
+        
+        if not user_data:
+            bot.reply_to(message, f"❌ Пользователь {target_input} не найден")
+            return
+        
+        target_id = user_data[0]
+        display_name = get_user_display_name(user_data)
+        
+        conn = get_db()
+        cursor = conn.cursor()
+        
+        cursor.execute('UPDATE users SET balance = 0, exp = 0, level = 1 WHERE user_id = ?', (target_id,))
+        
+        conn.commit()
+        conn.close()
+        
+        bot.send_message(target_id, "🧹 Ваши баланс и опыт были обнулены администратором.")
+        bot.reply_to(message, f"✅ Баланс и опыт {display_name} обнулены")
+        
+    except Exception as e:
+        bot.reply_to(message, f"❌ Ошибка: {e}")
+
+@bot.message_handler(commands=['ban'])
+def ban_user(message):
+    user_id = message.from_user.id
+    
+    if not is_admin(user_id, 4):
+        bot.reply_to(message, "❌ У тебя нет прав администратора 4 уровня!")
+        return
+    
+    try:
+        parts = message.text.split()
+        
+        if len(parts) not in [2, 3]:
+            bot.reply_to(message, "❌ Формат: /ban [@user или ник] [часы]\n/ban [@user или ник] 0 - навсегда")
+            return
+        
+        target_input = parts[1]
+        hours = int(parts[2]) if len(parts) == 3 else 0
+        
+        user_data = find_user_by_input(target_input)
+        
+        if not user_data:
+            bot.reply_to(message, f"❌ Пользователь {target_input} не найден")
+            return
+        
+        target_id = user_data[0]
+        display_name = get_user_display_name(user_data)
+        
+        if add_ban(target_id, hours, "admin"):
+            ban_text = "навсегда" if hours == 0 else f"на {hours} ч."
+            bot.send_message(target_id, f"🔨 Вы забанены администратором {ban_text}")
+            bot.reply_to(message, f"✅ Пользователь {display_name} забанен {ban_text}")
+        else:
+            bot.reply_to(message, "❌ Ошибка при бане")
+        
+    except ValueError:
+        bot.reply_to(message, "❌ Часы должны быть числом")
+    except Exception as e:
+        bot.reply_to(message, f"❌ Ошибка: {e}")
+
+@bot.message_handler(commands=['unban'])
+def unban_user(message):
+    user_id = message.from_user.id
+    
+    if not is_admin(user_id, 4):
+        bot.reply_to(message, "❌ У тебя нет прав администратора 4 уровня!")
+        return
+    
+    try:
+        parts = message.text.split()
+        
+        if len(parts) != 2:
+            bot.reply_to(message, "❌ Формат: /unban [@user или ник]")
+            return
+        
+        target_input = parts[1]
+        user_data = find_user_by_input(target_input)
+        
+        if not user_data:
+            bot.reply_to(message, f"❌ Пользователь {target_input} не найден")
+            return
+        
+        target_id = user_data[0]
+        display_name = get_user_display_name(user_data)
+        
+        if remove_ban(target_id):
+            bot.send_message(target_id, "✅ Вы разбанены администратором")
+            bot.reply_to(message, f"✅ Пользователь {display_name} разбанен")
+        else:
+            bot.reply_to(message, f"❌ Ошибка при разбане")
+        
+    except Exception as e:
+        bot.reply_to(message, f"❌ Ошибка: {e}")
+
+@bot.message_handler(commands=['warn'])
+def warn_user(message):
+    user_id = message.from_user.id
+    
+    if not is_admin(user_id, 4):
+        bot.reply_to(message, "❌ У тебя нет прав администратора 4 уровня!")
+        return
+    
+    try:
+        parts = message.text.split()
+        
+        if len(parts) != 2:
+            bot.reply_to(message, "❌ Формат: /warn [@user или ник]")
+            return
+        
+        target_input = parts[1]
+        user_data = find_user_by_input(target_input)
+        
+        if not user_data:
+            bot.reply_to(message, f"❌ Пользователь {target_input} не найден")
+            return
+        
+        target_id = user_data[0]
+        display_name = get_user_display_name(user_data)
+        
+        banned, msg_text = add_warn(target_id)
+        
+        bot.send_message(target_id, msg_text)
+        bot.reply_to(message, f"✅ Варн выдан {display_name}\n{msg_text}")
+        
+    except Exception as e:
+        bot.reply_to(message, f"❌ Ошибка: {e}")
+
+@bot.message_handler(commands=['warns'])
+def show_warns(message):
+    user_id = message.from_user.id
+    
+    if not is_admin(user_id, 4):
+        bot.reply_to(message, "❌ У тебя нет прав администратора 4 уровня!")
+        return
+    
+    try:
+        parts = message.text.split()
+        
+        if len(parts) != 2:
+            bot.reply_to(message, "❌ Формат: /warns [@user или ник]")
+            return
+        
+        target_input = parts[1]
+        user_data = find_user_by_input(target_input)
+        
+        if not user_data:
+            bot.reply_to(message, f"❌ Пользователь {target_input} не найден")
+            return
+        
+        target_id = user_data[0]
+        display_name = get_user_display_name(user_data)
+        warns = get_warns(target_id)
+        
+        bot.reply_to(message, f"⚠️ У {display_name} {warns}/3 варнов")
+        
+    except Exception as e:
+        bot.reply_to(message, f"❌ Ошибка: {e}")
+
+@bot.message_handler(commands=['removeadmin'])
+def remove_admin_command(message):
+    user_id = message.from_user.id
+    
+    if not is_admin(user_id, 4):
+        bot.reply_to(message, "❌ У тебя нет прав администратора 4 уровня!")
+        return
+    
+    try:
+        parts = message.text.split()
+        
+        if len(parts) != 2:
+            bot.reply_to(message, "❌ Формат: /removeadmin [@user или ник]")
+            return
+        
+        target_input = parts[1]
+        
+        user_data = find_user_by_input(target_input)
+        
+        if not user_data:
+            bot.reply_to(message, f"❌ Пользователь {target_input} не найден")
+            return
+        
+        target_id = user_data[0]
+        display_name = get_user_display_name(user_data)
+        
+        if target_id == 5596589260:
+            bot.reply_to(message, "❌ Нельзя снять права с главного администратора!")
+            return
+        
+        if remove_admin(target_id):
+            bot.send_message(target_id, "👑 Ваши права администратора были сняты")
+            bot.reply_to(message, f"✅ Права администратора сняты с {display_name}")
+        else:
+            bot.reply_to(message, f"❌ Ошибка при снятии прав")
+            
+    except Exception as e:
+        bot.reply_to(message, f"❌ Ошибка: {e}")
+
+@bot.message_handler(commands=['setadminlevel'])
+def set_admin_level_command(message):
+    user_id = message.from_user.id
+    
+    if not is_admin(user_id, 4):
+        bot.reply_to(message, "❌ У тебя нет прав администратора 4 уровня!")
+        return
+    
+    try:
+        parts = message.text.split()
+        
+        if len(parts) != 3:
+            bot.reply_to(message, "❌ Формат: /setadminlevel [@user или ник] [уровень]")
+            return
+        
+        target_input = parts[1]
+        level = int(parts[2])
+        
+        if level < 1 or level > 4:
+            bot.reply_to(message, "❌ Уровень должен быть от 1 до 4")
+            return
+        
+        user_data = find_user_by_input(target_input)
+        
+        if not user_data:
+            bot.reply_to(message, f"❌ Пользователь {target_input} не найден")
+            return
+        
+        target_id = user_data[0]
+        display_name = get_user_display_name(user_data)
+        
+        if target_id == 5596589260:
+            bot.reply_to(message, "❌ Нельзя изменить уровень главного администратора!")
+            return
+        
+        if set_admin_level(target_id, level):
+            bot.send_message(target_id, f"👑 Ваш уровень администратора изменен на {level}")
+            bot.reply_to(message, f"✅ Уровень администратора {display_name} изменен на {level}")
+        else:
+            bot.reply_to(message, f"❌ Пользователь не является администратором")
+            
+    except ValueError:
+        bot.reply_to(message, "❌ Уровень должен быть числом")
+    except Exception as e:
+        bot.reply_to(message, f"❌ Ошибка: {e}")
+
+# ========== ОСТАЛЬНЫЕ ОБРАБОТЧИКИ ==========
+@bot.message_handler(commands=['top'])
+def top_command(message):
+    user_id = message.from_user.id
+    
+    markup = types.InlineKeyboardMarkup(row_width=2)
+    markup.add(
+        types.InlineKeyboardButton("💰 Топ по деньгам", callback_data="top_money"),
+        types.InlineKeyboardButton("⭐ Топ по опыту", callback_data="top_exp")
+    )
+    
+    bot.send_message(
+        user_id,
+        "🏆 **ВЫБЕРИ ТОП**\n\n"
+        "По какому показателю показать рейтинг?",
+        parse_mode="Markdown",
+        reply_markup=markup
+    )
+
+def send_top_by_type(user_id, top_type):
+    try:
+        conn = get_db()
+        cursor = conn.cursor()
+        
+        if top_type == "money":
+            cursor.execute('''
+                SELECT first_name, username, custom_name, balance 
+                FROM users 
+                ORDER BY balance DESC 
+                LIMIT 10
+            ''')
+            title = "💰 ТОП 10 ПО ДЕНЬГАМ"
+        else:
+            cursor.execute('''
+                SELECT first_name, username, custom_name, exp 
+                FROM users 
+                ORDER BY exp DESC 
+                LIMIT 10
+            ''')
+            title = "⭐ ТОП 10 ПО ОПЫТУ"
+        
+        top = cursor.fetchall()
+        conn.close()
+        
+        if not top:
+            bot.send_message(user_id, "❌ В топе пока никого нет!")
+            return
+        
+        msg = f"🏆 **{title}**\n\n"
+        for i, (first_name, username, custom_name, value) in enumerate(top, 1):
+            medal = "🥇" if i == 1 else "🥈" if i == 2 else "🥉" if i == 3 else f"{i}."
+            
+            if custom_name:
+                display_name = custom_name
+            elif username and username != "NoUsername":
+                display_name = f"@{username}"
+            else:
+                display_name = first_name
+            
+            msg += f"{medal} {display_name}: {value:,}\n"
+        
+        bot.send_message(user_id, msg, parse_mode="Markdown")
+        
+    except Exception as e:
+        print(f"Ошибка топа: {e}")
+        bot.send_message(user_id, "❌ Ошибка загрузки топа")
 
 # ========== СТАРТ ==========
 @bot.message_handler(commands=['start'])
@@ -2644,54 +3430,6 @@ def callback_handler(call):
     
     elif data == "noop":
         bot.answer_callback_query(call.id)
-
-def send_top_by_type(user_id, top_type):
-    try:
-        conn = get_db()
-        cursor = conn.cursor()
-        
-        if top_type == "money":
-            cursor.execute('''
-                SELECT first_name, username, custom_name, balance 
-                FROM users 
-                ORDER BY balance DESC 
-                LIMIT 10
-            ''')
-            title = "💰 ТОП 10 ПО ДЕНЬГАМ"
-        else:
-            cursor.execute('''
-                SELECT first_name, username, custom_name, exp 
-                FROM users 
-                ORDER BY exp DESC 
-                LIMIT 10
-            ''')
-            title = "⭐ ТОП 10 ПО ОПЫТУ"
-        
-        top = cursor.fetchall()
-        conn.close()
-        
-        if not top:
-            bot.send_message(user_id, "❌ В топе пока никого нет!")
-            return
-        
-        msg = f"🏆 **{title}**\n\n"
-        for i, (first_name, username, custom_name, value) in enumerate(top, 1):
-            medal = "🥇" if i == 1 else "🥈" if i == 2 else "🥉" if i == 3 else f"{i}."
-            
-            if custom_name:
-                display_name = custom_name
-            elif username and username != "NoUsername":
-                display_name = f"@{username}"
-            else:
-                display_name = first_name
-            
-            msg += f"{medal} {display_name}: {value:,}\n"
-        
-        bot.send_message(user_id, msg, parse_mode="Markdown")
-        
-    except Exception as e:
-        print(f"Ошибка топа: {e}")
-        bot.send_message(user_id, "❌ Ошибка загрузки топа")
 
 # ========== ОСНОВНОЙ ОБРАБОТЧИК ==========
 @bot.message_handler(func=lambda message: True)
@@ -3442,237 +4180,6 @@ threading.Thread(target=process_raw_material, daemon=True).start()
 threading.Thread(target=check_deliveries, daemon=True).start()
 threading.Thread(target=check_travels, daemon=True).start()
 
-# ========== ЗАПУСК БОТА ==========
-@bot.message_handler(commands=['top'])
-def top_command(message):
-    user_id = message.from_user.id
-    
-    markup = types.InlineKeyboardMarkup(row_width=2)
-    markup.add(
-        types.InlineKeyboardButton("💰 Топ по деньгам", callback_data="top_money"),
-        types.InlineKeyboardButton("⭐ Топ по опыту", callback_data="top_exp")
-    )
-    
-    bot.send_message(
-        user_id,
-        "🏆 **ВЫБЕРИ ТОП**\n\n"
-        "По какому показателю показать рейтинг?",
-        parse_mode="Markdown",
-        reply_markup=markup
-    )
-
-@bot.message_handler(commands=['adminhelp'])
-def admin_help(message):
-    user_id = message.from_user.id
-    level = get_admin_level(user_id)
-    
-    if level == 0:
-        bot.reply_to(message, "❌ Эта команда только для администраторов!")
-        return
-    
-    help_text = f"👑 **АДМИН ПАНЕЛЬ (Уровень {level})**\n\n"
-    help_text += "**Уровень 1:**\n"
-    help_text += "  /giveme [сумма] - выдать деньги себе\n"
-    help_text += "  /addexpm [количество] - выдать опыт себе\n\n"
-    
-    if level >= 2:
-        help_text += "**Уровень 2:**\n"
-        help_text += "  /give [@user или ник] [сумма] - выдать деньги\n"
-        help_text += "  /addexp [@user или ник] [количество] - выдать опыт\n"
-        help_text += "  /profile [@user или ник] - посмотреть профиль\n\n"
-    
-    if level >= 3:
-        help_text += "**Уровень 3:**\n"
-        help_text += "  /addadmin [@user или ник] [уровень] - назначить админа\n"
-        help_text += "  /adminlist - список админов\n"
-        help_text += "  /reset [@user или ник] - обнулить аккаунт\n"
-        help_text += "  /wipe [@user или ник] - стереть баланс и опыт\n\n"
-    
-    if level >= 4:
-        help_text += "**Уровень 4:**\n"
-        help_text += "  /removeadmin [@user или ник] - снять админа\n"
-        help_text += "  /setadminlevel [@user или ник] [уровень] - изменить уровень\n"
-        help_text += "  /ban [@user или ник] [часы] - забанить (0 = навсегда)\n"
-        help_text += "  /unban [@user или ник] - разбанить\n"
-        help_text += "  /warn [@user или ник] - выдать варн\n"
-        help_text += "  /warns [@user или ник] - показать варны\n"
-    
-    bot.reply_to(message, help_text, parse_mode="Markdown")
-
-# ========== АДМИН КОМАНДЫ ==========
-@bot.message_handler(commands=['giveme'])
-def give_me(message):
-    user_id = message.from_user.id
-    
-    if not is_admin(user_id, 1):
-        bot.reply_to(message, "❌ У тебя нет прав администратора 1 уровня!")
-        return
-    
-    try:
-        parts = message.text.split()
-        if len(parts) != 2:
-            bot.reply_to(message, "❌ Формат: /giveme [сумма]")
-            return
-        
-        amount = int(parts[1])
-        
-        if add_balance(user_id, amount):
-            new_balance = get_balance(user_id)
-            bot.reply_to(message, f"✅ Выдано {amount} {CURRENCY} себе\nНовый баланс: {new_balance}")
-        else:
-            bot.reply_to(message, "❌ Ошибка при выдаче денег")
-            
-    except ValueError:
-        bot.reply_to(message, "❌ Сумма должна быть числом")
-
-@bot.message_handler(commands=['addexpm'])
-def add_exp_me(message):
-    user_id = message.from_user.id
-    
-    if not is_admin(user_id, 1):
-        bot.reply_to(message, "❌ У тебя нет прав администратора 1 уровня!")
-        return
-    
-    try:
-        parts = message.text.split()
-        if len(parts) != 2:
-            bot.reply_to(message, "❌ Формат: /addexpm [количество]")
-            return
-        
-        amount = int(parts[1])
-        
-        if add_exp(user_id, amount):
-            new_stats = get_user_stats(user_id)
-            bot.reply_to(message, f"✅ Выдано {amount}⭐ опыта себе\nТеперь опыта: {new_stats[0]}, уровень: {new_stats[1]}")
-        else:
-            bot.reply_to(message, "❌ Ошибка при выдаче опыта")
-            
-    except ValueError:
-        bot.reply_to(message, "❌ Количество должно быть числом")
-
-@bot.message_handler(commands=['give'])
-def give_money(message):
-    user_id = message.from_user.id
-    
-    if not is_admin(user_id, 2):
-        bot.reply_to(message, "❌ У тебя нет прав администратора 2 уровня!")
-        return
-    
-    try:
-        parts = message.text.split()
-        
-        if len(parts) == 2:
-            amount = int(parts[1])
-            if add_balance(user_id, amount):
-                new_balance = get_balance(user_id)
-                bot.reply_to(message, f"✅ Выдано {amount} {CURRENCY} себе\nНовый баланс: {new_balance}")
-            else:
-                bot.reply_to(message, "❌ Ошибка при выдаче денег")
-        
-        elif len(parts) == 3:
-            target_input = parts[1]
-            amount = int(parts[2])
-            
-            user_data = find_user_by_input(target_input)
-            
-            if not user_data:
-                bot.reply_to(message, f"❌ Пользователь {target_input} не найден")
-                return
-            
-            target_id = user_data[0]
-            display_name = get_user_display_name(user_data)
-            
-            if add_balance(target_id, amount):
-                new_balance = get_balance(target_id)
-                bot.send_message(target_id, f"💰 Админ выдал тебе {amount} {CURRENCY}!\nБаланс: {new_balance}")
-                bot.reply_to(message, f"✅ Выдано {amount} {CURRENCY} {display_name}\nНовый баланс: {new_balance}")
-            else:
-                bot.reply_to(message, "❌ Ошибка при выдаче денег")
-        
-        else:
-            bot.reply_to(message, "❌ Формат: /give [сумма] - себе\n/give [@user или ник] [сумма] - другому")
-            
-    except ValueError:
-        bot.reply_to(message, "❌ Сумма должна быть числом")
-    except Exception as e:
-        bot.reply_to(message, f"❌ Ошибка: {e}")
-
-@bot.message_handler(commands=['addexp'])
-def add_exp_command(message):
-    user_id = message.from_user.id
-    
-    if not is_admin(user_id, 2):
-        bot.reply_to(message, "❌ У тебя нет прав администратора 2 уровня!")
-        return
-    
-    try:
-        parts = message.text.split()
-        
-        if len(parts) == 2:
-            amount = int(parts[1])
-            if add_exp(user_id, amount):
-                new_stats = get_user_stats(user_id)
-                bot.reply_to(message, f"✅ Выдано {amount}⭐ опыта себе\nТеперь опыта: {new_stats[0]}, уровень: {new_stats[1]}")
-            else:
-                bot.reply_to(message, "❌ Ошибка при выдаче опыта")
-        
-        elif len(parts) == 3:
-            target_input = parts[1]
-            amount = int(parts[2])
-            
-            user_data = find_user_by_input(target_input)
-            
-            if not user_data:
-                bot.reply_to(message, f"❌ Пользователь {target_input} не найден")
-                return
-            
-            target_id = user_data[0]
-            display_name = get_user_display_name(user_data)
-            
-            if add_exp(target_id, amount):
-                new_stats = get_user_stats(target_id)
-                bot.send_message(target_id, f"⭐ Админ выдал тебе {amount} опыта!")
-                bot.reply_to(message, f"✅ Выдано {amount}⭐ опыта {display_name}\nТеперь опыта: {new_stats[0]}, уровень: {new_stats[1]}")
-            else:
-                bot.reply_to(message, "❌ Ошибка при выдаче опыта")
-        
-        else:
-            bot.reply_to(message, "❌ Формат: /addexp [количество] - себе\n/addexp [@user или ник] [количество] - другому")
-            
-    except ValueError:
-        bot.reply_to(message, "❌ Количество опыта должно быть числом")
-    except Exception as e:
-        bot.reply_to(message, f"❌ Ошибка: {e}")
-
-@bot.message_handler(commands=['profile'])
-def profile_command(message):
-    user_id = message.from_user.id
-    
-    if not is_admin(user_id, 2):
-        bot.reply_to(message, "❌ У тебя нет прав администратора 2 уровня!")
-        return
-    
-    try:
-        parts = message.text.split()
-        
-        if len(parts) != 2:
-            bot.reply_to(message, "❌ Формат: /profile [@user или ник]")
-            return
-        
-        target_input = parts[1]
-        
-        user_data = find_user_by_input(target_input)
-        
-        if not user_data:
-            bot.reply_to(message, f"❌ Пользователь {target_input} не найден")
-            return
-        
-        target_id = user_data[0]
-        send_profile_to_chat(message.chat.id, user_id, target_id)
-        
-    except Exception as e:
-        bot.reply_to(message, f"❌ Ошибка: {e}")
-
 # ========== ЗАПУСК ==========
 from flask import Flask
 from threading import Thread
@@ -3708,6 +4215,7 @@ print("🎰 Рулетка активна! Играй: рул крас 1000")
 print("🎮 Мини-игры для работ активированы! (Грузчик, Курьер, Программист)")
 print("🚕 Во время поездки кнопки пропадают!")
 print("📌 Админ команды: /adminhelp")
+print("📢 Новая команда: /giveskin [@user или ник] [название] - выдать скин (админ 2+)")
 print("📢 Команды для чата: я, топ, сырье все")
 print("🔄 - показать профиль (НЕ ТРОГАЕТ МЕНЮ!)")
 bot.infinity_polling()
