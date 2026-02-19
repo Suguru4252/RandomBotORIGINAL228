@@ -66,9 +66,10 @@ def init_db():
             warns INTEGER DEFAULT 0,
             banned_until TEXT,
             equipped_clothes INTEGER DEFAULT NULL,
-            current_city TEXT DEFAULT 'Село Молочное',
+            current_city TEXT DEFAULT 'Москва',
             has_car INTEGER DEFAULT 0,
             has_plane INTEGER DEFAULT 0,
+            has_house INTEGER DEFAULT 0,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
     ''')
@@ -145,15 +146,89 @@ def init_db():
         )
     ''')
     
+    # ========== ТАБЛИЦЫ ДЛЯ МАГАЗИНА МАШИН ==========
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS shop_cars (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT NOT NULL,
+            price INTEGER NOT NULL,
+            photo_url TEXT NOT NULL,
+            speed INTEGER DEFAULT 100,
+            in_shop INTEGER DEFAULT 1
+        )
+    ''')
+    
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS user_cars (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER,
+            car_id INTEGER,
+            equipped INTEGER DEFAULT 1,
+            purchased_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (user_id) REFERENCES users(user_id),
+            FOREIGN KEY (car_id) REFERENCES shop_cars(id)
+        )
+    ''')
+    
+    # ========== ТАБЛИЦЫ ДЛЯ МАГАЗИНА САМОЛЕТОВ ==========
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS shop_planes (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT NOT NULL,
+            price INTEGER NOT NULL,
+            photo_url TEXT NOT NULL,
+            speed INTEGER DEFAULT 500,
+            in_shop INTEGER DEFAULT 1
+        )
+    ''')
+    
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS user_planes (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER,
+            plane_id INTEGER,
+            equipped INTEGER DEFAULT 1,
+            purchased_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (user_id) REFERENCES users(user_id),
+            FOREIGN KEY (plane_id) REFERENCES shop_planes(id)
+        )
+    ''')
+    
+    # ========== ТАБЛИЦЫ ДЛЯ МАГАЗИНА ДОМОВ ==========
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS shop_houses (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT NOT NULL,
+            price INTEGER NOT NULL,
+            photo_url TEXT NOT NULL,
+            comfort INTEGER DEFAULT 10,
+            in_shop INTEGER DEFAULT 1
+        )
+    ''')
+    
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS user_houses (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER,
+            house_id INTEGER,
+            equipped INTEGER DEFAULT 1,
+            purchased_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (user_id) REFERENCES users(user_id),
+            FOREIGN KEY (house_id) REFERENCES shop_houses(id)
+        )
+    ''')
+    
     # ========== ТАБЛИЦЫ ДЛЯ ГОРОДОВ ==========
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS cities (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             name TEXT UNIQUE,
             description TEXT,
-            has_clothes_shop INTEGER DEFAULT 1,
-            has_house_shop INTEGER DEFAULT 0,
-            has_plane_shop INTEGER DEFAULT 0
+            shop_type TEXT DEFAULT 'clothes',  -- clothes, cars, planes, houses
+            has_clothes_shop INTEGER DEFAULT 0,
+            has_car_shop INTEGER DEFAULT 0,
+            has_plane_shop INTEGER DEFAULT 0,
+            has_house_shop INTEGER DEFAULT 0
         )
     ''')
     
@@ -232,14 +307,14 @@ def init_db():
     cursor.execute('SELECT COUNT(*) FROM cities')
     if cursor.fetchone()[0] == 0:
         cities_data = [
-            ("Кропоткин", "Промышленный город с развитой инфраструктурой", 1, 1, 0),
-            ("Москва", "Столица! Здесь есть всё", 1, 0, 1),
-            ("Мурино", "Молодежный спальный район", 1, 1, 0),
-            ("Село Молочное", "Уютное село, отличное место для старта", 1, 0, 0)
+            ("Москва", "Столица! Отличное место для старта", 'clothes', 1, 0, 0, 0),
+            ("Село Молочное", "Уютное село, тут продают машины", 'cars', 0, 1, 0, 0),
+            ("Кропоткин", "Промышленный город, здесь можно купить самолет", 'planes', 0, 0, 1, 0),
+            ("Мурино", "Молодежный район, много новых домов", 'houses', 0, 0, 0, 1)
         ]
         cursor.executemany('''
-            INSERT INTO cities (name, description, has_clothes_shop, has_house_shop, has_plane_shop)
-            VALUES (?, ?, ?, ?, ?)
+            INSERT INTO cities (name, description, shop_type, has_clothes_shop, has_car_shop, has_plane_shop, has_house_shop)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
         ''', cities_data)
     
     # Заполняем магазин одеждой
@@ -267,6 +342,48 @@ def init_db():
             INSERT INTO shop_clothes (name, price, photo_url)
             VALUES (?, ?, ?)
         ''', clothes_data)
+    
+    # Заполняем магазин машин
+    cursor.execute('SELECT COUNT(*) FROM shop_cars')
+    if cursor.fetchone()[0] == 0:
+        cars_data = [
+            ("🚗 Лада", 500000, "https://iimg.su/i/car1", 80),
+            ("🚗 BMW", 5000000, "https://iimg.su/i/car2", 200),
+            ("🚗 Mercedes", 10000000, "https://iimg.su/i/car3", 220),
+            ("🚗 Ferrari", 50000000, "https://iimg.su/i/car4", 350)
+        ]
+        cursor.executemany('''
+            INSERT INTO shop_cars (name, price, photo_url, speed)
+            VALUES (?, ?, ?, ?)
+        ''', cars_data)
+    
+    # Заполняем магазин самолетов
+    cursor.execute('SELECT COUNT(*) FROM shop_planes')
+    if cursor.fetchone()[0] == 0:
+        planes_data = [
+            ("✈️ Cessna", 5000000, "https://iimg.su/i/plane1", 300),
+            ("✈️ Boeing 737", 50000000, "https://iimg.su/i/plane2", 900),
+            ("✈️ Airbus A380", 200000000, "https://iimg.su/i/plane3", 950),
+            ("✈️ Gulfstream", 500000000, "https://iimg.su/i/plane4", 1000)
+        ]
+        cursor.executemany('''
+            INSERT INTO shop_planes (name, price, photo_url, speed)
+            VALUES (?, ?, ?, ?)
+        ''', planes_data)
+    
+    # Заполняем магазин домов
+    cursor.execute('SELECT COUNT(*) FROM shop_houses')
+    if cursor.fetchone()[0] == 0:
+        houses_data = [
+            ("🏠 Хрущевка", 1000000, "https://iimg.su/i/house1", 10),
+            ("🏠 Квартира", 5000000, "https://iimg.su/i/house2", 50),
+            ("🏠 Коттедж", 20000000, "https://iimg.su/i/house3", 80),
+            ("🏠 Особняк", 100000000, "https://iimg.su/i/house4", 100)
+        ]
+        cursor.executemany('''
+            INSERT INTO shop_houses (name, price, photo_url, comfort)
+            VALUES (?, ?, ?, ?)
+        ''', houses_data)
     
     # Обновляем business_data с фото
     businesses_data = [
@@ -307,8 +424,10 @@ def init_db():
     print("✅ База данных проверена/создана")
     print("🏙️ Система городов активирована!")
     print("👕 Магазин одежды загружен с 16 комплектами!")
+    print("🚗 Магазин машин загружен!")
+    print("✈️ Магазин самолетов загружен!")
+    print("🏠 Магазин домов загружен!")
     print("🎰 Система рулетки активирована!")
-    print("📸 Фото для бизнесов загружены!")
     print("🎮 Мини-игры для работ активированы!")
 
 # ========== ЗАГРУЗКА ДАННЫХ ИЗ БД ==========
@@ -763,9 +882,9 @@ def get_user_city(user_id):
         cursor.execute('SELECT current_city FROM users WHERE user_id = ?', (user_id,))
         result = cursor.fetchone()
         conn.close()
-        return result[0] if result else "Село Молочное"
+        return result[0] if result else "Москва"
     except:
-        return "Село Молочное"
+        return "Москва"
 
 def set_user_city(user_id, city):
     try:
@@ -861,7 +980,7 @@ def complete_travel(travel_id, user_id):
             bot.send_message(
                 user_id,
                 f"✅ Вы прибыли в {travel['to_city']}!\nТранспорт: {travel['transport']}",
-                reply_markup=city_menu_keyboard(travel['to_city'])  # Возвращаем кнопки
+                reply_markup=main_keyboard()  # ВСЕГДА главное меню
             )
         
         conn.close()
@@ -870,7 +989,7 @@ def complete_travel(travel_id, user_id):
         print(f"Ошибка завершения поездки: {e}")
         return False
 
-# ========== ФУНКЦИИ ДЛЯ МАГАЗИНА И ПРОФИЛЯ ==========
+# ========== ФУНКЦИИ ДЛЯ МАГАЗИНОВ ==========
 
 def get_user_equipped_clothes(user_id):
     try:
@@ -887,7 +1006,53 @@ def get_user_equipped_clothes(user_id):
     except:
         return None
 
+def get_user_equipped_car(user_id):
+    try:
+        conn = get_db()
+        cursor = conn.cursor()
+        cursor.execute('''
+            SELECT sc.* FROM shop_cars sc
+            JOIN user_cars uc ON sc.id = uc.car_id
+            WHERE uc.user_id = ? AND uc.equipped = 1
+        ''', (user_id,))
+        car = cursor.fetchone()
+        conn.close()
+        return car
+    except:
+        return None
+
+def get_user_equipped_plane(user_id):
+    try:
+        conn = get_db()
+        cursor = conn.cursor()
+        cursor.execute('''
+            SELECT sp.* FROM shop_planes sp
+            JOIN user_planes up ON sp.id = up.plane_id
+            WHERE up.user_id = ? AND up.equipped = 1
+        ''', (user_id,))
+        plane = cursor.fetchone()
+        conn.close()
+        return plane
+    except:
+        return None
+
+def get_user_equipped_house(user_id):
+    try:
+        conn = get_db()
+        cursor = conn.cursor()
+        cursor.execute('''
+            SELECT sh.* FROM shop_houses sh
+            JOIN user_houses uh ON sh.id = uh.house_id
+            WHERE uh.user_id = ? AND uh.equipped = 1
+        ''', (user_id,))
+        house = cursor.fetchone()
+        conn.close()
+        return house
+    except:
+        return None
+
 def get_user_profile_photo(user_id):
+    # Сначала проверяем одетую одежду
     equipped = get_user_equipped_clothes(user_id)
     if equipped and equipped['photo_url']:
         return equipped['photo_url']
@@ -952,6 +1117,105 @@ def buy_clothes(user_id, clothes_id):
         print(f"Ошибка при покупке: {e}")
         return False, "❌ Ошибка при покупке"
 
+def buy_car(user_id, car_id):
+    try:
+        conn = get_db()
+        cursor = conn.cursor()
+        
+        car = cursor.execute('SELECT * FROM shop_cars WHERE id = ?', (car_id,)).fetchone()
+        if not car:
+            conn.close()
+            return False, "❌ Машина не найдена"
+        
+        user = cursor.execute('SELECT balance FROM users WHERE user_id = ?', (user_id,)).fetchone()
+        if not user or user['balance'] < car['price']:
+            conn.close()
+            return False, f"❌ Недостаточно средств! Нужно {car['price']:,} {CURRENCY}"
+        
+        cursor.execute('UPDATE users SET balance = balance - ? WHERE user_id = ?', (car['price'], user_id))
+        
+        cursor.execute('UPDATE user_cars SET equipped = 0 WHERE user_id = ?', (user_id,))
+        
+        cursor.execute('''
+            INSERT INTO user_cars (user_id, car_id, equipped)
+            VALUES (?, ?, 1)
+        ''', (user_id, car_id))
+        
+        cursor.execute('UPDATE users SET has_car = 1 WHERE user_id = ?', (user_id,))
+        
+        conn.commit()
+        conn.close()
+        return True, f"✅ Поздравляем! Ты купил {car['name']}!"
+    except Exception as e:
+        print(f"Ошибка при покупке: {e}")
+        return False, "❌ Ошибка при покупке"
+
+def buy_plane(user_id, plane_id):
+    try:
+        conn = get_db()
+        cursor = conn.cursor()
+        
+        plane = cursor.execute('SELECT * FROM shop_planes WHERE id = ?', (plane_id,)).fetchone()
+        if not plane:
+            conn.close()
+            return False, "❌ Самолет не найден"
+        
+        user = cursor.execute('SELECT balance FROM users WHERE user_id = ?', (user_id,)).fetchone()
+        if not user or user['balance'] < plane['price']:
+            conn.close()
+            return False, f"❌ Недостаточно средств! Нужно {plane['price']:,} {CURRENCY}"
+        
+        cursor.execute('UPDATE users SET balance = balance - ? WHERE user_id = ?', (plane['price'], user_id))
+        
+        cursor.execute('UPDATE user_planes SET equipped = 0 WHERE user_id = ?', (user_id,))
+        
+        cursor.execute('''
+            INSERT INTO user_planes (user_id, plane_id, equipped)
+            VALUES (?, ?, 1)
+        ''', (user_id, plane_id))
+        
+        cursor.execute('UPDATE users SET has_plane = 1 WHERE user_id = ?', (user_id,))
+        
+        conn.commit()
+        conn.close()
+        return True, f"✅ Поздравляем! Ты купил {plane['name']}!"
+    except Exception as e:
+        print(f"Ошибка при покупке: {e}")
+        return False, "❌ Ошибка при покупке"
+
+def buy_house(user_id, house_id):
+    try:
+        conn = get_db()
+        cursor = conn.cursor()
+        
+        house = cursor.execute('SELECT * FROM shop_houses WHERE id = ?', (house_id,)).fetchone()
+        if not house:
+            conn.close()
+            return False, "❌ Дом не найден"
+        
+        user = cursor.execute('SELECT balance FROM users WHERE user_id = ?', (user_id,)).fetchone()
+        if not user or user['balance'] < house['price']:
+            conn.close()
+            return False, f"❌ Недостаточно средств! Нужно {house['price']:,} {CURRENCY}"
+        
+        cursor.execute('UPDATE users SET balance = balance - ? WHERE user_id = ?', (house['price'], user_id))
+        
+        cursor.execute('UPDATE user_houses SET equipped = 0 WHERE user_id = ?', (user_id,))
+        
+        cursor.execute('''
+            INSERT INTO user_houses (user_id, house_id, equipped)
+            VALUES (?, ?, 1)
+        ''', (user_id, house_id))
+        
+        cursor.execute('UPDATE users SET has_house = 1 WHERE user_id = ?', (user_id,))
+        
+        conn.commit()
+        conn.close()
+        return True, f"✅ Поздравляем! Ты купил {house['name']}!"
+    except Exception as e:
+        print(f"Ошибка при покупке: {e}")
+        return False, "❌ Ошибка при покупке"
+
 def get_clothes_page(page=0):
     try:
         conn = get_db()
@@ -973,6 +1237,69 @@ def get_clothes_page(page=0):
     except:
         return None, 0, 0
 
+def get_cars_page(page=0):
+    try:
+        conn = get_db()
+        cursor = conn.cursor()
+        cursor.execute('SELECT * FROM shop_cars WHERE in_shop = 1 ORDER BY id')
+        all_cars = cursor.fetchall()
+        conn.close()
+        
+        total = len(all_cars)
+        if total == 0:
+            return None, 0, 0
+        
+        if page < 0:
+            page = 0
+        elif page >= total:
+            page = total - 1
+        
+        return all_cars[page], page, total
+    except:
+        return None, 0, 0
+
+def get_planes_page(page=0):
+    try:
+        conn = get_db()
+        cursor = conn.cursor()
+        cursor.execute('SELECT * FROM shop_planes WHERE in_shop = 1 ORDER BY id')
+        all_planes = cursor.fetchall()
+        conn.close()
+        
+        total = len(all_planes)
+        if total == 0:
+            return None, 0, 0
+        
+        if page < 0:
+            page = 0
+        elif page >= total:
+            page = total - 1
+        
+        return all_planes[page], page, total
+    except:
+        return None, 0, 0
+
+def get_houses_page(page=0):
+    try:
+        conn = get_db()
+        cursor = conn.cursor()
+        cursor.execute('SELECT * FROM shop_houses WHERE in_shop = 1 ORDER BY id')
+        all_houses = cursor.fetchall()
+        conn.close()
+        
+        total = len(all_houses)
+        if total == 0:
+            return None, 0, 0
+        
+        if page < 0:
+            page = 0
+        elif page >= total:
+            page = total - 1
+        
+        return all_houses[page], page, total
+    except:
+        return None, 0, 0
+
 def get_clothes_navigation_keyboard(current_page, total_items):
     markup = types.InlineKeyboardMarkup(row_width=3)
     
@@ -986,6 +1313,27 @@ def get_clothes_navigation_keyboard(current_page, total_items):
     
     if current_page < total_items - 1:
         buttons.append(types.InlineKeyboardButton("▶️", callback_data=f"shop_page_{current_page+1}"))
+    else:
+        buttons.append(types.InlineKeyboardButton("⬜️", callback_data="noop"))
+    
+    markup.row(*buttons)
+    markup.row(types.InlineKeyboardButton("❌ Закрыть", callback_data="shop_close"))
+    
+    return markup
+
+def get_cars_navigation_keyboard(current_page, total_items, shop_type):
+    markup = types.InlineKeyboardMarkup(row_width=3)
+    
+    buttons = []
+    if current_page > 0:
+        buttons.append(types.InlineKeyboardButton("◀️", callback_data=f"{shop_type}_page_{current_page-1}"))
+    else:
+        buttons.append(types.InlineKeyboardButton("⬜️", callback_data="noop"))
+    
+    buttons.append(types.InlineKeyboardButton(f"🛒 Купить", callback_data=f"{shop_type}_buy_{current_page}"))
+    
+    if current_page < total_items - 1:
+        buttons.append(types.InlineKeyboardButton("▶️", callback_data=f"{shop_type}_page_{current_page+1}"))
     else:
         buttons.append(types.InlineKeyboardButton("⬜️", callback_data="noop"))
     
@@ -1872,6 +2220,9 @@ def reset_account(message):
         cursor.execute('DELETE FROM businesses WHERE user_id = ?', (target_id,))
         cursor.execute('DELETE FROM deliveries WHERE user_id = ?', (target_id,))
         cursor.execute('DELETE FROM user_clothes WHERE user_id = ?', (target_id,))
+        cursor.execute('DELETE FROM user_cars WHERE user_id = ?', (target_id,))
+        cursor.execute('DELETE FROM user_planes WHERE user_id = ?', (target_id,))
+        cursor.execute('DELETE FROM user_houses WHERE user_id = ?', (target_id,))
         cursor.execute('DELETE FROM travels WHERE user_id = ?', (target_id,))
         cursor.execute('DELETE FROM warns WHERE user_id = ?', (target_id,))
         cursor.execute('DELETE FROM bans WHERE user_id = ?', (target_id,))
@@ -1882,7 +2233,7 @@ def reset_account(message):
             UPDATE users 
             SET balance = 0, exp = 0, level = 1, work_count = 0, 
                 total_earned = 0, custom_name = NULL, equipped_clothes = NULL,
-                current_city = 'Село Молочное', has_car = 0, has_plane = 0
+                current_city = 'Москва', has_car = 0, has_plane = 0, has_house = 0
             WHERE user_id = ?
         ''', (target_id,))
         
@@ -2232,19 +2583,15 @@ def send_top_by_type(user_id, top_type):
 def main_keyboard():
     markup = types.ReplyKeyboardMarkup(row_width=2, resize_keyboard=True)
     markup.row(
-        types.KeyboardButton("💼 Работы"),
-        types.KeyboardButton("🏭 Бизнесы")
-    )
-    markup.row(
-        types.KeyboardButton("🏙️ ГОРОДА"),
-        types.KeyboardButton("👥 Рефералы")
-    )
-    markup.row(
-        types.KeyboardButton("🎁 Ежедневно"),
-        types.KeyboardButton("⚙️ Настройки")
+        types.KeyboardButton("💼 РАБОТЫ"),
+        types.KeyboardButton("🏭 БИЗНЕСЫ")
     )
     markup.row(
         types.KeyboardButton("👕 МАГАЗИН ОДЕЖДЫ"),
+        types.KeyboardButton("🎁 ЕЖЕДНЕВНО")
+    )
+    markup.row(
+        types.KeyboardButton("🗺️ КАРТА"),
         types.KeyboardButton("🔄")
     )
     return markup
@@ -2252,12 +2599,12 @@ def main_keyboard():
 def cities_keyboard():
     markup = types.ReplyKeyboardMarkup(row_width=2, resize_keyboard=True)
     markup.row(
-        types.KeyboardButton("🏙️ Кропоткин"),
-        types.KeyboardButton("🏙️ Москва")
+        types.KeyboardButton("🏙️ МОСКВА"),
+        types.KeyboardButton("🏙️ СЕЛО МОЛОЧНОЕ")
     )
     markup.row(
-        types.KeyboardButton("🏙️ Мурино"),
-        types.KeyboardButton("🏙️ Село Молочное")
+        types.KeyboardButton("🏙️ КРОПОТКИН"),
+        types.KeyboardButton("🏙️ МУРИНО")
     )
     markup.row(types.KeyboardButton("🔙 Назад"))
     return markup
@@ -2274,39 +2621,6 @@ def transport_keyboard(city):
     )
     return markup
 
-def city_menu_keyboard(city_name):
-    markup = types.ReplyKeyboardMarkup(row_width=2, resize_keyboard=True)
-    
-    city_info = get_city_info(city_name)
-    
-    markup.row(
-        types.KeyboardButton("💼 Работы"),
-        types.KeyboardButton("🏭 Бизнесы")
-    )
-    markup.row(
-        types.KeyboardButton("📊 Статистика"),
-        types.KeyboardButton("👕 Магазин одежды")
-    )
-    
-    extra_buttons = []
-    if city_info and city_info['has_house_shop']:
-        extra_buttons.append("🏠 Магазин домов")
-    if city_info and city_info['has_plane_shop']:
-        extra_buttons.append("✈️ Магазин самолетов")
-    
-    if extra_buttons:
-        markup.row(*[types.KeyboardButton(btn) for btn in extra_buttons])
-    
-    markup.row(
-        types.KeyboardButton("🎁 Ежедневно"),
-        types.KeyboardButton("⚙️ Настройки")
-    )
-    markup.row(
-        types.KeyboardButton("🔙 Назад"),
-        types.KeyboardButton("🔄")
-    )
-    return markup
-
 def jobs_keyboard(user_id):
     jobs = get_available_jobs(user_id)
     markup = types.ReplyKeyboardMarkup(row_width=2, resize_keyboard=True)
@@ -2314,6 +2628,7 @@ def jobs_keyboard(user_id):
     for job in jobs:
         markup.add(types.KeyboardButton(f"{job[5]} {job[0]}"))
     
+    markup.row(types.KeyboardButton("👥 РЕФЕРАЛЫ"))
     markup.row(types.KeyboardButton("🔙 Назад"))
     return markup
 
@@ -2362,6 +2677,30 @@ def settings_keyboard():
     )
     return markup
 
+def city_shop_keyboard(shop_type):
+    """Возвращает клавиатуру для магазина в зависимости от города"""
+    if shop_type == 'clothes':
+        return types.ReplyKeyboardMarkup(row_width=2, resize_keyboard=True).add(
+            types.KeyboardButton("👕 Смотреть одежду"),
+            types.KeyboardButton("🔙 Назад")
+        )
+    elif shop_type == 'cars':
+        return types.ReplyKeyboardMarkup(row_width=2, resize_keyboard=True).add(
+            types.KeyboardButton("🚗 Смотреть машины"),
+            types.KeyboardButton("🔙 Назад")
+        )
+    elif shop_type == 'planes':
+        return types.ReplyKeyboardMarkup(row_width=2, resize_keyboard=True).add(
+            types.KeyboardButton("✈️ Смотреть самолеты"),
+            types.KeyboardButton("🔙 Назад")
+        )
+    elif shop_type == 'houses':
+        return types.ReplyKeyboardMarkup(row_width=2, resize_keyboard=True).add(
+            types.KeyboardButton("🏠 Смотреть дома"),
+            types.KeyboardButton("🔙 Назад")
+        )
+    return None
+
 # ========== СТАРТ ==========
 @bot.message_handler(commands=['start'])
 def start(message):
@@ -2388,7 +2727,7 @@ def start(message):
     if not user:
         cursor.execute('''
             INSERT INTO users (user_id, username, first_name, balance, exp, level, work_count, total_earned, current_city)
-            VALUES (?, ?, ?, 0, 0, 1, 0, 0, 'Село Молочное')
+            VALUES (?, ?, ?, 0, 0, 1, 0, 0, 'Москва')
         ''', (user_id, username, first_name))
         conn.commit()
         conn.close()
@@ -2913,6 +3252,144 @@ def callback_handler(call):
             else:
                 bot.answer_callback_query(call.id, message_text, show_alert=True)
     
+    elif data.startswith("cars_page_"):
+        page = int(data.split("_")[2])
+        cars, current_page, total = get_cars_page(page)
+        
+        if cars:
+            caption = (f"🚗 *{cars['name']}*\n\n"
+                      f"💰 Цена: {cars['price']:,} {CURRENCY}\n"
+                      f"⚡ Скорость: {cars['speed']} км/ч\n\n"
+                      f"🛍️ Всего машин: {total}")
+            
+            try:
+                bot.edit_message_media(
+                    types.InputMediaPhoto(media=cars['photo_url'], caption=caption, parse_mode="Markdown"),
+                    chat_id=user_id,
+                    message_id=call.message.message_id,
+                    reply_markup=get_cars_navigation_keyboard(current_page, total, 'cars')
+                )
+            except:
+                bot.send_photo(
+                    user_id,
+                    cars['photo_url'],
+                    caption=caption,
+                    parse_mode="Markdown",
+                    reply_markup=get_cars_navigation_keyboard(current_page, total, 'cars')
+                )
+                bot.delete_message(user_id, call.message.message_id)
+        
+        bot.answer_callback_query(call.id)
+    
+    elif data.startswith("cars_buy_"):
+        page = int(data.split("_")[2])
+        cars, current_page, total = get_cars_page(page)
+        
+        if cars:
+            success, message_text = buy_car(user_id, cars['id'])
+            if success:
+                bot.edit_message_text(
+                    f"✅ **ПОКУПКА УСПЕШНА!**\n\n"
+                    f"🚗 Ты купил {cars['name']}!\n"
+                    f"💰 Цена: {cars['price']:,} {CURRENCY}",
+                    chat_id=user_id,
+                    message_id=call.message.message_id
+                )
+            else:
+                bot.answer_callback_query(call.id, message_text, show_alert=True)
+    
+    elif data.startswith("planes_page_"):
+        page = int(data.split("_")[2])
+        planes, current_page, total = get_planes_page(page)
+        
+        if planes:
+            caption = (f"✈️ *{planes['name']}*\n\n"
+                      f"💰 Цена: {planes['price']:,} {CURRENCY}\n"
+                      f"⚡ Скорость: {planes['speed']} км/ч\n\n"
+                      f"🛍️ Всего самолетов: {total}")
+            
+            try:
+                bot.edit_message_media(
+                    types.InputMediaPhoto(media=planes['photo_url'], caption=caption, parse_mode="Markdown"),
+                    chat_id=user_id,
+                    message_id=call.message.message_id,
+                    reply_markup=get_cars_navigation_keyboard(current_page, total, 'planes')
+                )
+            except:
+                bot.send_photo(
+                    user_id,
+                    planes['photo_url'],
+                    caption=caption,
+                    parse_mode="Markdown",
+                    reply_markup=get_cars_navigation_keyboard(current_page, total, 'planes')
+                )
+                bot.delete_message(user_id, call.message.message_id)
+        
+        bot.answer_callback_query(call.id)
+    
+    elif data.startswith("planes_buy_"):
+        page = int(data.split("_")[2])
+        planes, current_page, total = get_planes_page(page)
+        
+        if planes:
+            success, message_text = buy_plane(user_id, planes['id'])
+            if success:
+                bot.edit_message_text(
+                    f"✅ **ПОКУПКА УСПЕШНА!**\n\n"
+                    f"✈️ Ты купил {planes['name']}!\n"
+                    f"💰 Цена: {planes['price']:,} {CURRENCY}",
+                    chat_id=user_id,
+                    message_id=call.message.message_id
+                )
+            else:
+                bot.answer_callback_query(call.id, message_text, show_alert=True)
+    
+    elif data.startswith("houses_page_"):
+        page = int(data.split("_")[2])
+        houses, current_page, total = get_houses_page(page)
+        
+        if houses:
+            caption = (f"🏠 *{houses['name']}*\n\n"
+                      f"💰 Цена: {houses['price']:,} {CURRENCY}\n"
+                      f"🏡 Комфорт: {houses['comfort']}\n\n"
+                      f"🛍️ Всего домов: {total}")
+            
+            try:
+                bot.edit_message_media(
+                    types.InputMediaPhoto(media=houses['photo_url'], caption=caption, parse_mode="Markdown"),
+                    chat_id=user_id,
+                    message_id=call.message.message_id,
+                    reply_markup=get_cars_navigation_keyboard(current_page, total, 'houses')
+                )
+            except:
+                bot.send_photo(
+                    user_id,
+                    houses['photo_url'],
+                    caption=caption,
+                    parse_mode="Markdown",
+                    reply_markup=get_cars_navigation_keyboard(current_page, total, 'houses')
+                )
+                bot.delete_message(user_id, call.message.message_id)
+        
+        bot.answer_callback_query(call.id)
+    
+    elif data.startswith("houses_buy_"):
+        page = int(data.split("_")[2])
+        houses, current_page, total = get_houses_page(page)
+        
+        if houses:
+            success, message_text = buy_house(user_id, houses['id'])
+            if success:
+                bot.edit_message_text(
+                    f"✅ **ПОКУПКА УСПЕШНА!**\n\n"
+                    f"🏠 Ты купил {houses['name']}!\n"
+                    f"💰 Цена: {houses['price']:,} {CURRENCY}",
+                    chat_id=user_id,
+                    message_id=call.message.message_id
+                )
+            else:
+                bot.answer_callback_query(call.id, message_text, show_alert=True)
+    
     elif data == "shop_close":
         bot.delete_message(user_id, call.message.message_id)
         send_main_menu_with_profile(user_id)
@@ -2957,81 +3434,101 @@ def handle(message):
         if datetime.now() >= end_time:
             complete_travel(active_travel['id'], user_id)
         else:
-            # Если еще в пути - игнорируем все кнопки, кроме 🔄
+            # Если еще в пути - игнорируем все кнопки
             time_left = (end_time - datetime.now()).seconds
-            if text != "🔄":
-                bot.reply_to(
-                    message, 
-                    f"⏳ Ты еще в пути! Осталось {time_left} сек.\nДождись прибытия."
-                )
-                return
+            bot.reply_to(
+                message, 
+                f"⏳ Ты еще в пути! Осталось {time_left} сек.\nДождись прибытия.",
+                reply_markup=types.ReplyKeyboardRemove()
+            )
+            return
     
-    if text == "🏙️ ГОРОДА":
+    # ===== НОВОЕ МЕНЮ =====
+    if text == "💼 РАБОТЫ":
+        bot.send_message(user_id, "🔨 Выбери работу:", reply_markup=jobs_keyboard(user_id))
+    
+    elif text == "🏭 БИЗНЕСЫ":
+        bot.send_message(user_id, "🏪 Управление бизнесом:", reply_markup=businesses_main_keyboard())
+    
+    elif text == "👕 МАГАЗИН ОДЕЖДЫ":
+        # Получаем текущий город
+        current_city = get_user_city(user_id)
+        city_info = get_city_info(current_city)
+        
+        if city_info and city_info['shop_type'] == 'clothes':
+            clothes, current_page, total = get_clothes_page(0)
+            
+            if clothes:
+                welcome_text = ("🛍️ **ДОБРО ПОЖАЛОВАТЬ В МАГАЗИН ОДЕЖДЫ!**\n\n"
+                               "Мы подобрали самые лучшие и красивые комплекты одежды.\n"
+                               "Выберите какой вам понравится и нажмите купить!\n\n"
+                               "👉 При покупке комплект сразу надевается на тебя!")
+                
+                bot.send_message(user_id, welcome_text, parse_mode="Markdown")
+                
+                caption = (f"👕 *{clothes['name']}*\n\n"
+                          f"💰 Цена: {clothes['price']:,} {CURRENCY}\n\n"
+                          f"🛍️ Всего комплектов: {total}")
+                
+                bot.send_photo(
+                    user_id,
+                    clothes['photo_url'],
+                    caption=caption,
+                    parse_mode="Markdown",
+                    reply_markup=get_clothes_navigation_keyboard(current_page, total)
+                )
+            else:
+                bot.send_message(user_id, "❌ В магазине пока нет товаров!")
+        else:
+            bot.send_message(user_id, f"❌ В городе {current_city} нет магазина одежды! Здесь продают: {city_info['shop_type']}")
+    
+    elif text == "🎁 ЕЖЕДНЕВНО":
+        try:
+            conn = get_db()
+            cursor = conn.cursor()
+            cursor.execute('SELECT last_daily FROM users WHERE user_id = ?', (user_id,))
+            result = cursor.fetchone()
+            last = result[0] if result else None
+            now = datetime.now().isoformat()
+            
+            if last:
+                last_time = datetime.fromisoformat(last)
+                if datetime.now() - last_time < timedelta(hours=24):
+                    next_time = last_time + timedelta(hours=24)
+                    time_left = next_time - datetime.now()
+                    hours = time_left.seconds // 3600
+                    minutes = (time_left.seconds % 3600) // 60
+                    bot.send_message(user_id, f"⏳ След. бонус через {hours}ч {minutes}м")
+                    conn.close()
+                    return
+            
+            bonus = random.randint(500, 2000)
+            bonus_exp = random.randint(50, 200)
+            cursor.execute('UPDATE users SET balance = balance + ?, exp = exp + ?, last_daily = ? WHERE user_id = ?', 
+                          (bonus, bonus_exp, now, user_id))
+            conn.commit()
+            conn.close()
+            bot.send_message(user_id, f"🎁 Бонус: +{bonus} {CURRENCY} и +{bonus_exp}⭐!")
+        except Exception as e:
+            print(f"Ошибка daily: {e}")
+            bot.send_message(user_id, "❌ Ошибка")
+    
+    elif text == "🗺️ КАРТА":
         markup = cities_keyboard()
         bot.send_message(
             user_id,
-            "🏙️ **ВЫБЕРИ ГОРОД**\n\n"
-            "Куда хочешь отправиться?",
+            "🗺️ **ВЫБЕРИ ГОРОД**\n\n"
+            "Куда хочешь отправиться?\n\n"
+            "🏙️ **Москва** - 👕 Магазин одежды\n"
+            "🏙️ **Село Молочное** - 🚗 Магазин машин\n"
+            "🏙️ **Кропоткин** - ✈️ Магазин самолетов\n"
+            "🏙️ **Мурино** - 🏠 Магазин домов",
             parse_mode="Markdown",
             reply_markup=markup
         )
     
-    elif text in ["🏙️ Кропоткин", "🏙️ Москва", "🏙️ Мурино", "🏙️ Село Молочное"]:
-        city_name = text.replace("🏙️ ", "")
-        current_city = get_user_city(user_id)
-        
-        if city_name == current_city:
-            bot.send_message(
-                user_id,
-                f"🏙️ Ты уже находишься в городе {city_name}",
-                reply_markup=city_menu_keyboard(city_name)
-            )
-        else:
-            bot.send_message(
-                user_id,
-                f"🚀 Выбери транспорт для поездки в {city_name}:",
-                reply_markup=transport_keyboard(city_name)
-            )
-            bot.register_next_step_handler(message, process_travel, city_name)
-    
-    elif text in ["🚕 Такси", "🚗 Личная машина", "✈️ Личный самолет"]:
-        # Этот случай обрабатывается в process_travel
-        pass
-    
-    # ===== МАГАЗИНЫ =====
-    elif text.lower() == "👕 магазин одежды":
-        clothes, current_page, total = get_clothes_page(0)
-        
-        if clothes:
-            welcome_text = ("🛍️ **ДОБРО ПОЖАЛОВАТЬ В МАГАЗИН ОДЕЖДЫ!**\n\n"
-                           "Мы подобрали самые лучшие и красивые комплекты одежды.\n"
-                           "Выберите какой вам понравится и нажмите купить!\n\n"
-                           "👉 При покупке комплект сразу надевается на тебя!")
-            
-            bot.send_message(user_id, welcome_text, parse_mode="Markdown")
-            
-            caption = (f"👕 *{clothes['name']}*\n\n"
-                      f"💰 Цена: {clothes['price']:,} {CURRENCY}\n\n"
-                      f"🛍️ Всего комплектов: {total}")
-            
-            bot.send_photo(
-                user_id,
-                clothes['photo_url'],
-                caption=caption,
-                parse_mode="Markdown",
-                reply_markup=get_clothes_navigation_keyboard(current_page, total)
-            )
-        else:
-            bot.send_message(user_id, "❌ В магазине пока нет товаров!")
-    
-    elif text.lower() == "🏠 магазин домов":
-        bot.send_message(user_id, "🏠 Магазин домов скоро откроется! Следи за обновлениями!")
-    
-    elif text.lower() == "✈️ магазин самолетов":
-        bot.send_message(user_id, "✈️ Магазин самолетов скоро откроется! Следи за обновлениями!")
-    
     elif text == "🔄":
-        # Только показываем профиль, не трогаем меню города
+        # Только показываем профиль, НЕ ТРОГАЕМ МЕНЮ
         user_data = get_user_profile(user_id)
         if user_data:
             balance = get_balance(user_id)
@@ -3046,14 +3543,116 @@ def handle(message):
                 photo_url,
                 caption=caption,
                 parse_mode="Markdown"
+                # НЕТ reply_markup - не трогаем меню!
             )
         else:
             bot.send_message(user_id, "❌ Ошибка загрузки профиля")
     
-    # ===== РАБОТЫ С МИНИ-ИГРАМИ =====
-    elif text == "💼 Работы":
-        bot.send_message(user_id, "🔨 Выбери работу:", reply_markup=jobs_keyboard(user_id))
+    # ===== ОБРАБОТКА ГОРОДОВ =====
+    elif text in ["🏙️ МОСКВА", "🏙️ СЕЛО МОЛОЧНОЕ", "🏙️ КРОПОТКИН", "🏙️ МУРИНО"]:
+        city_name = text.replace("🏙️ ", "")
+        current_city = get_user_city(user_id)
+        
+        if city_name == current_city:
+            city_info = get_city_info(city_name)
+            shop_keyboard = city_shop_keyboard(city_info['shop_type'])
+            bot.send_message(
+                user_id,
+                f"🏙️ Ты уже находишься в городе {city_name}\n"
+                f"📌 Здесь продают: {city_info['shop_type']}",
+                reply_markup=shop_keyboard
+            )
+        else:
+            bot.send_message(
+                user_id,
+                f"🚀 Выбери транспорт для поездки в {city_name}:",
+                reply_markup=transport_keyboard(city_name)
+            )
+            bot.register_next_step_handler(message, process_travel, city_name)
     
+    # ===== ОБРАБОТКА МАГАЗИНОВ В ГОРОДАХ =====
+    elif text == "👕 Смотреть одежду":
+        clothes, current_page, total = get_clothes_page(0)
+        if clothes:
+            caption = (f"👕 *{clothes['name']}*\n\n"
+                      f"💰 Цена: {clothes['price']:,} {CURRENCY}\n\n"
+                      f"🛍️ Всего комплектов: {total}")
+            
+            bot.send_photo(
+                user_id,
+                clothes['photo_url'],
+                caption=caption,
+                parse_mode="Markdown",
+                reply_markup=get_clothes_navigation_keyboard(current_page, total)
+            )
+        else:
+            bot.send_message(user_id, "❌ В магазине пока нет товаров!")
+    
+    elif text == "🚗 Смотреть машины":
+        cars, current_page, total = get_cars_page(0)
+        if cars:
+            caption = (f"🚗 *{cars['name']}*\n\n"
+                      f"💰 Цена: {cars['price']:,} {CURRENCY}\n"
+                      f"⚡ Скорость: {cars['speed']} км/ч\n\n"
+                      f"🛍️ Всего машин: {total}")
+            
+            bot.send_photo(
+                user_id,
+                cars['photo_url'],
+                caption=caption,
+                parse_mode="Markdown",
+                reply_markup=get_cars_navigation_keyboard(current_page, total, 'cars')
+            )
+        else:
+            bot.send_message(user_id, "❌ В магазине пока нет машин!")
+    
+    elif text == "✈️ Смотреть самолеты":
+        planes, current_page, total = get_planes_page(0)
+        if planes:
+            caption = (f"✈️ *{planes['name']}*\n\n"
+                      f"💰 Цена: {planes['price']:,} {CURRENCY}\n"
+                      f"⚡ Скорость: {planes['speed']} км/ч\n\n"
+                      f"🛍️ Всего самолетов: {total}")
+            
+            bot.send_photo(
+                user_id,
+                planes['photo_url'],
+                caption=caption,
+                parse_mode="Markdown",
+                reply_markup=get_cars_navigation_keyboard(current_page, total, 'planes')
+            )
+        else:
+            bot.send_message(user_id, "❌ В магазине пока нет самолетов!")
+    
+    elif text == "🏠 Смотреть дома":
+        houses, current_page, total = get_houses_page(0)
+        if houses:
+            caption = (f"🏠 *{houses['name']}*\n\n"
+                      f"💰 Цена: {houses['price']:,} {CURRENCY}\n"
+                      f"🏡 Комфорт: {houses['comfort']}\n\n"
+                      f"🛍️ Всего домов: {total}")
+            
+            bot.send_photo(
+                user_id,
+                houses['photo_url'],
+                caption=caption,
+                parse_mode="Markdown",
+                reply_markup=get_cars_navigation_keyboard(current_page, total, 'houses')
+            )
+        else:
+            bot.send_message(user_id, "❌ В магазине пока нет домов!")
+    
+    # ===== РАБОТЫ =====
+    elif text == "👥 РЕФЕРАЛЫ":
+        bot_username = bot.get_me().username
+        link = f"https://t.me/{bot_username}?start={user_id}"
+        msg = f"👥 **РЕФЕРАЛЫ**\n\n"
+        msg += f"🔗 Твоя ссылка:\n{link}\n\n"
+        msg += f"💡 Приглашай друзей и получай бонусы!\n"
+        msg += f"💰 За каждого друга: +1000💰 и +50⭐"
+        bot.send_message(user_id, msg, parse_mode="Markdown")
+    
+    # ===== ОСТАЛЬНЫЕ ОБРАБОТЧИКИ =====
     elif text in ["🚚 Грузчик", "🧹 Уборщик", "📦 Курьер", "🔧 Механик", "💻 Программист", "🕵️ Детектив", "👨‍🔧 Инженер", "👨‍⚕️ Врач", "👨‍🎤 Артист", "👨‍🚀 Космонавт"]:
         job_name = text
         
@@ -3093,140 +3692,6 @@ def handle(message):
                 bot.send_message(user_id, "❌ Ошибка, попробуй позже")
     
     # ===== БИЗНЕСЫ =====
-    elif text == "🏭 Бизнесы":
-        bot.send_message(user_id, "🏪 Управление бизнесом:", reply_markup=businesses_main_keyboard())
-    
-    elif text == "📊 Статистика":
-        exp, level, work_count, total = get_user_stats(user_id)
-        equipped = get_user_equipped_clothes(user_id)
-        clothes_info = f", одет: {equipped['name']}" if equipped else ""
-        current_city = get_user_city(user_id)
-        
-        msg = f"📊 **СТАТИСТИКА**\n\n"
-        msg += f"👤 Игрок: {display_name}{clothes_info}\n"
-        msg += f"📍 Город: {current_city}\n"
-        msg += f"⭐ Опыт: {exp}\n"
-        msg += f"📈 Уровень: {level}\n"
-        msg += f"🔨 Работ: {work_count}\n"
-        msg += f"💰 Всего заработано: {total:,}"
-        bot.send_message(user_id, msg, parse_mode="Markdown")
-    
-    elif text == "🎁 Ежедневно":
-        try:
-            conn = get_db()
-            cursor = conn.cursor()
-            cursor.execute('SELECT last_daily FROM users WHERE user_id = ?', (user_id,))
-            result = cursor.fetchone()
-            last = result[0] if result else None
-            now = datetime.now().isoformat()
-            
-            if last:
-                last_time = datetime.fromisoformat(last)
-                if datetime.now() - last_time < timedelta(hours=24):
-                    next_time = last_time + timedelta(hours=24)
-                    time_left = next_time - datetime.now()
-                    hours = time_left.seconds // 3600
-                    minutes = (time_left.seconds % 3600) // 60
-                    bot.send_message(user_id, f"⏳ След. бонус через {hours}ч {minutes}м")
-                    conn.close()
-                    return
-            
-            bonus = random.randint(500, 2000)
-            bonus_exp = random.randint(50, 200)
-            cursor.execute('UPDATE users SET balance = balance + ?, exp = exp + ?, last_daily = ? WHERE user_id = ?', 
-                          (bonus, bonus_exp, now, user_id))
-            conn.commit()
-            conn.close()
-            bot.send_message(user_id, f"🎁 Бонус: +{bonus} {CURRENCY} и +{bonus_exp}⭐!")
-        except Exception as e:
-            print(f"Ошибка daily: {e}")
-            bot.send_message(user_id, "❌ Ошибка")
-    
-    elif text == "⚙️ Настройки":
-        bot.send_message(user_id, "🔧 **НАСТРОЙКИ**\n\nВыбери что хочешь изменить:", reply_markup=settings_keyboard(), parse_mode="Markdown")
-    
-    elif text == "✏️ Сменить никнейм":
-        current_nick = display_name if display_name != "Игрок" else "Не установлен"
-        msg = bot.send_message(
-            user_id,
-            f"🎮 **СМЕНА ИГРОВОГО НИКНЕЙМА**\n\n"
-            f"Текущий ник: `{current_nick}`\n\n"
-            f"🔤 **Напиши новый никнейм:**\n\n"
-            f"📝 Он может быть любым (буквы, цифры, символы)\n"
-            f"✨ Например: `DarkKnight`, `КиберПанк`, `SuguruKing`\n\n"
-            f"⚠️ **Важно:** Никнейм должен быть **уникальным**!",
-            parse_mode="Markdown"
-        )
-        bot.register_next_step_handler(msg, change_nickname_step)
-    
-    elif text == "📋 Помощь":
-        help_text = (
-            "📚 **ПОЛНОЕ РУКОВОДСТВО ПО ИГРЕ** 📚\n\n"
-            "💼 **РАБОТЫ**\n"
-            "• Доступно 10 видов работ\n"
-            "• Некоторые работы теперь с мини-играми!\n"
-            "• Чем лучше сыграешь - тем больше денег\n"
-            "• Работы можно выполнять бесконечно\n\n"
-            "🏭 **БИЗНЕСЫ**\n"
-            "• Можно купить только один бизнес\n"
-            "• 5 видов бизнеса\n"
-            "• У каждого бизнеса 3 уровня прокачки\n"
-            "• Склад вмещает максимум 1000 сырья\n"
-            "• Доставка сырья - 15 минут\n"
-            "• Прибыль накапливается на складе, нужно собирать вручную\n\n"
-            "📊 **ДАННЫЕ БИЗНЕСОВ**\n"
-            "🥤 Киоск - 500к | 1 сырьё = 1.000💰 | профит 2.000💰\n"
-            "🍔 Фастфуд - 5M | 1 сырьё = 2.500💰 | профит 5.000💰\n"
-            "🏪 Минимаркет - 15M | 1 сырьё = 30.000💰 | профит 60.000💰\n"
-            "⛽ Заправка - 50M | 1 сырьё = 200.000💰 | профит 400.000💰\n"
-            "🏨 Отель - 1B | 1 сырьё = 1.000.000💰 | профит 2.000.000💰\n\n"
-            "🏙️ **ГОРОДА**\n"
-            "• Можно путешествовать между 4 городами\n"
-            "• В каждом городе свои магазины\n"
-            "• Время в пути: 30-60 секунд\n"
-            "• Транспорт: Такси, Личная машина, Личный самолет\n"
-            "• Для машины и самолета нужно их купить\n"
-            "• Во время поездки кнопки пропадают!\n\n"
-            "👕 **МАГАЗИН ОДЕЖДЫ**\n"
-            "• Покупай крутые комплекты одежды\n"
-            "• При покупке комплект сразу надевается\n"
-            "• Одежда видна в главном меню и статистике\n\n"
-            "🎰 **РУЛЕТКА**\n"
-            "• Играй прямо в чате: `рул крас 1000`\n"
-            "• Можно ставить на цвет, число, дюжины\n"
-            "• Поддержка сокращений: `1к` = 1000, `5кк` = 5 млн\n"
-            "• Команда `рул крас все` - поставить весь баланс\n"
-            "• Вся статистика сохраняется!\n\n"
-            "🏆 **ТОП 10** (команда /top)\n"
-            "• Можно выбрать топ по деньгам или опыту\n"
-            "• Соревнуйся с другими игроками\n\n"
-            "🎁 **ЕЖЕДНЕВНЫЙ БОНУС**\n"
-            "• Получай бонус раз в 24 часа\n"
-            "• Рандомный бонус от 500 до 2000💰\n"
-            "• Дополнительно 50-200⭐ опыта"
-        )
-        bot.send_message(user_id, help_text, parse_mode="Markdown")
-    
-    elif text == "❓ Помощь":
-        help_text = "🤖 **ПОМОЩЬ**\n\n"
-        help_text += "💼 Работы - работай в мини-играх\n"
-        help_text += "🏭 Бизнесы - управление бизнесом\n"
-        help_text += "🏙️ Города - путешествуй между городами\n"
-        help_text += "👕 Магазин одежды - покупай крутые комплекты\n"
-        help_text += "🎰 Рулетка - играй в чате: рул крас 1000\n"
-        help_text += "📊 Статистика - твои показатели\n"
-        help_text += "🏆 Топ 10 - лучшие игроки (команда /top)\n"
-        help_text += "🎁 Ежедневно - бонус каждый день\n"
-        help_text += "⚙️ Настройки - изменить никнейм и полная помощь\n"
-        help_text += "🔄 - показать твой профиль"
-        
-        level = get_admin_level(user_id)
-        if level > 0:
-            help_text += f"\n\n👑 У вас права администратора {level} уровня!\n/adminhelp - список команд админа"
-        
-        bot.send_message(user_id, help_text, parse_mode="Markdown")
-    
-    # ===== УПРАВЛЕНИЕ БИЗНЕСОМ =====
     elif text == "📊 Мой бизнес":
         business = get_user_business(user_id)
         if not business:
@@ -3406,19 +3871,112 @@ def handle(message):
                 bot.send_message(user_id, "❌ Ошибка при покупке")
                 add_balance(user_id, price)
     
+    elif text == "📊 Статистика":
+        exp, level, work_count, total = get_user_stats(user_id)
+        equipped = get_user_equipped_clothes(user_id)
+        clothes_info = f", одет: {equipped['name']}" if equipped else ""
+        current_city = get_user_city(user_id)
+        
+        msg = f"📊 **СТАТИСТИКА**\n\n"
+        msg += f"👤 Игрок: {display_name}{clothes_info}\n"
+        msg += f"📍 Город: {current_city}\n"
+        msg += f"⭐ Опыт: {exp}\n"
+        msg += f"📈 Уровень: {level}\n"
+        msg += f"🔨 Работ: {work_count}\n"
+        msg += f"💰 Всего заработано: {total:,}"
+        bot.send_message(user_id, msg, parse_mode="Markdown")
+    
+    elif text == "⚙️ Настройки":
+        bot.send_message(user_id, "🔧 **НАСТРОЙКИ**\n\nВыбери что хочешь изменить:", reply_markup=settings_keyboard(), parse_mode="Markdown")
+    
+    elif text == "✏️ Сменить никнейм":
+        current_nick = display_name if display_name != "Игрок" else "Не установлен"
+        msg = bot.send_message(
+            user_id,
+            f"🎮 **СМЕНА ИГРОВОГО НИКНЕЙМА**\n\n"
+            f"Текущий ник: `{current_nick}`\n\n"
+            f"🔤 **Напиши новый никнейм:**\n\n"
+            f"📝 Он может быть любым (буквы, цифры, символы)\n"
+            f"✨ Например: `DarkKnight`, `КиберПанк`, `SuguruKing`\n\n"
+            f"⚠️ **Важно:** Никнейм должен быть **уникальным**!",
+            parse_mode="Markdown"
+        )
+        bot.register_next_step_handler(msg, change_nickname_step)
+    
+    elif text == "📋 Помощь":
+        help_text = (
+            "📚 **ПОЛНОЕ РУКОВОДСТВО ПО ИГРЕ** 📚\n\n"
+            "💼 **РАБОТЫ**\n"
+            "• Доступно 10 видов работ\n"
+            "• Некоторые работы теперь с мини-играми!\n"
+            "• Чем лучше сыграешь - тем больше денег\n"
+            "• Работы можно выполнять бесконечно\n"
+            "• В разделе работ есть **РЕФЕРАЛЫ**\n\n"
+            "🏭 **БИЗНЕСЫ**\n"
+            "• Можно купить только один бизнес\n"
+            "• 5 видов бизнеса\n"
+            "• У каждого бизнеса 3 уровня прокачки\n"
+            "• Склад вмещает максимум 1000 сырья\n"
+            "• Доставка сырья - 15 минут\n"
+            "• Прибыль накапливается на складе, нужно собирать вручную\n\n"
+            "📊 **ДАННЫЕ БИЗНЕСОВ**\n"
+            "🥤 Киоск - 500к | 1 сырьё = 1.000💰 | профит 2.000💰\n"
+            "🍔 Фастфуд - 5M | 1 сырьё = 2.500💰 | профит 5.000💰\n"
+            "🏪 Минимаркет - 15M | 1 сырьё = 30.000💰 | профит 60.000💰\n"
+            "⛽ Заправка - 50M | 1 сырьё = 200.000💰 | профит 400.000💰\n"
+            "🏨 Отель - 1B | 1 сырьё = 1.000.000💰 | профит 2.000.000💰\n\n"
+            "🗺️ **КАРТА**\n"
+            "• **Москва** - 👕 Магазин одежды (стартовый город)\n"
+            "• **Село Молочное** - 🚗 Магазин машин\n"
+            "• **Кропоткин** - ✈️ Магазин самолетов\n"
+            "• **Мурино** - 🏠 Магазин домов\n"
+            "• Время в пути: 30-60 секунд\n"
+            "• Транспорт: Такси, Личная машина, Личный самолет\n"
+            "• Во время поездки кнопки пропадают!\n\n"
+            "👕 **МАГАЗИН ОДЕЖДЫ** (доступен в Москве)\n"
+            "• Покупай крутые комплекты одежды\n"
+            "• При покупке комплект сразу надевается\n"
+            "• Одежда видна в главном меню и статистике\n\n"
+            "🚗 **МАГАЗИН МАШИН** (доступен в Селе Молочном)\n"
+            "✈️ **МАГАЗИН САМОЛЕТОВ** (доступен в Кропоткине)\n"
+            "🏠 **МАГАЗИН ДОМОВ** (доступен в Мурино)\n\n"
+            "🎰 **РУЛЕТКА**\n"
+            "• Играй прямо в чате: `рул крас 1000`\n"
+            "• Можно ставить на цвет, число, дюжины\n"
+            "• Поддержка сокращений: `1к` = 1000, `5кк` = 5 млн\n"
+            "• Команда `рул крас все` - поставить весь баланс\n"
+            "• Вся статистика сохраняется!\n\n"
+            "🏆 **ТОП 10** (команда /top)\n"
+            "• Можно выбрать топ по деньгам или опыту\n"
+            "• Соревнуйся с другими игроками\n\n"
+            "🎁 **ЕЖЕДНЕВНЫЙ БОНУС**\n"
+            "• Получай бонус раз в 24 часа\n"
+            "• Рандомный бонус от 500 до 2000💰\n"
+            "• Дополнительно 50-200⭐ опыта"
+        )
+        bot.send_message(user_id, help_text, parse_mode="Markdown")
+    
+    elif text == "❓ Помощь":
+        help_text = "🤖 **ПОМОЩЬ**\n\n"
+        help_text += "💼 РАБОТЫ - работай в мини-играх (там же рефералы)\n"
+        help_text += "🏭 БИЗНЕСЫ - управление бизнесом\n"
+        help_text += "👕 МАГАЗИН ОДЕЖДЫ - покупай крутые комплекты (только в Москве)\n"
+        help_text += "🎁 ЕЖЕДНЕВНО - бонус каждый день\n"
+        help_text += "🗺️ КАРТА - путешествуй по городам\n"
+        help_text += "🔄 - показать твой профиль (не трогает меню)\n"
+        help_text += "🎰 Рулетка - играй в чате: рул крас 1000\n"
+        help_text += "📊 Статистика - твои показатели\n"
+        help_text += "🏆 Топ 10 - лучшие игроки (команда /top)\n"
+        help_text += "⚙️ Настройки - изменить никнейм"
+        
+        level = get_admin_level(user_id)
+        if level > 0:
+            help_text += f"\n\n👑 У вас права администратора {level} уровня!\n/adminhelp - список команд админа"
+        
+        bot.send_message(user_id, help_text, parse_mode="Markdown")
+    
     elif text == "🔙 Назад":
-        # Проверяем, откуда вернулись
-        if "🏙️" in text or "🚕" in text or "🚗" in text or "✈️" in text:
-            # Если из городов - показываем главное меню
-            send_main_menu_with_profile(user_id)
-        else:
-            # Если из других разделов - показываем меню текущего города
-            current_city = get_user_city(user_id)
-            bot.send_message(
-                user_id,
-                f"🏙️ Ты в городе {current_city}",
-                reply_markup=city_menu_keyboard(current_city)
-            )
+        send_main_menu_with_profile(user_id)
 
 def process_travel(message, target_city):
     """Обрабатывает выбор транспорта и начинает поездку"""
@@ -3444,7 +4002,7 @@ def process_travel(message, target_city):
         bot.send_message(
             user_id, 
             "❌ У вас нет личной машины!\n"
-            "🚕 Можете воспользоваться такси или купить машину позже."
+            "🚕 Можете воспользоваться такси или купить машину в Селе Молочном."
         )
         bot.send_message(
             user_id,
@@ -3457,7 +4015,7 @@ def process_travel(message, target_city):
         bot.send_message(
             user_id, 
             "❌ У вас нет личного самолета!\n"
-            "🚕 Можете воспользоваться такси или купить самолет позже."
+            "🚕 Можете воспользоваться такси или купить самолет в Кропоткине."
         )
         bot.send_message(
             user_id,
@@ -3491,7 +4049,7 @@ def check_travels():
                     bot.send_message(
                         t['user_id'],
                         f"✅ Вы прибыли в {t['to_city']}!\nТранспорт: {t['transport']}",
-                        reply_markup=city_menu_keyboard(t['to_city'])
+                        reply_markup=main_keyboard()  # Всегда главное меню
                     )
                 except:
                     pass
@@ -3627,13 +4185,19 @@ print("✅ Бот запущен!")
 print(f"👑 Загружено админов: {len(ADMINS)}")
 print(f"🔨 Загружено банов: {len(BANS)}")
 print(f"⚠️ Загружено варнов: {len(WARNS)}")
-print("🏙️ Система городов активна! 4 города ждут путешественников!")
+print("🏙️ Система городов активирована!")
+print("   🏙️ Москва - 👕 Магазин одежды")
+print("   🏙️ Село Молочное - 🚗 Магазин машин")
+print("   🏙️ Кропоткин - ✈️ Магазин самолетов")
+print("   🏙️ Мурино - 🏠 Магазин домов")
 print("👕 Магазин одежды загружен с 16 комплектами!")
+print("🚗 Магазин машин загружен!")
+print("✈️ Магазин самолетов загружен!")
+print("🏠 Магазин домов загружен!")
 print("🎰 Рулетка активна! Играй: рул крас 1000")
-print("📸 Фото для бизнесов загружены!")
-print("🎮 Мини-игры для работ активированы! (Грузчик, Курьер, Программист)")
+print("🎮 Мини-игры для работ активированы!")
 print("🚕 Во время поездки кнопки пропадают!")
 print("📌 Админ команды: /adminhelp")
 print("📢 Команды для чата: я, топ, сырье все")
-print("🔄 - показать профиль (не трогает меню)")
+print("🔄 - показать профиль (НЕ ТРОГАЕТ МЕНЮ!)")
 bot.infinity_polling()
