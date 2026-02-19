@@ -1,29 +1,47 @@
-import telebot, sqlite3, random, os, re, threading, time
+import telebot
+import sqlite3
+import random
+import os
 from datetime import datetime, timedelta
 from telebot import types
-from flask import Flask
-from threading import Thread
+import threading
+import time
+import re
 
 TOKEN = os.environ['TOKEN']
 bot = telebot.TeleBot(TOKEN)
 CURRENCY = "💰 SuguruCoins"
 
-# ========== ПУТЬ К БАЗЕ ==========
-POSSIBLE_PATHS = ['/data/bot.db','/storage/bot.db','/opt/render/project/src/data/bot.db','./bot.db']
+# ========== ПУТЬ К БАЗЕ ДАННЫХ ==========
+POSSIBLE_PATHS = [
+    '/data/bot.db',
+    '/storage/bot.db',
+    '/opt/render/project/src/data/bot.db',
+    './bot.db'
+]
+
 DB_PATH = None
 for path in POSSIBLE_PATHS:
     try:
         dir_path = os.path.dirname(path)
         if os.path.exists(dir_path) and os.access(dir_path, os.W_OK):
             DB_PATH = path
-            print(f"✅ База: {DB_PATH}")
+            print(f"✅ База будет храниться в: {DB_PATH}")
             break
-    except: continue
-if DB_PATH is None: DB_PATH = 'bot.db'; print("⚠️ Локальная БД")
+    except:
+        continue
 
-# ========== ГЛОБАЛЬНЫЕ ==========
-ADMINS = {}; BANS = {}; WARNS = {}; MAX_WARNS = 3
+if DB_PATH is None:
+    DB_PATH = 'bot.db'
+    print("⚠️ Постоянное хранилище не найдено, использую локальную БД")
 
+# ========== ГЛОБАЛЬНЫЕ ПЕРЕМЕННЫЕ (КЭШ) ==========
+ADMINS = {}
+BANS = {}
+WARNS = {}
+MAX_WARNS = 3
+
+# ========== БАЗА ДАННЫХ ==========
 def get_db():
     conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
@@ -33,966 +51,2898 @@ def init_db():
     conn = get_db()
     cursor = conn.cursor()
     
-    cursor.execute('''CREATE TABLE IF NOT EXISTS users (user_id INTEGER PRIMARY KEY, username TEXT, first_name TEXT, custom_name TEXT UNIQUE, balance INTEGER DEFAULT 0, exp INTEGER DEFAULT 0, level INTEGER DEFAULT 1, work_count INTEGER DEFAULT 0, total_earned INTEGER DEFAULT 0, last_daily TEXT, warns INTEGER DEFAULT 0, banned_until TEXT, equipped_clothes INTEGER DEFAULT NULL, current_city TEXT DEFAULT 'Москва', has_car INTEGER DEFAULT 0, has_plane INTEGER DEFAULT 0, has_house INTEGER DEFAULT 0, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)''')
-    cursor.execute('''CREATE TABLE IF NOT EXISTS jobs (id INTEGER PRIMARY KEY AUTOINCREMENT, job_name TEXT UNIQUE, min_exp INTEGER, min_reward INTEGER, max_reward INTEGER, exp_reward INTEGER, emoji TEXT)''')
-    cursor.execute('''CREATE TABLE IF NOT EXISTS businesses (user_id INTEGER PRIMARY KEY, business_name TEXT, level INTEGER DEFAULT 1, raw_material INTEGER DEFAULT 0, raw_in_delivery INTEGER DEFAULT 0, raw_spent INTEGER DEFAULT 0, total_invested INTEGER DEFAULT 0, stored_profit INTEGER DEFAULT 0, last_update TEXT, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)''')
-    cursor.execute('''CREATE TABLE IF NOT EXISTS deliveries (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER, amount INTEGER, end_time TEXT, delivered INTEGER DEFAULT 0)''')
-    cursor.execute('''CREATE TABLE IF NOT EXISTS business_data (name TEXT PRIMARY KEY, price INTEGER, emoji TEXT, raw_cost_per_unit INTEGER, profit_per_raw INTEGER, base_time INTEGER, photo_url TEXT)''')
-    cursor.execute('''CREATE TABLE IF NOT EXISTS shop_clothes (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, price INTEGER NOT NULL, photo_url TEXT NOT NULL, in_shop INTEGER DEFAULT 1)''')
-    cursor.execute('''CREATE TABLE IF NOT EXISTS user_clothes (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER, clothes_id INTEGER, equipped INTEGER DEFAULT 1, purchased_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, FOREIGN KEY (user_id) REFERENCES users(user_id), FOREIGN KEY (clothes_id) REFERENCES shop_clothes(id))''')
-    cursor.execute('''CREATE TABLE IF NOT EXISTS shop_cars (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, price INTEGER NOT NULL, photo_url TEXT NOT NULL, speed INTEGER DEFAULT 100, in_shop INTEGER DEFAULT 1)''')
-    cursor.execute('''CREATE TABLE IF NOT EXISTS user_cars (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER, car_id INTEGER, equipped INTEGER DEFAULT 1, purchased_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, FOREIGN KEY (user_id) REFERENCES users(user_id), FOREIGN KEY (car_id) REFERENCES shop_cars(id))''')
-    cursor.execute('''CREATE TABLE IF NOT EXISTS shop_planes (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, price INTEGER NOT NULL, photo_url TEXT NOT NULL, speed INTEGER DEFAULT 500, in_shop INTEGER DEFAULT 1)''')
-    cursor.execute('''CREATE TABLE IF NOT EXISTS user_planes (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER, plane_id INTEGER, equipped INTEGER DEFAULT 1, purchased_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, FOREIGN KEY (user_id) REFERENCES users(user_id), FOREIGN KEY (plane_id) REFERENCES shop_planes(id))''')
-    cursor.execute('''CREATE TABLE IF NOT EXISTS shop_houses (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, price INTEGER NOT NULL, photo_url TEXT NOT NULL, comfort INTEGER DEFAULT 10, in_shop INTEGER DEFAULT 1)''')
-    cursor.execute('''CREATE TABLE IF NOT EXISTS user_houses (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER, house_id INTEGER, equipped INTEGER DEFAULT 1, purchased_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, FOREIGN KEY (user_id) REFERENCES users(user_id), FOREIGN KEY (house_id) REFERENCES shop_houses(id))''')
-    cursor.execute('''CREATE TABLE IF NOT EXISTS cities (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT UNIQUE, description TEXT, shop_type TEXT DEFAULT 'clothes', has_clothes_shop INTEGER DEFAULT 0, has_car_shop INTEGER DEFAULT 0, has_plane_shop INTEGER DEFAULT 0, has_house_shop INTEGER DEFAULT 0)''')
-    cursor.execute('''CREATE TABLE IF NOT EXISTS travels (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER, from_city TEXT, to_city TEXT, transport TEXT, end_time TEXT, completed INTEGER DEFAULT 0)''')
-    cursor.execute('''CREATE TABLE IF NOT EXISTS admins (user_id INTEGER PRIMARY KEY, level INTEGER DEFAULT 1, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)''')
-    cursor.execute('''CREATE TABLE IF NOT EXISTS bans (user_id INTEGER PRIMARY KEY, reason TEXT, until REAL, banned_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)''')
-    cursor.execute('''CREATE TABLE IF NOT EXISTS warns (user_id INTEGER PRIMARY KEY, count INTEGER DEFAULT 0, last_warn TIMESTAMP DEFAULT CURRENT_TIMESTAMP)''')
-    cursor.execute('''CREATE TABLE IF NOT EXISTS roulette_stats (user_id INTEGER PRIMARY KEY, games_played INTEGER DEFAULT 0, wins INTEGER DEFAULT 0, losses INTEGER DEFAULT 0, total_bet INTEGER DEFAULT 0, total_win INTEGER DEFAULT 0, total_lose INTEGER DEFAULT 0, biggest_win INTEGER DEFAULT 0, biggest_lose INTEGER DEFAULT 0, last_game TIMESTAMP)''')
-    cursor.execute('''CREATE TABLE IF NOT EXISTS work_stats (user_id INTEGER, job_type TEXT, games_played INTEGER DEFAULT 0, perfect_games INTEGER DEFAULT 0, best_time REAL, total_earned INTEGER DEFAULT 0, avg_score INTEGER DEFAULT 0, PRIMARY KEY (user_id, job_type))''')
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS users (
+            user_id INTEGER PRIMARY KEY,
+            username TEXT,
+            first_name TEXT,
+            custom_name TEXT UNIQUE,
+            balance INTEGER DEFAULT 0,
+            exp INTEGER DEFAULT 0,
+            level INTEGER DEFAULT 1,
+            work_count INTEGER DEFAULT 0,
+            total_earned INTEGER DEFAULT 0,
+            last_daily TEXT,
+            warns INTEGER DEFAULT 0,
+            banned_until TEXT,
+            equipped_clothes INTEGER DEFAULT NULL,
+            current_city TEXT DEFAULT 'Москва',
+            has_car INTEGER DEFAULT 0,
+            has_plane INTEGER DEFAULT 0,
+            has_house INTEGER DEFAULT 0,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    ''')
     
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS jobs (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            job_name TEXT UNIQUE,
+            min_exp INTEGER,
+            min_reward INTEGER,
+            max_reward INTEGER,
+            exp_reward INTEGER,
+            emoji TEXT
+        )
+    ''')
+    
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS businesses (
+            user_id INTEGER PRIMARY KEY,
+            business_name TEXT,
+            level INTEGER DEFAULT 1,
+            raw_material INTEGER DEFAULT 0,
+            raw_in_delivery INTEGER DEFAULT 0,
+            raw_spent INTEGER DEFAULT 0,
+            total_invested INTEGER DEFAULT 0,
+            stored_profit INTEGER DEFAULT 0,
+            last_update TEXT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    ''')
+    
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS deliveries (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER,
+            amount INTEGER,
+            end_time TEXT,
+            delivered INTEGER DEFAULT 0
+        )
+    ''')
+    
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS business_data (
+            name TEXT PRIMARY KEY,
+            price INTEGER,
+            emoji TEXT,
+            raw_cost_per_unit INTEGER,
+            profit_per_raw INTEGER,
+            base_time INTEGER,
+            photo_url TEXT
+        )
+    ''')
+    
+    # ========== ТАБЛИЦЫ ДЛЯ МАГАЗИНА ОДЕЖДЫ ==========
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS shop_clothes (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT NOT NULL,
+            price INTEGER NOT NULL,
+            photo_url TEXT NOT NULL,
+            in_shop INTEGER DEFAULT 1
+        )
+    ''')
+    
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS user_clothes (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER,
+            clothes_id INTEGER,
+            equipped INTEGER DEFAULT 1,
+            purchased_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (user_id) REFERENCES users(user_id),
+            FOREIGN KEY (clothes_id) REFERENCES shop_clothes(id)
+        )
+    ''')
+    
+    # ========== ТАБЛИЦЫ ДЛЯ МАГАЗИНА МАШИН ==========
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS shop_cars (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT NOT NULL,
+            price INTEGER NOT NULL,
+            photo_url TEXT NOT NULL,
+            speed INTEGER DEFAULT 100,
+            in_shop INTEGER DEFAULT 1
+        )
+    ''')
+    
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS user_cars (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER,
+            car_id INTEGER,
+            equipped INTEGER DEFAULT 1,
+            purchased_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (user_id) REFERENCES users(user_id),
+            FOREIGN KEY (car_id) REFERENCES shop_cars(id)
+        )
+    ''')
+    
+    # ========== ТАБЛИЦЫ ДЛЯ МАГАЗИНА САМОЛЕТОВ ==========
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS shop_planes (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT NOT NULL,
+            price INTEGER NOT NULL,
+            photo_url TEXT NOT NULL,
+            speed INTEGER DEFAULT 500,
+            in_shop INTEGER DEFAULT 1
+        )
+    ''')
+    
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS user_planes (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER,
+            plane_id INTEGER,
+            equipped INTEGER DEFAULT 1,
+            purchased_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (user_id) REFERENCES users(user_id),
+            FOREIGN KEY (plane_id) REFERENCES shop_planes(id)
+        )
+    ''')
+    
+    # ========== ТАБЛИЦЫ ДЛЯ МАГАЗИНА ДОМОВ ==========
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS shop_houses (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT NOT NULL,
+            price INTEGER NOT NULL,
+            photo_url TEXT NOT NULL,
+            comfort INTEGER DEFAULT 10,
+            in_shop INTEGER DEFAULT 1
+        )
+    ''')
+    
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS user_houses (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER,
+            house_id INTEGER,
+            equipped INTEGER DEFAULT 1,
+            purchased_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (user_id) REFERENCES users(user_id),
+            FOREIGN KEY (house_id) REFERENCES shop_houses(id)
+        )
+    ''')
+    
+    # ========== ТАБЛИЦЫ ДЛЯ ГОРОДОВ ==========
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS cities (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT UNIQUE,
+            description TEXT,
+            shop_type TEXT DEFAULT 'clothes',
+            has_clothes_shop INTEGER DEFAULT 0,
+            has_car_shop INTEGER DEFAULT 0,
+            has_plane_shop INTEGER DEFAULT 0,
+            has_house_shop INTEGER DEFAULT 0
+        )
+    ''')
+    
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS travels (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER,
+            from_city TEXT,
+            to_city TEXT,
+            transport TEXT,
+            end_time TEXT,
+            completed INTEGER DEFAULT 0
+        )
+    ''')
+    
+    # ========== ТАБЛИЦЫ ДЛЯ АДМИНОВ, БАНОВ И ВАРНОВ ==========
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS admins (
+            user_id INTEGER PRIMARY KEY,
+            level INTEGER DEFAULT 1,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    ''')
+    
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS bans (
+            user_id INTEGER PRIMARY KEY,
+            reason TEXT,
+            until REAL,
+            banned_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    ''')
+    
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS warns (
+            user_id INTEGER PRIMARY KEY,
+            count INTEGER DEFAULT 0,
+            last_warn TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    ''')
+    
+    # ========== ТАБЛИЦА ДЛЯ СТАТИСТИКИ РУЛЕТКИ ==========
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS roulette_stats (
+            user_id INTEGER PRIMARY KEY,
+            games_played INTEGER DEFAULT 0,
+            wins INTEGER DEFAULT 0,
+            losses INTEGER DEFAULT 0,
+            total_bet INTEGER DEFAULT 0,
+            total_win INTEGER DEFAULT 0,
+            total_lose INTEGER DEFAULT 0,
+            biggest_win INTEGER DEFAULT 0,
+            biggest_lose INTEGER DEFAULT 0,
+            last_game TIMESTAMP
+        )
+    ''')
+    
+    # ========== ТАБЛИЦА ДЛЯ СТАТИСТИКИ МИНИ-ИГР ==========
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS work_stats (
+            user_id INTEGER,
+            job_type TEXT,
+            games_played INTEGER DEFAULT 0,
+            perfect_games INTEGER DEFAULT 0,
+            best_time REAL,
+            total_earned INTEGER DEFAULT 0,
+            avg_score INTEGER DEFAULT 0,
+            PRIMARY KEY (user_id, job_type)
+        )
+    ''')
+    
+    # Добавляем главного админа
     cursor.execute('INSERT OR IGNORE INTO admins (user_id, level) VALUES (?, ?)', (5596589260, 4))
     
-    if cursor.execute('SELECT COUNT(*) FROM cities').fetchone()[0] == 0:
-        cities_data = [("Москва","Столица!","clothes",1,0,0,0),("Село Молочное","Уютное село","cars",0,1,0,0),("Кропоткин","Промышленный","planes",0,0,1,0),("Мурино","Молодежный","houses",0,0,0,1)]
-        cursor.executemany('INSERT INTO cities (name, description, shop_type, has_clothes_shop, has_car_shop, has_plane_shop, has_house_shop) VALUES (?,?,?,?,?,?,?)', cities_data)
+    # Заполняем города
+    cursor.execute('SELECT COUNT(*) FROM cities')
+    if cursor.fetchone()[0] == 0:
+        cities_data = [
+            ("Москва", "Столица! Отличное место для старта", 'clothes', 1, 0, 0, 0),
+            ("Село Молочное", "Уютное село, тут продают машины", 'cars', 0, 1, 0, 0),
+            ("Кропоткин", "Промышленный город, здесь можно купить самолет", 'planes', 0, 0, 1, 0),
+            ("Мурино", "Молодежный район, много новых домов", 'houses', 0, 0, 0, 1)
+        ]
+        cursor.executemany('''
+            INSERT INTO cities (name, description, shop_type, has_clothes_shop, has_car_shop, has_plane_shop, has_house_shop)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+        ''', cities_data)
     
-    if cursor.execute('SELECT COUNT(*) FROM shop_clothes').fetchone()[0] == 0:
-        clothes_data = [("Любит_поспать",160000000,"https://iimg.su/i/DeILfi"),("БоссFKC",700000000,"https://iimg.su/i/mZUtyC"),("Фермер",400000000,"https://iimg.su/i/1ChPnG"),("Крутой",100000000,"https://iimg.su/i/RqexQt"),("Шалун",150000000,"https://iimg.su/i/He6eQH"),("Пепе",350000000,"https://iimg.su/i/eQKrdn"),("С_улицы",70000000,"https://iimg.su/i/Jn88sT"),("Спринг_бонни",700000000,"https://iimg.su/i/wOy6tw"),("Качок",400000000,"https://iimg.su/i/XI1uhf"),("Платье",80000000,"https://iimg.su/i/UBQvJy"),("Скелет",666666666666,"https://iimg.su/i/RnLRY8"),("Гангстер",250000000,"https://iimg.su/i/dk8sE2"),("Тяги",67000000,"https://iimg.su/i/sQ6ns5"),("Модный",20000000,"https://iimg.su/i/8UkPmY"),("Романтик2.0",100000000,"https://iimg.su/i/qryc9I"),("Романтик",50000000,"https://iimg.su/i/8l70sn")]
-        cursor.executemany('INSERT INTO shop_clothes (name, price, photo_url) VALUES (?,?,?)', clothes_data)
+    # Заполняем магазин одеждой
+    cursor.execute('SELECT COUNT(*) FROM shop_clothes')
+    if cursor.fetchone()[0] == 0:
+        clothes_data = [
+            ("Любит_поспать", 160000000, "https://iimg.su/i/DeILfi"),
+            ("БоссFKC", 700000000, "https://iimg.su/i/mZUtyC"),
+            ("Фермер", 400000000, "https://iimg.su/i/1ChPnG"),
+            ("Крутой", 100000000, "https://iimg.su/i/RqexQt"),
+            ("Шалун", 150000000, "https://iimg.su/i/He6eQH"),
+            ("Пепе", 350000000, "https://iimg.su/i/eQKrdn"),
+            ("С_улицы", 70000000, "https://iimg.su/i/Jn88sT"),
+            ("Спринг_бонни", 700000000, "https://iimg.su/i/wOy6tw"),
+            ("Качок", 400000000, "https://iimg.su/i/XI1uhf"),
+            ("Платье", 80000000, "https://iimg.su/i/UBQvJy"),
+            ("Скелет", 666666666666, "https://iimg.su/i/RnLRY8"),
+            ("Гангстер", 250000000, "https://iimg.su/i/dk8sE2"),
+            ("Тяги", 67000000, "https://iimg.su/i/sQ6ns5"),
+            ("Модный", 20000000, "https://iimg.su/i/8UkPmY"),
+            ("Романтик2.0", 100000000, "https://iimg.su/i/qryc9I"),
+            ("Романтик", 50000000, "https://iimg.su/i/8l70sn")
+        ]
+        cursor.executemany('''
+            INSERT INTO shop_clothes (name, price, photo_url)
+            VALUES (?, ?, ?)
+        ''', clothes_data)
     
-    if cursor.execute('SELECT COUNT(*) FROM shop_cars').fetchone()[0] == 0:
-        cars_data = [("Лада",500000,"https://iimg.su/i/car1",80),("BMW",5000000,"https://iimg.su/i/car2",200),("Mercedes",10000000,"https://iimg.su/i/car3",220),("Ferrari",50000000,"https://iimg.su/i/car4",350)]
-        cursor.executemany('INSERT INTO shop_cars (name, price, photo_url, speed) VALUES (?,?,?,?)', cars_data)
+    # Заполняем магазин машин
+    cursor.execute('SELECT COUNT(*) FROM shop_cars')
+    if cursor.fetchone()[0] == 0:
+        cars_data = [
+            ("Лада", 500000, "https://iimg.su/i/car1", 80),
+            ("BMW", 5000000, "https://iimg.su/i/car2", 200),
+            ("Mercedes", 10000000, "https://iimg.su/i/car3", 220),
+            ("Ferrari", 50000000, "https://iimg.su/i/car4", 350)
+        ]
+        cursor.executemany('''
+            INSERT INTO shop_cars (name, price, photo_url, speed)
+            VALUES (?, ?, ?, ?)
+        ''', cars_data)
     
-    if cursor.execute('SELECT COUNT(*) FROM shop_planes').fetchone()[0] == 0:
-        planes_data = [("Cessna",5000000,"https://iimg.su/i/plane1",300),("Boeing 737",50000000,"https://iimg.su/i/plane2",900),("Airbus A380",200000000,"https://iimg.su/i/plane3",950),("Gulfstream",500000000,"https://iimg.su/i/plane4",1000)]
-        cursor.executemany('INSERT INTO shop_planes (name, price, photo_url, speed) VALUES (?,?,?,?)', planes_data)
+    # Заполняем магазин самолетов
+    cursor.execute('SELECT COUNT(*) FROM shop_planes')
+    if cursor.fetchone()[0] == 0:
+        planes_data = [
+            ("Cessna", 5000000, "https://iimg.su/i/plane1", 300),
+            ("Boeing 737", 50000000, "https://iimg.su/i/plane2", 900),
+            ("Airbus A380", 200000000, "https://iimg.su/i/plane3", 950),
+            ("Gulfstream", 500000000, "https://iimg.su/i/plane4", 1000)
+        ]
+        cursor.executemany('''
+            INSERT INTO shop_planes (name, price, photo_url, speed)
+            VALUES (?, ?, ?, ?)
+        ''', planes_data)
     
-    if cursor.execute('SELECT COUNT(*) FROM shop_houses').fetchone()[0] == 0:
-        houses_data = [("Хрущевка",1000000,"https://iimg.su/i/house1",10),("Квартира",5000000,"https://iimg.su/i/house2",50),("Коттедж",20000000,"https://iimg.su/i/house3",80),("Особняк",100000000,"https://iimg.su/i/house4",100)]
-        cursor.executemany('INSERT INTO shop_houses (name, price, photo_url, comfort) VALUES (?,?,?,?)', houses_data)
+    # Заполняем магазин домов
+    cursor.execute('SELECT COUNT(*) FROM shop_houses')
+    if cursor.fetchone()[0] == 0:
+        houses_data = [
+            ("Хрущевка", 1000000, "https://iimg.su/i/house1", 10),
+            ("Квартира", 5000000, "https://iimg.su/i/house2", 50),
+            ("Коттедж", 20000000, "https://iimg.su/i/house3", 80),
+            ("Особняк", 100000000, "https://iimg.su/i/house4", 100)
+        ]
+        cursor.executemany('''
+            INSERT INTO shop_houses (name, price, photo_url, comfort)
+            VALUES (?, ?, ?, ?)
+        ''', houses_data)
     
-    businesses_data = [("🥤 Киоск",500_000,"🥤",1_000,2_000,60,"https://th.bing.com/th/id/R.4634fab1300b0376abe417c30426a9b7"),("🍔 Фастфуд",5_000_000,"🍔",2_500,5_000,60,"https://tse1.mm.bing.net/th/id/OIP.HEYen4QlXTiaZzGiYuutCQHaEc"),("🏪 Минимаркет",15_000_000,"🏪",30_000,60_000,60,"https://tse1.mm.bing.net/th/id/OIP.JQQSzTluO8SxcChv5ZrjWAHaE7"),("⛽ Заправка",50_000_000,"⛽",200_000,400_000,60,"https://th.bing.com/th/id/R.1b578b96a209d5a4b42fafe640c98c06"),("🏨 Отель",1_000_000_000,"🏨",1_000_000,2_000_000,120,"https://tse1.mm.bing.net/th/id/OIP.oa6wkUpT9KjcmuimacYq3gHaE6")]
-    for bd in businesses_data: cursor.execute('INSERT OR REPLACE INTO business_data (name, price, emoji, raw_cost_per_unit, profit_per_raw, base_time, photo_url) VALUES (?,?,?,?,?,?,?)', bd)
+    # Обновляем business_data с фото
+    businesses_data = [
+        ("🥤 Киоск", 500_000, "🥤", 1_000, 2_000, 60, "https://th.bing.com/th/id/R.4634fab1300b0376abe417c30426a9b7?rik=xcaYMuQThvYHig&riu=http%3a%2f%2fidei-biz.com%2fwp-content%2fuploads%2f2015%2f04%2fkak-otkryt-kiosk.gif&ehk=Vgms8Tfzm6kKm5Me0BE8ByekknYG3Df%2fjHuMD3NjPGM%3d&risl=&pid=ImgRaw&r=0"),
+        ("🍔 Фастфуд", 5_000_000, "🍔", 2_500, 5_000, 60, "https://tse1.mm.bing.net/th/id/OIP.HEYen4QlXTiaZzGiYuutCQHaEc?cb=defcache2&defcache=1&rs=1&pid=ImgDetMain&o=7&rm=3"),
+        ("🏪 Минимаркет", 15_000_000, "🏪", 30_000, 60_000, 60, "https://tse1.mm.bing.net/th/id/OIP.JQQSzTluO8SxcChv5ZrjWAHaE7?cb=defcache2&defcache=1&rs=1&pid=ImgDetMain&o=7&rm=3"),
+        ("⛽ Заправка", 50_000_000, "⛽", 200_000, 400_000, 60, "https://th.bing.com/th/id/R.1b578b96a209d5a4b42fafe640c98c06?rik=fhxZHgYsQRp5Yw&riu=http%3a%2f%2fcdn.motorpage.ru%2fPhotos%2f800%2f213FE.jpg&ehk=kQHdWpflr8ztgGn9DA3XNkz%2fkSj6dzlVhm3%2biuromWk%3d&risl=&pid=ImgRaw&r=0"),
+        ("🏨 Отель", 1_000_000_000, "🏨", 1_000_000, 2_000_000, 120, "https://tse1.mm.bing.net/th/id/OIP.oa6wkUpT9KjcmuimacYq3gHaE6?cb=defcache2&defcache=1&rs=1&pid=ImgDetMain&o=7&rm=3")
+    ]
     
-    jobs_data = [("🚚 Грузчик",0,10,50,5,"🚚"),("🧹 Уборщик",50,15,70,7,"🧹"),("📦 Курьер",150,20,100,10,"📦"),("🔧 Механик",300,30,150,12,"🔧"),("💻 Программист",500,50,300,15,"💻"),("🕵️ Детектив",800,100,500,20,"🕵️"),("👨‍🔧 Инженер",1200,200,800,25,"👨‍🔧"),("👨‍⚕️ Врач",1700,300,1200,30,"👨‍⚕️"),("👨‍🎤 Артист",2300,500,2000,35,"👨‍🎤"),("👨‍🚀 Космонавт",3000,1000,5000,50,"👨‍🚀")]
-    for job in jobs_data: cursor.execute('INSERT OR IGNORE INTO jobs (job_name, min_exp, min_reward, max_reward, exp_reward, emoji) VALUES (?,?,?,?,?,?)', job)
+    for bd in businesses_data:
+        cursor.execute('''
+            INSERT OR REPLACE INTO business_data (name, price, emoji, raw_cost_per_unit, profit_per_raw, base_time, photo_url)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+        ''', bd)
+    
+    jobs_data = [
+        ("🚚 Грузчик", 0, 10, 50, 5, "🚚"),
+        ("🧹 Уборщик", 50, 15, 70, 7, "🧹"),
+        ("📦 Курьер", 150, 20, 100, 10, "📦"),
+        ("🔧 Механик", 300, 30, 150, 12, "🔧"),
+        ("💻 Программист", 500, 50, 300, 15, "💻"),
+        ("🕵️ Детектив", 800, 100, 500, 20, "🕵️"),
+        ("👨‍🔧 Инженер", 1200, 200, 800, 25, "👨‍🔧"),
+        ("👨‍⚕️ Врач", 1700, 300, 1200, 30, "👨‍⚕️"),
+        ("👨‍🎤 Артист", 2300, 500, 2000, 35, "👨‍🎤"),
+        ("👨‍🚀 Космонавт", 3000, 1000, 5000, 50, "👨‍🚀")
+    ]
+    
+    for job in jobs_data:
+        cursor.execute('''
+            INSERT OR IGNORE INTO jobs (job_name, min_exp, min_reward, max_reward, exp_reward, emoji)
+            VALUES (?, ?, ?, ?, ?, ?)
+        ''', job)
     
     conn.commit()
     conn.close()
-    print("✅ База готова!")
+    print("✅ База данных проверена/создана")
+    print("🏙️ Система городов активирована!")
+    print("👕 Магазин одежды загружен с 16 комплектами!")
+    print("🚗 Магазин машин загружен!")
+    print("✈️ Магазин самолетов загружен!")
+    print("🏠 Магазин домов загружен!")
+    print("🎰 Система рулетки активирована!")
+    print("🎮 Мини-игры для работ активированы!")
 
-init_db()
-
+# ========== ЗАГРУЗКА ДАННЫХ ИЗ БД ==========
 def load_admins_from_db():
     try:
         conn = get_db()
-        admins = {a['user_id']:a['level'] for a in conn.execute('SELECT user_id, level FROM admins').fetchall()}
+        cursor = conn.cursor()
+        admins = cursor.execute('SELECT user_id, level FROM admins').fetchall()
         conn.close()
-        return admins or {5596589260:4}
-    except: return {5596589260:4}
+        
+        admin_dict = {}
+        for admin in admins:
+            admin_dict[admin['user_id']] = admin['level']
+        return admin_dict
+    except Exception as e:
+        print(f"Ошибка загрузки админов: {e}")
+        return {5596589260: 4}
 
 def load_bans_from_db():
     try:
         conn = get_db()
-        bans = {b['user_id']:{'reason':b['reason'],'until':b['until']} for b in conn.execute('SELECT user_id, reason, until FROM bans').fetchall()}
+        cursor = conn.cursor()
+        bans = cursor.execute('SELECT user_id, reason, until FROM bans').fetchall()
         conn.close()
-        return bans
-    except: return {}
+        
+        ban_dict = {}
+        for ban in bans:
+            ban_dict[ban['user_id']] = {
+                'reason': ban['reason'],
+                'until': ban['until']
+            }
+        return ban_dict
+    except Exception as e:
+        print(f"Ошибка загрузки банов: {e}")
+        return {}
 
 def load_warns_from_db():
     try:
         conn = get_db()
-        warns = {w['user_id']:w['count'] for w in conn.execute('SELECT user_id, count FROM warns').fetchall()}
+        cursor = conn.cursor()
+        warns = cursor.execute('SELECT user_id, count FROM warns').fetchall()
         conn.close()
-        return warns
-    except: return {}
+        
+        warn_dict = {}
+        for warn in warns:
+            warn_dict[warn['user_id']] = warn['count']
+        return warn_dict
+    except Exception as e:
+        print(f"Ошибка загрузки варнов: {e}")
+        return {}
 
+init_db()
 ADMINS = load_admins_from_db()
 BANS = load_bans_from_db()
 WARNS = load_warns_from_db()
-print(f"👑 Админов: {len(ADMINS)}, 🔨 Банов: {len(BANS)}, ⚠️ Варнов: {len(WARNS)}")
+
+print(f"👑 Загружено админов: {len(ADMINS)}")
+print(f"🔨 Загружено банов: {len(BANS)}")
+print(f"⚠️ Загружено варнов: {len(WARNS)}")
+
+# ========== ФУНКЦИИ ДЛЯ РАБОТЫ С АДМИНАМИ/БАНАМИ/ВАРНАМИ ==========
 
 def get_admin_level(user_id):
-    if user_id in ADMINS: return ADMINS[user_id]
+    if user_id in ADMINS:
+        return ADMINS[user_id]
+    
     try:
         conn = get_db()
-        admin = conn.execute('SELECT level FROM admins WHERE user_id = ?', (user_id,)).fetchone()
+        cursor = conn.cursor()
+        admin = cursor.execute('SELECT level FROM admins WHERE user_id = ?', (user_id,)).fetchone()
         conn.close()
+        
         if admin:
-            ADMINS[user_id] = admin['level']
-            return admin['level']
-    except: pass
+            level = admin['level']
+            ADMINS[user_id] = level
+            return level
+    except:
+        pass
+    
     return 0
 
-def is_admin(user_id, required_level=1): return get_admin_level(user_id) >= required_level
+def is_admin(user_id, required_level=1):
+    return get_admin_level(user_id) >= required_level
 
 def add_admin(user_id, level):
     try:
         conn = get_db()
-        if conn.execute('SELECT user_id FROM admins WHERE user_id = ?', (user_id,)).fetchone():
+        cursor = conn.cursor()
+        
+        existing = cursor.execute('SELECT user_id FROM admins WHERE user_id = ?', (user_id,)).fetchone()
+        
+        if existing:
             conn.close()
-            return False, "❌ Уже админ"
-        conn.execute('INSERT INTO admins (user_id, level) VALUES (?,?)', (user_id, level))
+            return False, "❌ Пользователь уже админ"
+        
+        cursor.execute('INSERT INTO admins (user_id, level) VALUES (?, ?)', (user_id, level))
         conn.commit()
         conn.close()
+        
         ADMINS[user_id] = level
-        return True, f"✅ Админ {level} уровня"
-    except: return False, "❌ Ошибка"
+        
+        return True, f"✅ Пользователь назначен админом {level} уровня"
+    except Exception as e:
+        print(f"Ошибка добавления админа: {e}")
+        return False, "❌ Ошибка при добавлении админа"
 
 def remove_admin(user_id):
     try:
         conn = get_db()
-        conn.execute('DELETE FROM admins WHERE user_id = ?', (user_id,))
+        cursor = conn.cursor()
+        cursor.execute('DELETE FROM admins WHERE user_id = ?', (user_id,))
         conn.commit()
         conn.close()
-        if user_id in ADMINS: del ADMINS[user_id]
+        
+        if user_id in ADMINS:
+            del ADMINS[user_id]
+        
         return True
-    except: return False
+    except Exception as e:
+        print(f"Ошибка удаления админа: {e}")
+        return False
 
 def set_admin_level(user_id, level):
     try:
         conn = get_db()
-        conn.execute('UPDATE admins SET level = ? WHERE user_id = ?', (level, user_id))
+        cursor = conn.cursor()
+        cursor.execute('UPDATE admins SET level = ? WHERE user_id = ?', (level, user_id))
         conn.commit()
         conn.close()
+        
         ADMINS[user_id] = level
+        
         return True
-    except: return False
+    except Exception as e:
+        print(f"Ошибка изменения уровня админа: {e}")
+        return False
 
 def is_banned(user_id):
     if user_id in BANS:
-        ban = BANS[user_id]
-        if ban['until'] == 0 or datetime.now().timestamp() < ban['until']: return True
+        ban_info = BANS[user_id]
+        if ban_info['until'] == 0:
+            return True
+        elif datetime.now().timestamp() < ban_info['until']:
+            return True
         else:
             del BANS[user_id]
             try:
                 conn = get_db()
-                conn.execute('DELETE FROM bans WHERE user_id = ?', (user_id,))
+                cursor = conn.cursor()
+                cursor.execute('DELETE FROM bans WHERE user_id = ?', (user_id,))
                 conn.commit()
                 conn.close()
-            except: pass
+            except:
+                pass
             return False
+    
     try:
         conn = get_db()
-        ban = conn.execute('SELECT until FROM bans WHERE user_id = ?', (user_id,)).fetchone()
+        cursor = conn.cursor()
+        ban = cursor.execute('SELECT until FROM bans WHERE user_id = ?', (user_id,)).fetchone()
         conn.close()
+        
         if ban:
-            if ban['until'] == 0 or datetime.now().timestamp() < ban['until']:
-                BANS[user_id] = {'reason':'unknown','until':ban['until']}
+            until = ban['until']
+            if until == 0:
+                BANS[user_id] = {'reason': 'unknown', 'until': 0}
+                return True
+            elif datetime.now().timestamp() < until:
+                BANS[user_id] = {'reason': 'unknown', 'until': until}
                 return True
             else:
                 conn = get_db()
-                conn.execute('DELETE FROM bans WHERE user_id = ?', (user_id,))
+                cursor = conn.cursor()
+                cursor.execute('DELETE FROM bans WHERE user_id = ?', (user_id,))
                 conn.commit()
                 conn.close()
-    except: pass
+    except:
+        pass
+    
     return False
 
 def add_ban(user_id, hours=0, reason="admin"):
     try:
         conn = get_db()
+        cursor = conn.cursor()
+        
         until = 0 if hours == 0 else (datetime.now() + timedelta(hours=hours)).timestamp()
-        conn.execute('DELETE FROM bans WHERE user_id = ?', (user_id,))
-        conn.execute('INSERT INTO bans (user_id, reason, until) VALUES (?,?,?)', (user_id, reason, until))
+        
+        cursor.execute('DELETE FROM bans WHERE user_id = ?', (user_id,))
+        
+        cursor.execute('INSERT INTO bans (user_id, reason, until) VALUES (?, ?, ?)', 
+                      (user_id, reason, until))
         conn.commit()
         conn.close()
-        BANS[user_id] = {'reason':reason,'until':until}
+        
+        BANS[user_id] = {'reason': reason, 'until': until}
+        
         return True
-    except: return False
+    except Exception as e:
+        print(f"Ошибка добавления бана: {e}")
+        return False
 
 def remove_ban(user_id):
     try:
         conn = get_db()
-        conn.execute('DELETE FROM bans WHERE user_id = ?', (user_id,))
+        cursor = conn.cursor()
+        cursor.execute('DELETE FROM bans WHERE user_id = ?', (user_id,))
         conn.commit()
         conn.close()
-        if user_id in BANS: del BANS[user_id]
+        
+        if user_id in BANS:
+            del BANS[user_id]
+        
         return True
-    except: return False
+    except Exception as e:
+        print(f"Ошибка снятия бана: {e}")
+        return False
 
 def add_warn(user_id):
     try:
         current = WARNS.get(user_id, 0) + 1
+        
         conn = get_db()
-        conn.execute('INSERT OR REPLACE INTO warns (user_id, count, last_warn) VALUES (?,?,?)', (user_id, current, datetime.now().isoformat()))
+        cursor = conn.cursor()
+        
+        cursor.execute('INSERT OR REPLACE INTO warns (user_id, count, last_warn) VALUES (?, ?, ?)', 
+                      (user_id, current, datetime.now().isoformat()))
         conn.commit()
         conn.close()
+        
         WARNS[user_id] = current
+        
         if current >= MAX_WARNS:
             add_ban(user_id, hours=24*30, reason="warn")
             WARNS[user_id] = 0
             conn = get_db()
-            conn.execute('UPDATE warns SET count = 0 WHERE user_id = ?', (user_id,))
+            cursor = conn.cursor()
+            cursor.execute('UPDATE warns SET count = 0 WHERE user_id = ?', (user_id,))
             conn.commit()
             conn.close()
-            return True, "❌ Бан на 30 дней"
+            return True, f"❌ Получен 3 варн! Бан на 30 дней."
+        
         return False, f"⚠️ Варн {current}/{MAX_WARNS}"
-    except: return False, "❌ Ошибка"
+    except Exception as e:
+        print(f"Ошибка добавления варна: {e}")
+        return False, "❌ Ошибка при добавлении варна"
 
 def get_warns(user_id):
-    if user_id in WARNS: return WARNS[user_id]
+    if user_id in WARNS:
+        return WARNS[user_id]
+    
     try:
         conn = get_db()
-        warn = conn.execute('SELECT count FROM warns WHERE user_id = ?', (user_id,)).fetchone()
+        cursor = conn.cursor()
+        warn = cursor.execute('SELECT count FROM warns WHERE user_id = ?', (user_id,)).fetchone()
         conn.close()
+        
         if warn:
             WARNS[user_id] = warn['count']
             return warn['count']
-    except: pass
+    except:
+        pass
+    
     return 0
 
+# ========== ФУНКЦИИ ==========
 def add_balance(user_id, amount):
     try:
         conn = get_db()
-        conn.execute('UPDATE users SET balance = balance + ?, total_earned = total_earned + ? WHERE user_id = ?', (amount, max(0, amount), user_id))
+        cursor = conn.cursor()
+        cursor.execute('UPDATE users SET balance = balance + ?, total_earned = total_earned + ? WHERE user_id = ?', 
+                      (amount, max(0, amount), user_id))
         conn.commit()
         conn.close()
         return True
-    except: return False
+    except Exception as e:
+        print(f"Ошибка add_balance: {e}")
+        return False
 
 def get_balance(user_id):
     try:
         conn = get_db()
-        res = conn.execute('SELECT balance FROM users WHERE user_id = ?', (user_id,)).fetchone()
+        cursor = conn.cursor()
+        cursor.execute('SELECT balance FROM users WHERE user_id = ?', (user_id,))
+        res = cursor.fetchone()
         conn.close()
         return res[0] if res else 0
-    except: return 0
+    except:
+        return 0
 
 def add_exp(user_id, amount):
     try:
         conn = get_db()
-        u = conn.execute('SELECT exp, level FROM users WHERE user_id = ?', (user_id,)).fetchone()
-        exp = u[0] if u else 0
-        lvl = u[1] if u else 1
-        nexp = exp + amount
-        nlvl = nexp // 100 + 1
-        conn.execute('UPDATE users SET exp = ?, level = ? WHERE user_id = ?', (nexp, nlvl, user_id))
+        cursor = conn.cursor()
+        cursor.execute('SELECT exp, level FROM users WHERE user_id = ?', (user_id,))
+        result = cursor.fetchone()
+        current_exp = result[0] if result else 0
+        current_level = result[1] if result else 1
+        
+        new_exp = current_exp + amount
+        new_level = new_exp // 100 + 1
+        
+        cursor.execute('UPDATE users SET exp = ?, level = ? WHERE user_id = ?', (new_exp, new_level, user_id))
         conn.commit()
         conn.close()
         return True
-    except: return False
+    except Exception as e:
+        print(f"Ошибка add_exp: {e}")
+        return False
 
 def get_user_stats(user_id):
     try:
         conn = get_db()
-        r = conn.execute('SELECT exp, level, work_count, total_earned FROM users WHERE user_id = ?', (user_id,)).fetchone()
+        cursor = conn.cursor()
+        cursor.execute('SELECT exp, level, work_count, total_earned FROM users WHERE user_id = ?', (user_id,))
+        res = cursor.fetchone()
         conn.close()
-        return r if r else (0,1,0,0)
-    except: return (0,1,0,0)
+        return res if res else (0, 1, 0, 0)
+    except:
+        return (0, 1, 0, 0)
 
 def get_user_profile(user_id):
     try:
         conn = get_db()
-        u = conn.execute('SELECT * FROM users WHERE user_id = ?', (user_id,)).fetchone()
+        cursor = conn.cursor()
+        cursor.execute('SELECT * FROM users WHERE user_id = ?', (user_id,))
+        user = cursor.fetchone()
         conn.close()
-        return u
-    except: return None
+        return user
+    except:
+        return None
 
 def get_user_by_username(username):
     try:
         conn = get_db()
-        u = conn.execute('SELECT user_id, first_name, username, custom_name, warns FROM users WHERE username = ?', (username,)).fetchone()
+        cursor = conn.cursor()
+        cursor.execute('SELECT user_id, first_name, username, custom_name, warns FROM users WHERE username = ?', (username,))
+        user = cursor.fetchone()
         conn.close()
-        return u
-    except: return None
+        return user
+    except:
+        return None
 
 def get_user_by_custom_name(custom_name):
     try:
         conn = get_db()
-        u = conn.execute('SELECT user_id, first_name, username, custom_name, warns FROM users WHERE custom_name = ? COLLATE NOCASE', (custom_name,)).fetchone()
+        cursor = conn.cursor()
+        cursor.execute('SELECT user_id, first_name, username, custom_name, warns FROM users WHERE custom_name = ? COLLATE NOCASE', (custom_name,))
+        user = cursor.fetchone()
         conn.close()
-        return u
-    except: return None
+        return user
+    except:
+        return None
 
 def get_user_display_name(user_data):
-    if not user_data: return "Игрок"
-    custom, username, first = user_data[3], user_data[2], user_data[1]
-    if custom: return f"{custom} (@{username})" if username and username != "NoUsername" else custom
-    elif username and username != "NoUsername": return f"@{username}"
-    elif first: return first
+    if not user_data:
+        return "Игрок"
+    
+    custom = user_data[3]
+    username = user_data[2]
+    
+    if custom:
+        if username and username != "NoUsername":
+            return f"{custom} (@{username})"
+        return custom
+    elif username and username != "NoUsername":
+        return f"@{username}"
+    elif user_data[1]:
+        return user_data[1]
     return "Игрок"
 
 def set_custom_name(user_id, name):
     try:
         conn = get_db()
-        conn.execute('UPDATE users SET custom_name = ? WHERE user_id = ?', (name, user_id))
+        cursor = conn.cursor()
+        cursor.execute('UPDATE users SET custom_name = ? WHERE user_id = ?', (name, user_id))
         conn.commit()
         conn.close()
         return True
-    except sqlite3.IntegrityError: return False
-    except: return False
+    except sqlite3.IntegrityError:
+        return False
+    except Exception as e:
+        print(f"Ошибка установки имени: {e}")
+        return False
 
 def get_available_jobs(user_id):
     try:
         conn = get_db()
-        exp = conn.execute('SELECT exp FROM users WHERE user_id = ?', (user_id,)).fetchone()[0]
-        jobs = conn.execute('SELECT job_name, min_exp, min_reward, max_reward, exp_reward, emoji FROM jobs WHERE min_exp <= ? ORDER BY min_exp ASC', (exp,)).fetchall()
+        cursor = conn.cursor()
+        cursor.execute('SELECT exp FROM users WHERE user_id = ?', (user_id,))
+        exp = cursor.fetchone()[0]
+        
+        cursor.execute('''
+            SELECT job_name, min_exp, min_reward, max_reward, exp_reward, emoji 
+            FROM jobs 
+            WHERE min_exp <= ?
+            ORDER BY min_exp ASC
+        ''', (exp,))
+        jobs = cursor.fetchall()
         conn.close()
         return jobs
-    except: return []
+    except Exception as e:
+        print(f"Ошибка get_available_jobs: {e}")
+        return []
 
 def get_user_business(user_id):
     try:
         conn = get_db()
-        b = conn.execute('SELECT * FROM businesses WHERE user_id = ?', (user_id,)).fetchone()
+        cursor = conn.cursor()
+        cursor.execute('SELECT * FROM businesses WHERE user_id = ?', (user_id,))
+        business = cursor.fetchone()
         conn.close()
-        return b
-    except: return None
+        return business
+    except:
+        return None
 
 def get_business_data(business_name):
     try:
         conn = get_db()
-        d = conn.execute('SELECT * FROM business_data WHERE name = ?', (business_name,)).fetchone()
+        cursor = conn.cursor()
+        cursor.execute('SELECT * FROM business_data WHERE name = ?', (business_name,))
+        data = cursor.fetchone()
         conn.close()
-        return d
-    except: return None
+        return data
+    except:
+        return None
 
 def has_active_delivery(user_id):
     try:
         conn = get_db()
-        c = conn.execute('SELECT COUNT(*) as count FROM deliveries WHERE user_id = ? AND delivered = 0', (user_id,)).fetchone()['count']
+        cursor = conn.cursor()
+        cursor.execute('SELECT COUNT(*) as count FROM deliveries WHERE user_id = ? AND delivered = 0', (user_id,))
+        result = cursor.fetchone()
         conn.close()
-        return c > 0
-    except: return False
+        return result['count'] > 0
+    except:
+        return False
 
-def find_user_by_input(s):
-    if s.startswith('@'): return get_user_by_username(s[1:])
-    else: return get_user_by_custom_name(s)
+def find_user_by_input(input_str):
+    if input_str.startswith('@'):
+        username = input_str[1:]
+        return get_user_by_username(username)
+    else:
+        return get_user_by_custom_name(input_str)
+
+# ========== ФУНКЦИИ ДЛЯ ГОРОДОВ ==========
 
 def get_user_city(user_id):
     try:
         conn = get_db()
-        c = conn.execute('SELECT current_city FROM users WHERE user_id = ?', (user_id,)).fetchone()
+        cursor = conn.cursor()
+        cursor.execute('SELECT current_city FROM users WHERE user_id = ?', (user_id,))
+        result = cursor.fetchone()
         conn.close()
-        return c[0] if c else "Москва"
-    except: return "Москва"
+        return result[0] if result else "Москва"
+    except:
+        return "Москва"
 
 def set_user_city(user_id, city):
     try:
         conn = get_db()
-        conn.execute('UPDATE users SET current_city = ? WHERE user_id = ?', (city, user_id))
+        cursor = conn.cursor()
+        cursor.execute('UPDATE users SET current_city = ? WHERE user_id = ?', (city, user_id))
         conn.commit()
         conn.close()
         return True
-    except: return False
+    except:
+        return False
 
 def get_city_info(city_name):
     try:
         conn = get_db()
-        c = conn.execute('SELECT * FROM cities WHERE name = ?', (city_name,)).fetchone()
+        cursor = conn.cursor()
+        cursor.execute('SELECT * FROM cities WHERE name = ?', (city_name,))
+        city = cursor.fetchone()
         conn.close()
-        return c
-    except: return None
+        return city
+    except:
+        return None
 
 def get_shop_type_for_city(city_name):
-    ci = get_city_info(city_name)
-    return ci['shop_type'] if ci else 'clothes'
+    city_info = get_city_info(city_name)
+    if city_info:
+        return city_info['shop_type']
+    return 'clothes'
 
 def start_travel(user_id, to_city, transport):
+    """Начинает поездку в другой город"""
     try:
         conn = get_db()
-        if conn.execute('SELECT id FROM travels WHERE user_id = ? AND completed = 0', (user_id,)).fetchone():
+        cursor = conn.cursor()
+        active = cursor.execute('''
+            SELECT id FROM travels 
+            WHERE user_id = ? AND completed = 0
+        ''', (user_id,)).fetchone()
+        
+        if active:
             conn.close()
-            return False, "❌ Уже в пути"
+            return False, "❌ У тебя уже есть активная поездка!"
+        
         from_city = get_user_city(user_id)
-        ttime = random.randint(30,60)
-        end = (datetime.now() + timedelta(seconds=ttime)).isoformat()
-        conn.execute('INSERT INTO travels (user_id, from_city, to_city, transport, end_time, completed) VALUES (?,?,?,?,?,0)', (user_id, from_city, to_city, transport, end))
+        
+        travel_time = random.randint(30, 60)
+        end_time = datetime.now() + timedelta(seconds=travel_time)
+        
+        cursor.execute('''
+            INSERT INTO travels (user_id, from_city, to_city, transport, end_time, completed)
+            VALUES (?, ?, ?, ?, ?, 0)
+        ''', (user_id, from_city, to_city, transport, end_time.isoformat()))
+        
         conn.commit()
         conn.close()
-        bot.send_message(user_id, f"🚀 Ты отправился в {to_city} на {transport}!\n⏱️ Время: {ttime} сек.\n\n⌛ Ожидайте...", reply_markup=types.ReplyKeyboardRemove())
+        
+        bot.send_message(
+            user_id,
+            f"🚀 Ты отправился в {to_city} на {transport}!\n⏱️ Время в пути: {travel_time} сек.\n\n⌛ Ожидайте прибытия...",
+            reply_markup=types.ReplyKeyboardRemove()
+        )
+        
         return True, None
-    except: return False, "❌ Ошибка"
+    except Exception as e:
+        print(f"Ошибка поездки: {e}")
+        return False, "❌ Ошибка при начале поездки"
 
 def get_active_travel(user_id):
     try:
         conn = get_db()
-        t = conn.execute('SELECT * FROM travels WHERE user_id = ? AND completed = 0', (user_id,)).fetchone()
+        cursor = conn.cursor()
+        travel = cursor.execute('''
+            SELECT * FROM travels 
+            WHERE user_id = ? AND completed = 0
+        ''', (user_id,)).fetchone()
         conn.close()
-        return t
-    except: return None
+        return travel
+    except:
+        return None
 
 def complete_travel(travel_id, user_id):
     try:
         conn = get_db()
-        t = conn.execute('SELECT * FROM travels WHERE id = ?', (travel_id,)).fetchone()
-        if t:
-            conn.execute('UPDATE users SET current_city = ? WHERE user_id = ?', (t['to_city'], user_id))
-            conn.execute('UPDATE travels SET completed = 1 WHERE id = ?', (travel_id,))
+        cursor = conn.cursor()
+        travel = cursor.execute('SELECT * FROM travels WHERE id = ?', (travel_id,)).fetchone()
+        
+        if travel:
+            cursor.execute('UPDATE users SET current_city = ? WHERE user_id = ?', 
+                         (travel['to_city'], user_id))
+            cursor.execute('UPDATE travels SET completed = 1 WHERE id = ?', (travel_id,))
             conn.commit()
-            bot.send_message(user_id, f"✅ Вы прибыли в {t['to_city']}!\nТранспорт: {t['transport']}", reply_markup=main_keyboard())
+            
+            bot.send_message(
+                user_id,
+                f"✅ Вы прибыли в {travel['to_city']}!\nТранспорт: {travel['transport']}",
+                reply_markup=main_keyboard()
+            )
+        
         conn.close()
         return True
-    except: return False
+    except Exception as e:
+        print(f"Ошибка завершения поездки: {e}")
+        return False
+
+# ========== ФУНКЦИИ ДЛЯ МАГАЗИНОВ ==========
 
 def get_user_equipped_clothes(user_id):
     try:
         conn = get_db()
-        c = conn.execute('SELECT sc.* FROM shop_clothes sc JOIN user_clothes uc ON sc.id = uc.clothes_id WHERE uc.user_id = ? AND uc.equipped = 1', (user_id,)).fetchone()
+        cursor = conn.cursor()
+        cursor.execute('''
+            SELECT sc.* FROM shop_clothes sc
+            JOIN user_clothes uc ON sc.id = uc.clothes_id
+            WHERE uc.user_id = ? AND uc.equipped = 1
+        ''', (user_id,))
+        clothes = cursor.fetchone()
         conn.close()
-        return c
-    except: return None
+        return clothes
+    except:
+        return None
 
 def get_user_equipped_car(user_id):
     try:
         conn = get_db()
-        c = conn.execute('SELECT sc.* FROM shop_cars sc JOIN user_cars uc ON sc.id = uc.car_id WHERE uc.user_id = ? AND uc.equipped = 1', (user_id,)).fetchone()
+        cursor = conn.cursor()
+        cursor.execute('''
+            SELECT sc.* FROM shop_cars sc
+            JOIN user_cars uc ON sc.id = uc.car_id
+            WHERE uc.user_id = ? AND uc.equipped = 1
+        ''', (user_id,))
+        car = cursor.fetchone()
         conn.close()
-        return c
-    except: return None
+        return car
+    except:
+        return None
 
 def get_user_equipped_plane(user_id):
     try:
         conn = get_db()
-        p = conn.execute('SELECT sp.* FROM shop_planes sp JOIN user_planes up ON sp.id = up.plane_id WHERE up.user_id = ? AND up.equipped = 1', (user_id,)).fetchone()
+        cursor = conn.cursor()
+        cursor.execute('''
+            SELECT sp.* FROM shop_planes sp
+            JOIN user_planes up ON sp.id = up.plane_id
+            WHERE up.user_id = ? AND up.equipped = 1
+        ''', (user_id,))
+        plane = cursor.fetchone()
         conn.close()
-        return p
-    except: return None
+        return plane
+    except:
+        return None
 
 def get_user_equipped_house(user_id):
     try:
         conn = get_db()
-        h = conn.execute('SELECT sh.* FROM shop_houses sh JOIN user_houses uh ON sh.id = uh.house_id WHERE uh.user_id = ? AND uh.equipped = 1', (user_id,)).fetchone()
+        cursor = conn.cursor()
+        cursor.execute('''
+            SELECT sh.* FROM shop_houses sh
+            JOIN user_houses uh ON sh.id = uh.house_id
+            WHERE uh.user_id = ? AND uh.equipped = 1
+        ''', (user_id,))
+        house = cursor.fetchone()
         conn.close()
-        return h
-    except: return None
+        return house
+    except:
+        return None
 
 def get_user_profile_photo(user_id):
-    c = get_user_equipped_clothes(user_id)
-    return c['photo_url'] if c and c['photo_url'] else "https://iimg.su/i/waxabI"
+    equipped = get_user_equipped_clothes(user_id)
+    if equipped and equipped['photo_url']:
+        return equipped['photo_url']
+    return "https://iimg.su/i/waxabI"
 
 def send_main_menu_with_profile(user_id, chat_id=None):
-    if not chat_id: chat_id = user_id
-    ud = get_user_profile(user_id)
-    if not ud: return
-    caption = f"👤 *{get_user_display_name(ud)}*\n\n💰 Баланс: {get_balance(user_id):,} {CURRENCY}\n📍 Город: {get_user_city(user_id)}"
-    bot.send_photo(chat_id, get_user_profile_photo(user_id), caption=caption, parse_mode="Markdown", reply_markup=main_keyboard())
+    if not chat_id:
+        chat_id = user_id
+    
+    user_data = get_user_profile(user_id)
+    if not user_data:
+        return
+    
+    balance = get_balance(user_id)
+    display_name = get_user_display_name(user_data)
+    current_city = get_user_city(user_id)
+    
+    caption = (f"👤 *{display_name}*\n\n"
+               f"💰 Баланс: {balance:,} {CURRENCY}\n"
+               f"📍 Город: {current_city}")
+    
+    photo_url = get_user_profile_photo(user_id)
+    
+    bot.send_photo(
+        chat_id,
+        photo_url,
+        caption=caption,
+        parse_mode="Markdown",
+        reply_markup=main_keyboard()
+    )
 
 def buy_clothes(user_id, clothes_id):
     try:
         conn = get_db()
-        c = conn.execute('SELECT * FROM shop_clothes WHERE id = ?', (clothes_id,)).fetchone()
-        if not c: conn.close(); return False, "❌ Нет товара"
-        u = conn.execute('SELECT balance FROM users WHERE user_id = ?', (user_id,)).fetchone()
-        if not u or u['balance'] < c['price']: conn.close(); return False, f"❌ Нужно {c['price']:,}💰"
-        conn.execute('UPDATE users SET balance = balance - ? WHERE user_id = ?', (c['price'], user_id))
-        conn.execute('UPDATE user_clothes SET equipped = 0 WHERE user_id = ?', (user_id,))
-        conn.execute('INSERT INTO user_clothes (user_id, clothes_id, equipped) VALUES (?,?,1)', (user_id, clothes_id))
-        conn.execute('UPDATE users SET equipped_clothes = ? WHERE user_id = ?', (clothes_id, user_id))
+        cursor = conn.cursor()
+        
+        clothes = cursor.execute('SELECT * FROM shop_clothes WHERE id = ?', (clothes_id,)).fetchone()
+        if not clothes:
+            conn.close()
+            return False, "❌ Товар не найден"
+        
+        user = cursor.execute('SELECT balance FROM users WHERE user_id = ?', (user_id,)).fetchone()
+        if not user or user['balance'] < clothes['price']:
+            conn.close()
+            return False, f"❌ Недостаточно средств! Нужно {clothes['price']:,} {CURRENCY}"
+        
+        cursor.execute('UPDATE users SET balance = balance - ? WHERE user_id = ?', (clothes['price'], user_id))
+        
+        cursor.execute('UPDATE user_clothes SET equipped = 0 WHERE user_id = ?', (user_id,))
+        
+        cursor.execute('''
+            INSERT INTO user_clothes (user_id, clothes_id, equipped)
+            VALUES (?, ?, 1)
+        ''', (user_id, clothes_id))
+        
+        cursor.execute('UPDATE users SET equipped_clothes = ? WHERE user_id = ?', (clothes_id, user_id))
+        
         conn.commit()
         conn.close()
-        return True, f"✅ Куплено {c['name']}!"
-    except: return False, "❌ Ошибка"
+        return True, f"✅ Поздравляем! Ты купил комплект {clothes['name']} и сразу надел его!"
+    except Exception as e:
+        print(f"Ошибка при покупке: {e}")
+        return False, "❌ Ошибка при покупке"
 
 def buy_car(user_id, car_id):
     try:
         conn = get_db()
-        c = conn.execute('SELECT * FROM shop_cars WHERE id = ?', (car_id,)).fetchone()
-        if not c: conn.close(); return False, "❌ Нет машины"
-        u = conn.execute('SELECT balance FROM users WHERE user_id = ?', (user_id,)).fetchone()
-        if not u or u['balance'] < c['price']: conn.close(); return False, f"❌ Нужно {c['price']:,}💰"
-        conn.execute('UPDATE users SET balance = balance - ? WHERE user_id = ?', (c['price'], user_id))
-        conn.execute('UPDATE user_cars SET equipped = 0 WHERE user_id = ?', (user_id,))
-        conn.execute('INSERT INTO user_cars (user_id, car_id, equipped) VALUES (?,?,1)', (user_id, car_id))
-        conn.execute('UPDATE users SET has_car = 1 WHERE user_id = ?', (user_id,))
+        cursor = conn.cursor()
+        
+        car = cursor.execute('SELECT * FROM shop_cars WHERE id = ?', (car_id,)).fetchone()
+        if not car:
+            conn.close()
+            return False, "❌ Машина не найдена"
+        
+        user = cursor.execute('SELECT balance FROM users WHERE user_id = ?', (user_id,)).fetchone()
+        if not user or user['balance'] < car['price']:
+            conn.close()
+            return False, f"❌ Недостаточно средств! Нужно {car['price']:,} {CURRENCY}"
+        
+        cursor.execute('UPDATE users SET balance = balance - ? WHERE user_id = ?', (car['price'], user_id))
+        
+        cursor.execute('UPDATE user_cars SET equipped = 0 WHERE user_id = ?', (user_id,))
+        
+        cursor.execute('''
+            INSERT INTO user_cars (user_id, car_id, equipped)
+            VALUES (?, ?, 1)
+        ''', (user_id, car_id))
+        
+        cursor.execute('UPDATE users SET has_car = 1 WHERE user_id = ?', (user_id,))
+        
         conn.commit()
         conn.close()
-        return True, f"✅ Куплено {c['name']}!"
-    except: return False, "❌ Ошибка"
+        return True, f"✅ Поздравляем! Ты купил {car['name']}!"
+    except Exception as e:
+        print(f"Ошибка при покупке: {e}")
+        return False, "❌ Ошибка при покупке"
 
 def buy_plane(user_id, plane_id):
     try:
         conn = get_db()
-        p = conn.execute('SELECT * FROM shop_planes WHERE id = ?', (plane_id,)).fetchone()
-        if not p: conn.close(); return False, "❌ Нет самолета"
-        u = conn.execute('SELECT balance FROM users WHERE user_id = ?', (user_id,)).fetchone()
-        if not u or u['balance'] < p['price']: conn.close(); return False, f"❌ Нужно {p['price']:,}💰"
-        conn.execute('UPDATE users SET balance = balance - ? WHERE user_id = ?', (p['price'], user_id))
-        conn.execute('UPDATE user_planes SET equipped = 0 WHERE user_id = ?', (user_id,))
-        conn.execute('INSERT INTO user_planes (user_id, plane_id, equipped) VALUES (?,?,1)', (user_id, plane_id))
-        conn.execute('UPDATE users SET has_plane = 1 WHERE user_id = ?', (user_id,))
+        cursor = conn.cursor()
+        
+        plane = cursor.execute('SELECT * FROM shop_planes WHERE id = ?', (plane_id,)).fetchone()
+        if not plane:
+            conn.close()
+            return False, "❌ Самолет не найден"
+        
+        user = cursor.execute('SELECT balance FROM users WHERE user_id = ?', (user_id,)).fetchone()
+        if not user or user['balance'] < plane['price']:
+            conn.close()
+            return False, f"❌ Недостаточно средств! Нужно {plane['price']:,} {CURRENCY}"
+        
+        cursor.execute('UPDATE users SET balance = balance - ? WHERE user_id = ?', (plane['price'], user_id))
+        
+        cursor.execute('UPDATE user_planes SET equipped = 0 WHERE user_id = ?', (user_id,))
+        
+        cursor.execute('''
+            INSERT INTO user_planes (user_id, plane_id, equipped)
+            VALUES (?, ?, 1)
+        ''', (user_id, plane_id))
+        
+        cursor.execute('UPDATE users SET has_plane = 1 WHERE user_id = ?', (user_id,))
+        
         conn.commit()
         conn.close()
-        return True, f"✅ Куплено {p['name']}!"
-    except: return False, "❌ Ошибка"
+        return True, f"✅ Поздравляем! Ты купил {plane['name']}!"
+    except Exception as e:
+        print(f"Ошибка при покупке: {e}")
+        return False, "❌ Ошибка при покупке"
 
 def buy_house(user_id, house_id):
     try:
         conn = get_db()
-        h = conn.execute('SELECT * FROM shop_houses WHERE id = ?', (house_id,)).fetchone()
-        if not h: conn.close(); return False, "❌ Нет дома"
-        u = conn.execute('SELECT balance FROM users WHERE user_id = ?', (user_id,)).fetchone()
-        if not u or u['balance'] < h['price']: conn.close(); return False, f"❌ Нужно {h['price']:,}💰"
-        conn.execute('UPDATE users SET balance = balance - ? WHERE user_id = ?', (h['price'], user_id))
-        conn.execute('UPDATE user_houses SET equipped = 0 WHERE user_id = ?', (user_id,))
-        conn.execute('INSERT INTO user_houses (user_id, house_id, equipped) VALUES (?,?,1)', (user_id, house_id))
-        conn.execute('UPDATE users SET has_house = 1 WHERE user_id = ?', (user_id,))
+        cursor = conn.cursor()
+        
+        house = cursor.execute('SELECT * FROM shop_houses WHERE id = ?', (house_id,)).fetchone()
+        if not house:
+            conn.close()
+            return False, "❌ Дом не найден"
+        
+        user = cursor.execute('SELECT balance FROM users WHERE user_id = ?', (user_id,)).fetchone()
+        if not user or user['balance'] < house['price']:
+            conn.close()
+            return False, f"❌ Недостаточно средств! Нужно {house['price']:,} {CURRENCY}"
+        
+        cursor.execute('UPDATE users SET balance = balance - ? WHERE user_id = ?', (house['price'], user_id))
+        
+        cursor.execute('UPDATE user_houses SET equipped = 0 WHERE user_id = ?', (user_id,))
+        
+        cursor.execute('''
+            INSERT INTO user_houses (user_id, house_id, equipped)
+            VALUES (?, ?, 1)
+        ''', (user_id, house_id))
+        
+        cursor.execute('UPDATE users SET has_house = 1 WHERE user_id = ?', (user_id,))
+        
         conn.commit()
         conn.close()
-        return True, f"✅ Куплено {h['name']}!"
-    except: return False, "❌ Ошибка"
+        return True, f"✅ Поздравляем! Ты купил {house['name']}!"
+    except Exception as e:
+        print(f"Ошибка при покупке: {e}")
+        return False, "❌ Ошибка при покупке"
 
-def get_clothes_page(p=0):
+def get_clothes_page(page=0):
     try:
         conn = get_db()
-        all = conn.execute('SELECT * FROM shop_clothes WHERE in_shop = 1 ORDER BY id').fetchall()
+        cursor = conn.cursor()
+        cursor.execute('SELECT * FROM shop_clothes WHERE in_shop = 1 ORDER BY id')
+        all_clothes = cursor.fetchall()
         conn.close()
-        if not all: return None,0,0
-        if p<0: p=0
-        elif p>=len(all): p=len(all)-1
-        return all[p], p, len(all)
-    except: return None,0,0
+        
+        total = len(all_clothes)
+        if total == 0:
+            return None, 0, 0
+        
+        if page < 0:
+            page = 0
+        elif page >= total:
+            page = total - 1
+        
+        return all_clothes[page], page, total
+    except:
+        return None, 0, 0
 
-def get_cars_page(p=0):
+def get_cars_page(page=0):
     try:
         conn = get_db()
-        all = conn.execute('SELECT * FROM shop_cars WHERE in_shop = 1 ORDER BY id').fetchall()
+        cursor = conn.cursor()
+        cursor.execute('SELECT * FROM shop_cars WHERE in_shop = 1 ORDER BY id')
+        all_cars = cursor.fetchall()
         conn.close()
-        if not all: return None,0,0
-        if p<0: p=0
-        elif p>=len(all): p=len(all)-1
-        return all[p], p, len(all)
-    except: return None,0,0
+        
+        total = len(all_cars)
+        if total == 0:
+            return None, 0, 0
+        
+        if page < 0:
+            page = 0
+        elif page >= total:
+            page = total - 1
+        
+        return all_cars[page], page, total
+    except:
+        return None, 0, 0
 
-def get_planes_page(p=0):
+def get_planes_page(page=0):
     try:
         conn = get_db()
-        all = conn.execute('SELECT * FROM shop_planes WHERE in_shop = 1 ORDER BY id').fetchall()
+        cursor = conn.cursor()
+        cursor.execute('SELECT * FROM shop_planes WHERE in_shop = 1 ORDER BY id')
+        all_planes = cursor.fetchall()
         conn.close()
-        if not all: return None,0,0
-        if p<0: p=0
-        elif p>=len(all): p=len(all)-1
-        return all[p], p, len(all)
-    except: return None,0,0
+        
+        total = len(all_planes)
+        if total == 0:
+            return None, 0, 0
+        
+        if page < 0:
+            page = 0
+        elif page >= total:
+            page = total - 1
+        
+        return all_planes[page], page, total
+    except:
+        return None, 0, 0
 
-def get_houses_page(p=0):
+def get_houses_page(page=0):
     try:
         conn = get_db()
-        all = conn.execute('SELECT * FROM shop_houses WHERE in_shop = 1 ORDER BY id').fetchall()
+        cursor = conn.cursor()
+        cursor.execute('SELECT * FROM shop_houses WHERE in_shop = 1 ORDER BY id')
+        all_houses = cursor.fetchall()
         conn.close()
-        if not all: return None,0,0
-        if p<0: p=0
-        elif p>=len(all): p=len(all)-1
-        return all[p], p, len(all)
-    except: return None,0,0
+        
+        total = len(all_houses)
+        if total == 0:
+            return None, 0, 0
+        
+        if page < 0:
+            page = 0
+        elif page >= total:
+            page = total - 1
+        
+        return all_houses[page], page, total
+    except:
+        return None, 0, 0
 
-def nav_kb(cp, tot):
+def get_clothes_navigation_keyboard(current_page, total_items):
     markup = types.InlineKeyboardMarkup(row_width=3)
-    btns = []
-    btns.append(types.InlineKeyboardButton("◀️", callback_data=f"shop_page_{cp-1}") if cp>0 else types.InlineKeyboardButton("⬜️", callback_data="noop"))
-    btns.append(types.InlineKeyboardButton("🛒 Купить", callback_data=f"shop_buy_{cp}"))
-    btns.append(types.InlineKeyboardButton("▶️", callback_data=f"shop_page_{cp+1}") if cp<tot-1 else types.InlineKeyboardButton("⬜️", callback_data="noop"))
-    markup.row(*btns)
+    
+    buttons = []
+    if current_page > 0:
+        buttons.append(types.InlineKeyboardButton("◀️", callback_data=f"shop_page_{current_page-1}"))
+    else:
+        buttons.append(types.InlineKeyboardButton("⬜️", callback_data="noop"))
+    
+    buttons.append(types.InlineKeyboardButton(f"🛒 Купить", callback_data=f"shop_buy_{current_page}"))
+    
+    if current_page < total_items - 1:
+        buttons.append(types.InlineKeyboardButton("▶️", callback_data=f"shop_page_{current_page+1}"))
+    else:
+        buttons.append(types.InlineKeyboardButton("⬜️", callback_data="noop"))
+    
+    markup.row(*buttons)
     markup.row(types.InlineKeyboardButton("❌ Закрыть", callback_data="shop_close"))
+    
     return markup
 
-def car_nav_kb(cp, tot, typ):
+def get_cars_navigation_keyboard(current_page, total_items, shop_type):
     markup = types.InlineKeyboardMarkup(row_width=3)
-    btns = []
-    btns.append(types.InlineKeyboardButton("◀️", callback_data=f"{typ}_page_{cp-1}") if cp>0 else types.InlineKeyboardButton("⬜️", callback_data="noop"))
-    btns.append(types.InlineKeyboardButton("🛒 Купить", callback_data=f"{typ}_buy_{cp}"))
-    btns.append(types.InlineKeyboardButton("▶️", callback_data=f"{typ}_page_{cp+1}") if cp<tot-1 else types.InlineKeyboardButton("⬜️", callback_data="noop"))
-    markup.row(*btns)
+    
+    buttons = []
+    if current_page > 0:
+        buttons.append(types.InlineKeyboardButton("◀️", callback_data=f"{shop_type}_page_{current_page-1}"))
+    else:
+        buttons.append(types.InlineKeyboardButton("⬜️", callback_data="noop"))
+    
+    buttons.append(types.InlineKeyboardButton(f"🛒 Купить", callback_data=f"{shop_type}_buy_{current_page}"))
+    
+    if current_page < total_items - 1:
+        buttons.append(types.InlineKeyboardButton("▶️", callback_data=f"{shop_type}_page_{current_page+1}"))
+    else:
+        buttons.append(types.InlineKeyboardButton("⬜️", callback_data="noop"))
+    
+    markup.row(*buttons)
     markup.row(types.InlineKeyboardButton("❌ Закрыть", callback_data="shop_close"))
+    
     return markup
 
-def parse_bet_amount(s):
-    s = s.lower().strip()
-    mult = {'к':1000,'кк':1000000,'ккк':1000000000,'кккк':1000000000000,'kk':1000,'kkk':1000000,'kkkk':1000000000,'kkkkk':1000000000000}
-    if s in ['все','алл','максимум','всё','all','max']: return -1
-    for suf, m in mult.items():
-        if s.endswith(suf):
-            try: return int(float(s[:-len(suf)]) * m)
-            except: pass
-    try: return int(s)
-    except: return None
+# ========== ФУНКЦИИ ДЛЯ РУЛЕТКИ ==========
 
-def parse_roulette_bet(t):
-    t = t.lower().strip().split()
-    if len(t)!=3 or not (t[0].startswith('рул') or t[0].startswith('рулетка')): return None
-    bet = parse_bet_amount(t[2])
-    if bet is None: return None
-    types = {'крас':'red','красное':'red','чер':'black','черное':'black','чет':'even','четное':'even','нечет':'odd','нечетное':'odd','бол':'high','большое':'high','мал':'low','маленькое':'low','1-12':'1-12','13-24':'13-24','25-36':'25-36','зеро':'0'}
-    for k,v in types.items():
-        if t[1]==k or t[1] in k.split(): return (v, bet)
-    if t[1].isdigit():
-        n = int(t[1])
-        if 0<=n<=36: return (f'num_{n}', bet)
+def parse_bet_amount(amount_str):
+    """Парсит сумму ставки с поддержкой к, кк, ккк, кккк"""
+    amount_str = amount_str.lower().strip()
+    
+    multipliers = {
+        'к': 1000,
+        'кк': 1000000,
+        'ккк': 1000000000,
+        'кккк': 1000000000000,
+        'kk': 1000,
+        'kkk': 1000000,
+        'kkkk': 1000000000,
+        'kkkkk': 1000000000000,
+    }
+    
+    if amount_str in ['все', 'алл', 'максимум', 'всё', 'all', 'max']:
+        return -1
+    
+    for suffix, multiplier in multipliers.items():
+        if amount_str.endswith(suffix):
+            try:
+                num = float(amount_str[:-len(suffix)])
+                return int(num * multiplier)
+            except:
+                pass
+    
+    try:
+        return int(amount_str)
+    except:
+        return None
+
+def parse_roulette_bet(text):
+    text = text.lower().strip()
+    words = text.split()
+    
+    if not (words[0].startswith('рул') or words[0].startswith('рулетка')):
+        return None
+    
+    if len(words) != 3:
+        return None
+    
+    bet_word = words[1]
+    bet_value = words[2]
+    
+    bet_amount = parse_bet_amount(bet_value)
+    if bet_amount is None:
+        return None
+    
+    bet_types = {
+        'крас': 'red', 'красное': 'red',
+        'чер': 'black', 'черное': 'black',
+        'чет': 'even', 'четное': 'even',
+        'нечет': 'odd', 'нечетное': 'odd',
+        'бол': 'high', 'большое': 'high',
+        'мал': 'low', 'маленькое': 'low',
+        '1-12': '1-12',
+        '13-24': '13-24',
+        '25-36': '25-36',
+        'зеро': '0',
+    }
+    
+    for key, value in bet_types.items():
+        if bet_word == key or bet_word in key.split():
+            return (value, bet_amount)
+    
+    if bet_word.isdigit():
+        num = int(bet_word)
+        if 0 <= num <= 36:
+            return (f'num_{num}', bet_amount)
+    
     return None
 
-def update_roulette_stats(uid, bet, win):
+def update_roulette_stats(user_id, bet_amount, win_amount):
     try:
         conn = get_db()
-        s = conn.execute('SELECT * FROM roulette_stats WHERE user_id = ?', (uid,)).fetchone()
-        if s:
-            gp = s['games_played']+1
-            tb = s['total_bet']+bet
-            w = s['wins']+(1 if win>0 else 0)
-            l = s['losses']+(1 if win==0 else 0)
-            tw = s['total_win']+(win if win>0 else 0)
-            tl = s['total_lose']+(bet if win==0 else 0)
-            bw = max(s['biggest_win'], win) if win>0 else s['biggest_win']
-            bl = max(s['biggest_lose'], bet) if win==0 else s['biggest_lose']
-            conn.execute('UPDATE roulette_stats SET games_played=?, wins=?, losses=?, total_bet=?, total_win=?, total_lose=?, biggest_win=?, biggest_lose=?, last_game=? WHERE user_id=?', (gp,w,l,tb,tw,tl,bw,bl,datetime.now().isoformat(),uid))
+        cursor = conn.cursor()
+        
+        stats = cursor.execute('SELECT * FROM roulette_stats WHERE user_id = ?', (user_id,)).fetchone()
+        
+        if stats:
+            games_played = stats['games_played'] + 1
+            total_bet = stats['total_bet'] + bet_amount
+            wins = stats['wins'] + (1 if win_amount > 0 else 0)
+            losses = stats['losses'] + (1 if win_amount == 0 else 0)
+            total_win = stats['total_win'] + (win_amount if win_amount > 0 else 0)
+            total_lose = stats['total_lose'] + (bet_amount if win_amount == 0 else 0)
+            biggest_win = max(stats['biggest_win'], win_amount) if win_amount > 0 else stats['biggest_win']
+            biggest_lose = max(stats['biggest_lose'], bet_amount) if win_amount == 0 else stats['biggest_lose']
+            
+            cursor.execute('''
+                UPDATE roulette_stats 
+                SET games_played = ?, wins = ?, losses = ?,
+                    total_bet = ?, total_win = ?, total_lose = ?,
+                    biggest_win = ?, biggest_lose = ?, last_game = ?
+                WHERE user_id = ?
+            ''', (games_played, wins, losses, total_bet, total_win, total_lose,
+                  biggest_win, biggest_lose, datetime.now().isoformat(), user_id))
         else:
-            conn.execute('INSERT INTO roulette_stats (user_id, games_played, wins, losses, total_bet, total_win, total_lose, biggest_win, biggest_lose, last_game) VALUES (?,1,?,?,?,?,?,?,?,?)', (uid,1 if win>0 else 0,1 if win==0 else 0,bet,win if win>0 else 0,bet if win==0 else 0,win if win>0 else 0,bet if win==0 else 0,datetime.now().isoformat()))
+            wins = 1 if win_amount > 0 else 0
+            losses = 1 if win_amount == 0 else 0
+            biggest_win = win_amount if win_amount > 0 else 0
+            biggest_lose = bet_amount if win_amount == 0 else 0
+            
+            cursor.execute('''
+                INSERT INTO roulette_stats 
+                (user_id, games_played, wins, losses, total_bet, total_win, total_lose, biggest_win, biggest_lose, last_game)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ''', (user_id, 1, wins, losses, bet_amount, 
+                  (win_amount if win_amount > 0 else 0), 
+                  (bet_amount if win_amount == 0 else 0), 
+                  biggest_win, biggest_lose, datetime.now().isoformat()))
+        
         conn.commit()
         conn.close()
         return True
-    except: return False
+    except Exception as e:
+        print(f"Ошибка обновления статистики рулетки: {e}")
+        return False
 
-def get_roulette_stats(uid):
+def get_roulette_stats(user_id):
     try:
         conn = get_db()
-        s = conn.execute('SELECT * FROM roulette_stats WHERE user_id = ?', (uid,)).fetchone()
+        cursor = conn.cursor()
+        stats = cursor.execute('SELECT * FROM roulette_stats WHERE user_id = ?', (user_id,)).fetchone()
         conn.close()
-        return s
-    except: return None
+        return stats
+    except:
+        return None
 
-def get_roulette_result(n):
-    if n==0: return {'name':'Зеро','emoji':'🟢','color':'green'}
-    red = [1,3,5,7,9,12,14,16,18,19,21,23,25,27,30,32,34,36]
-    return {'name':'Красное','emoji':'🔴','color':'red'} if n in red else {'name':'Черное','emoji':'⚫','color':'black'}
+def get_roulette_result(number):
+    if number == 0:
+        return {'name': 'Зеро', 'emoji': '🟢', 'color': 'green'}
+    
+    red_numbers = [1,3,5,7,9,12,14,16,18,19,21,23,25,27,30,32,34,36]
+    if number in red_numbers:
+        return {'name': 'Красное', 'emoji': '🔴', 'color': 'red'}
+    else:
+        return {'name': 'Черное', 'emoji': '⚫', 'color': 'black'}
 
-def check_roulette_win(n, bt, ba):
-    red = [1,3,5,7,9,12,14,16,18,19,21,23,25,27,30,32,34,36]
-    black = [2,4,6,8,10,11,13,15,17,20,22,24,26,28,29,31,33,35]
-    if bt=='red' and n in red: return ba*2
-    if bt=='black' and n in black: return ba*2
-    if bt=='even' and n!=0 and n%2==0: return ba*2
-    if bt=='odd' and n%2==1: return ba*2
-    if bt=='high' and 19<=n<=36: return ba*2
-    if bt=='low' and 1<=n<=18: return ba*2
-    if bt=='1-12' and 1<=n<=12: return ba*3
-    if bt=='13-24' and 13<=n<=24: return ba*3
-    if bt=='25-36' and 25<=n<=36: return ba*3
-    if bt=='0' and n==0: return ba*36
-    if bt.startswith('num_') and n==int(bt.split('_')[1]): return ba*36
+def check_roulette_win(number, bet_type, bet_amount):
+    red_numbers = [1,3,5,7,9,12,14,16,18,19,21,23,25,27,30,32,34,36]
+    black_numbers = [2,4,6,8,10,11,13,15,17,20,22,24,26,28,29,31,33,35]
+    
+    if bet_type == 'red' and number in red_numbers:
+        return bet_amount * 2
+    elif bet_type == 'black' and number in black_numbers:
+        return bet_amount * 2
+    elif bet_type == 'even' and number != 0 and number % 2 == 0:
+        return bet_amount * 2
+    elif bet_type == 'odd' and number % 2 == 1:
+        return bet_amount * 2
+    elif bet_type == 'high' and 19 <= number <= 36:
+        return bet_amount * 2
+    elif bet_type == 'low' and 1 <= number <= 18:
+        return bet_amount * 2
+    elif bet_type == '1-12' and 1 <= number <= 12:
+        return bet_amount * 3
+    elif bet_type == '13-24' and 13 <= number <= 24:
+        return bet_amount * 3
+    elif bet_type == '25-36' and 25 <= number <= 36:
+        return bet_amount * 3
+    elif bet_type == '0' and number == 0:
+        return bet_amount * 36
+    elif bet_type.startswith('num_'):
+        target = int(bet_type.split('_')[1])
+        if number == target:
+            return bet_amount * 36
+    
     return 0
 
-def gen_anim(f):
-    return "[" + "] [".join([str(random.randint(0,36)) for _ in range(5)] + [str(f)]) + "]"
+def generate_animation(final_number):
+    numbers = []
+    for _ in range(5):
+        numbers.append(str(random.randint(0, 36)))
+    numbers.append(str(final_number))
+    return "[" + "] [".join(numbers) + "]"
 
-def bet_name(bt):
-    names = {'red':'🔴 КРАСНОЕ','black':'⚫ ЧЕРНОЕ','even':'💰 ЧЕТНОЕ','odd':'📊 НЕЧЕТНОЕ','high':'📈 БОЛЬШОЕ (19-36)','low':'📉 МАЛЕНЬКОЕ (1-18)','1-12':'🎯 1-12','13-24':'🎯 13-24','25-36':'🎯 25-36','0':'🎰 ЗЕРО'}
-    if bt.startswith('num_'): return f"⚡ ЧИСЛО {bt.split('_')[1]}"
-    return names.get(bt, bt)
+def get_bet_name(bet_type):
+    names = {
+        'red': '🔴 КРАСНОЕ',
+        'black': '⚫ ЧЕРНОЕ',
+        'even': '💰 ЧЕТНОЕ',
+        'odd': '📊 НЕЧЕТНОЕ',
+        'high': '📈 БОЛЬШОЕ (19-36)',
+        'low': '📉 МАЛЕНЬКОЕ (1-18)',
+        '1-12': '🎯 1-12',
+        '13-24': '🎯 13-24',
+        '25-36': '🎯 25-36',
+        '0': '🎰 ЗЕРО',
+    }
+    
+    if bet_type.startswith('num_'):
+        number = bet_type.split('_')[1]
+        return f"⚡ ЧИСЛО {number}"
+    
+    return names.get(bet_type, bet_type)
 
-def send_profile_to_chat(cid, uid, tid=None):
-    if tid is None: tid=uid
-    ud = get_user_profile(tid)
-    if not ud: bot.send_message(cid, "❌ Не найден"); return
-    bal = get_balance(tid); name = get_user_display_name(ud); city = get_user_city(tid)
-    exp,lvl,wc,total = get_user_stats(tid)
-    clothes = get_user_equipped_clothes(tid); ci = f", одет: {clothes['name']}" if clothes else ""
-    biz = get_user_business(tid); bi = "Нет" if not biz else f"{biz['business_name']} (ур.{biz['level']})"
-    msg = f"👤 **ПРОФИЛЬ**\n👤 {name}{ci}\n📍 {city}\n💰 {bal:,}\n⭐ {exp} (ур.{lvl})\n🔨 {wc}\n💵 {total:,}\n🏭 {bi}"
-    if biz: msg += f"\n📦 {biz['raw_material']}/1000\n💰 Прибыль: {biz['stored_profit']:,}"
-    rs = get_roulette_stats(tid)
-    if rs:
-        profit = rs['total_win']-rs['total_lose']; ps = "+" if profit>=0 else ""
-        wr = (rs['wins']/rs['games_played']*100) if rs['games_played']>0 else 0
-        msg += f"\n\n🎰 **РУЛЕТКА**\n🎮 {rs['games_played']} | Побед: {wr:.1f}%\n💰 Выиграно: {rs['total_win']:,}\n💸 Проиграно: {rs['total_lose']:,}\n📈 {ps}{profit:,}"
-    photo = get_user_profile_photo(tid)
-    if photo: bot.send_photo(cid, photo, caption=msg, parse_mode="Markdown")
-    else: bot.send_message(cid, msg, parse_mode="Markdown")
+# ========== ФУНКЦИИ ДЛЯ МИНИ-ИГР ==========
 
-def process_raw_order(uid, cid):
-    biz = get_user_business(uid)
-    if not biz: bot.send_message(cid, "❌ Нет бизнеса"); return
-    data = get_business_data(biz['business_name'])
-    if not data: bot.send_message(cid, "❌ Ошибка"); return
-    bal = get_balance(uid); cost = data['raw_cost_per_unit']; maxb = bal // cost
-    total = biz['raw_material']+biz['raw_in_delivery']; free = 1000-total
-    amt = min(maxb, free)
-    if amt<=0: bot.send_message(cid, f"❌ {'Склад полон' if free<=0 else f'Нужно {cost:,}💰'}"); return
-    tc = amt*cost
-    if not add_balance(uid, -tc): bot.send_message(cid, "❌ Ошибка"); return
-    if has_active_delivery(uid): bot.send_message(cid, "❌ Уже есть доставка"); add_balance(uid, tc); return
-    conn = get_db()
-    conn.execute('INSERT INTO deliveries (user_id, amount, end_time, delivered) VALUES (?,?,?,0)', (uid, amt, (datetime.now()+timedelta(minutes=15)).isoformat()))
-    conn.execute('UPDATE businesses SET raw_in_delivery = raw_in_delivery + ?, total_invested = total_invested + ? WHERE user_id = ?', (amt, tc, uid))
-    conn.commit(); conn.close()
-    bot.send_message(cid, f"✅ Заказ на {amt} сырья!\n💰 {tc:,}\n📦 Будет: {total+amt}/1000\n⏱️ 15 мин")
+loader_games = {}
+courier_games = {}
+programmer_games = {}
 
-def send_top_to_chat(cid):
+def update_work_stats(user_id, job_type, score, time_spent, earned):
     try:
         conn = get_db()
-        top = conn.execute('SELECT first_name, username, custom_name, balance FROM users ORDER BY balance DESC LIMIT 10').fetchall()
-        conn.close()
-        if not top: bot.send_message(cid, "❌ Топ пуст"); return
-        msg = "🏆 **ТОП 10 БОГАЧЕЙ**\n"
-        for i,(fn,un,cn,bal) in enumerate(top,1):
-            medal = "🥇" if i==1 else "🥈" if i==2 else "🥉" if i==3 else f"{i}."
-            name = cn or (f"@{un}" if un and un!="NoUsername" else fn)
-            msg += f"{medal} {name}: {bal:,}💰\n"
-        bot.send_message(cid, msg, parse_mode="Markdown")
-    except: bot.send_message(cid, "❌ Ошибка")
-
-loader_games = {}; courier_games = {}; programmer_games = {}
-
-def update_work_stats(uid, job, score, ts, earned):
-    try:
-        conn = get_db()
-        s = conn.execute('SELECT * FROM work_stats WHERE user_id = ? AND job_type = ?', (uid, job)).fetchone()
-        if s:
-            gp = s['games_played']+1
-            pg = s['perfect_games']+(1 if score==100 else 0)
-            bt = min(s['best_time'], ts) if s['best_time']>0 else ts
-            te = s['total_earned']+earned
-            av = (s['avg_score']*s['games_played']+score)//gp
-            conn.execute('UPDATE work_stats SET games_played=?, perfect_games=?, best_time=?, total_earned=?, avg_score=? WHERE user_id=? AND job_type=?', (gp,pg,bt,te,av,uid,job))
+        cursor = conn.cursor()
+        
+        stats = cursor.execute('SELECT * FROM work_stats WHERE user_id = ? AND job_type = ?', 
+                              (user_id, job_type)).fetchone()
+        
+        if stats:
+            games_played = stats['games_played'] + 1
+            perfect_games = stats['perfect_games'] + (1 if score == 100 else 0)
+            best_time = min(stats['best_time'], time_spent) if stats['best_time'] > 0 else time_spent
+            total_earned = stats['total_earned'] + earned
+            avg_score = (stats['avg_score'] * stats['games_played'] + score) // games_played
+            
+            cursor.execute('''
+                UPDATE work_stats 
+                SET games_played = ?, perfect_games = ?, best_time = ?,
+                    total_earned = ?, avg_score = ?
+                WHERE user_id = ? AND job_type = ?
+            ''', (games_played, perfect_games, best_time, total_earned, avg_score, user_id, job_type))
         else:
-            conn.execute('INSERT INTO work_stats (user_id, job_type, games_played, perfect_games, best_time, total_earned, avg_score) VALUES (?,?,1,?,?,?,?)', (uid,job,1 if score==100 else 0,ts,earned,score))
-        conn.commit(); conn.close()
+            cursor.execute('''
+                INSERT INTO work_stats (user_id, job_type, games_played, perfect_games, best_time, total_earned, avg_score)
+                VALUES (?, ?, 1, ?, ?, ?, ?)
+            ''', (user_id, job_type, 1 if score == 100 else 0, time_spent, earned, score))
+        
+        conn.commit()
+        conn.close()
         return True
-    except: return False
+    except Exception as e:
+        print(f"Ошибка обновления статистики работ: {e}")
+        return False
 
-def start_loader_game(uid, name):
-    boxes = list(range(1,10)); random.shuffle(boxes); target = random.sample(range(1,10),3)
+def start_loader_game(user_id, job_name):
+    boxes = list(range(1, 10))
+    random.shuffle(boxes)
+    target_boxes = random.sample(range(1, 10), 3)
+    
     markup = types.InlineKeyboardMarkup(row_width=3)
     row = []
     for i in range(9):
-        row.append(types.InlineKeyboardButton(f"📦 {i+1}", callback_data=f"loader_{i+1}"))
-        if (i+1)%3==0: markup.row(*row); row=[]
-    loader_games[uid] = {'boxes':boxes,'targets':target,'collected':[],'start':time.time()}
-    return markup, f"🚚 **{name}**\n🎯 Найди {target}\n⏱️ Время пошло!"
+        btn = types.InlineKeyboardButton(f"📦 {i+1}", callback_data=f"loader_{i+1}")
+        row.append(btn)
+        if (i+1) % 3 == 0:
+            markup.row(*row)
+            row = []
+    
+    loader_games[user_id] = {
+        'boxes': boxes,
+        'targets': target_boxes,
+        'collected': [],
+        'start_time': time.time()
+    }
+    
+    msg = (f"🚚 **{job_name} - Загрузи фуру!**\n\n"
+           f"🎯 Нужно найти коробки с номерами: {target_boxes}\n"
+           f"📦 Нажимай на кнопки с правильными номерами!\n\n"
+           f"⏱️ Время пошло!")
+    
+    return markup, msg
 
-def check_loader_click(uid, num):
-    if uid not in loader_games: return None
-    g = loader_games[uid]
-    if num in g['targets'] and num not in g['collected']:
-        g['collected'].append(num)
-        if len(g['collected']) == len(g['targets']):
-            ts = time.time()-g['start']; del loader_games[uid]
-            return {'win':True,'time':ts,'score':100}
-    return {'win':False,'collected':len(g['collected']),'total':len(g['targets'])}
+def check_loader_click(user_id, box_num):
+    if user_id not in loader_games:
+        return None
+    
+    game = loader_games[user_id]
+    
+    if box_num in game['targets'] and box_num not in game['collected']:
+        game['collected'].append(box_num)
+        
+        if len(game['collected']) == len(game['targets']):
+            time_spent = time.time() - game['start_time']
+            score = 100
+            del loader_games[user_id]
+            return {'win': True, 'time': time_spent, 'score': score}
+    
+    return {'win': False, 'collected': len(game['collected']), 'total': len(game['targets'])}
 
-def start_courier_game(uid, name):
-    routes = [{'name':'Кратчайший','time':15,'correct':True},{'name':'Быстрый','time':25,'correct':False},{'name':'Объезд','time':40,'correct':False}]
+def start_courier_game(user_id, job_name):
+    routes = [
+        {'name': 'Кратчайший', 'time': 15, 'correct': True},
+        {'name': 'Быстрый', 'time': 25, 'correct': False},
+        {'name': 'Объезд', 'time': 40, 'correct': False}
+    ]
     random.shuffle(routes)
+    
     markup = types.InlineKeyboardMarkup(row_width=1)
-    for r in routes: markup.add(types.InlineKeyboardButton(f"🚦 {r['name']} ({r['time']} сек)", callback_data=f"courier_{r['correct']}_{r['time']}"))
-    courier_games[uid] = {'start':time.time()}
-    return markup, f"📦 **{name}**\n🗺️ Выбери маршрут\n⏱️ 30 сек"
+    for r in routes:
+        markup.add(types.InlineKeyboardButton(
+            f"🚦 {r['name']} ({r['time']} сек)", 
+            callback_data=f"courier_{r['correct']}_{r['time']}"
+        ))
+    
+    courier_games[user_id] = {'start_time': time.time()}
+    
+    msg = (f"📦 **{job_name} - Выбери маршрут!**\n\n"
+           f"🗺️ Нужно доставить заказ за 30 секунд\n"
+           f"Какой маршрут выберешь?\n\n"
+           f"⏱️ Время пошло!")
+    
+    return markup, msg
 
-def check_courier_choice(uid, cor, rt):
-    if uid not in courier_games: return None
-    ts = time.time()-courier_games[uid]['start']; del courier_games[uid]
-    if cor=='True' and ts<=rt: return {'win':True,'time':ts,'score':100}
-    return {'win':False,'time':ts,'score':0}
+def check_courier_choice(user_id, is_correct, route_time):
+    if user_id not in courier_games:
+        return None
+    
+    time_spent = time.time() - courier_games[user_id]['start_time']
+    del courier_games[user_id]
+    
+    if is_correct == 'True' and time_spent <= route_time:
+        return {'win': True, 'time': time_spent, 'score': 100}
+    else:
+        return {'win': False, 'time': time_spent, 'score': 0}
 
-def start_programmer_game(uid, name):
-    bugs = [{'code':'x = 10\ny = "5"\nprint(x + y)','ans':'Тип данных','cor':1},{'code':'for i in range(10)\n    print(i)','ans':'Синтаксис','cor':2},{'code':'if x = 5:\n    print("ok")','ans':'Синтаксис','cor':2}]
-    b = random.choice(bugs)
+def start_programmer_game(user_id, job_name):
+    bugs = [
+        {'code': 'x = 10\ny = "5"\nprint(x + y)', 'answer': 'Тип данных', 'correct': 1},
+        {'code': 'for i in range(10)\n    print(i)', 'answer': 'Синтаксис', 'correct': 2},
+        {'code': 'if x = 5:\n    print("ok")', 'answer': 'Синтаксис', 'correct': 2}
+    ]
+    bug = random.choice(bugs)
+    
     markup = types.InlineKeyboardMarkup(row_width=1)
-    for i,opt in enumerate(['Тип данных','Синтаксис','Логика'],1):
-        markup.add(types.InlineKeyboardButton(opt, callback_data=f"programmer_{'correct' if i==b['cor'] else 'wrong'}"))
-    programmer_games[uid] = {'start':time.time()}
-    return markup, f"💻 **{name}**\n```python\n{b['code']}\n```\n❓ Ошибка?\n⏱️ Время пошло!"
+    options = ['Тип данных', 'Синтаксис', 'Логика']
+    for i, opt in enumerate(options, 1):
+        callback = f"programmer_{'correct' if i == bug['correct'] else 'wrong'}"
+        markup.add(types.InlineKeyboardButton(f"{opt}", callback_data=callback))
+    
+    programmer_games[user_id] = {'start_time': time.time()}
+    
+    msg = (f"💻 **{job_name} - Найди баг!**\n\n"
+           f"```python\n{bug['code']}\n```\n\n"
+           f"❓ Какая здесь ошибка?\n\n"
+           f"⏱️ Время пошло!")
+    
+    return markup, msg
 
-def check_programmer_choice(uid, cor):
-    if uid not in programmer_games: return None
-    ts = time.time()-programmer_games[uid]['start']; del programmer_games[uid]
-    if cor=='correct': return {'win':True,'time':ts,'score':max(100-int(ts),50)}
-    return {'win':False,'time':ts,'score':0}
+def check_programmer_choice(user_id, is_correct):
+    if user_id not in programmer_games:
+        return None
+    
+    time_spent = time.time() - programmer_games[user_id]['start_time']
+    del programmer_games[user_id]
+    
+    if is_correct == 'correct':
+        score = max(100 - int(time_spent), 50)
+        return {'win': True, 'time': time_spent, 'score': score}
+    else:
+        return {'win': False, 'time': time_spent, 'score': 0}
+
+# ========== ФУНКЦИИ ДЛЯ ЧАТА ==========
+
+def send_profile_to_chat(chat_id, user_id, target_id=None):
+    if target_id is None:
+        target_id = user_id
+    
+    user_data = get_user_profile(target_id)
+    if not user_data:
+        bot.send_message(chat_id, "❌ Пользователь не найден")
+        return
+    
+    balance = get_balance(target_id)
+    display_name = get_user_display_name(user_data)
+    current_city = get_user_city(target_id)
+    
+    stats = get_user_stats(target_id)
+    exp, level, work_count, total = stats
+    
+    equipped_clothes = get_user_equipped_clothes(target_id)
+    clothes_info = f", одет: {equipped_clothes['name']}" if equipped_clothes else ""
+    
+    business = get_user_business(target_id)
+    business_info = "Нет" if not business else f"{business['business_name']} (ур.{business['level']})"
+    
+    msg = f"👤 **ПРОФИЛЬ ИГРОКА**\n\n"
+    msg += f"👤 Игрок: {display_name}{clothes_info}\n"
+    msg += f"📍 Город: {current_city}\n"
+    msg += f"💰 Баланс: {balance:,} {CURRENCY}\n"
+    msg += f"⭐ Опыт: {exp} (ур.{level})\n"
+    msg += f"🔨 Работ: {work_count}\n"
+    msg += f"💵 Всего заработано: {total:,}\n"
+    msg += f"🏭 Бизнес: {business_info}\n"
+    
+    if business:
+        msg += f"📦 Сырье: {business['raw_material']}/1000\n"
+        msg += f"💰 Прибыль на складе: {business['stored_profit']:,}"
+    
+    roulette_stats = get_roulette_stats(target_id)
+    if roulette_stats:
+        profit = roulette_stats['total_win'] - roulette_stats['total_lose']
+        profit_sign = "+" if profit >= 0 else ""
+        win_rate = (roulette_stats['wins'] / roulette_stats['games_played'] * 100) if roulette_stats['games_played'] > 0 else 0
+        
+        msg += f"\n\n🎰 **РУЛЕТКА:**\n"
+        msg += f"🎮 Игр: {roulette_stats['games_played']} | Побед: {win_rate:.1f}%\n"
+        msg += f"💰 Выиграно: {roulette_stats['total_win']:,}\n"
+        msg += f"💸 Проиграно: {roulette_stats['total_lose']:,}\n"
+        msg += f"📈 Прибыль: {profit_sign}{profit:,}"
+    
+    photo_url = get_user_profile_photo(target_id)
+    if photo_url:
+        bot.send_photo(chat_id, photo_url, caption=msg, parse_mode="Markdown")
+    else:
+        bot.send_message(chat_id, msg, parse_mode="Markdown")
+
+def process_raw_order(user_id, chat_id):
+    business = get_user_business(user_id)
+    if not business:
+        bot.send_message(chat_id, "❌ У тебя нет бизнеса!")
+        return
+    
+    data = get_business_data(business['business_name'])
+    if not data:
+        bot.send_message(chat_id, "❌ Ошибка загрузки данных бизнеса")
+        return
+    
+    balance = get_balance(user_id)
+    raw_cost = data['raw_cost_per_unit']
+    max_by_money = balance // raw_cost
+    
+    total_raw = business['raw_material'] + business['raw_in_delivery']
+    free_space = 1000 - total_raw
+    
+    amount = min(max_by_money, free_space)
+    
+    if amount <= 0:
+        if free_space <= 0:
+            bot.send_message(chat_id, f"❌ Склад переполнен! Свободно места: 0/1000")
+        else:
+            bot.send_message(chat_id, f"❌ У тебя недостаточно денег! Нужно минимум {raw_cost:,} {CURRENCY}")
+        return
+    
+    total_cost = amount * raw_cost
+    
+    if not add_balance(user_id, -total_cost):
+        bot.send_message(chat_id, "❌ Ошибка при списании денег")
+        return
+    
+    if has_active_delivery(user_id):
+        bot.send_message(chat_id, "❌ У тебя уже есть активная доставка! Дождись её завершения.")
+        add_balance(user_id, total_cost)
+        return
+    
+    conn = get_db()
+    cursor = conn.cursor()
+    
+    end_time = datetime.now() + timedelta(minutes=15)
+    cursor.execute('''
+        INSERT INTO deliveries (user_id, amount, end_time, delivered)
+        VALUES (?, ?, ?, 0)
+    ''', (user_id, amount, end_time.isoformat()))
+    
+    cursor.execute('''
+        UPDATE businesses 
+        SET raw_in_delivery = raw_in_delivery + ?,
+            total_invested = total_invested + ?
+        WHERE user_id = ?
+    ''', (amount, total_cost, user_id))
+    
+    conn.commit()
+    conn.close()
+    
+    new_total = total_raw + amount
+    bot.send_message(chat_id, f"✅ Заказ на {amount} сырья оформлен!\n💰 Стоимость: {total_cost:,} {CURRENCY}\n📦 Будет: {new_total}/1000\n⏱️ Доставка через 15 минут")
+
+def send_top_to_chat(chat_id):
+    try:
+        conn = get_db()
+        cursor = conn.cursor()
+        cursor.execute('SELECT first_name, username, custom_name, balance FROM users ORDER BY balance DESC LIMIT 10')
+        top = cursor.fetchall()
+        conn.close()
+        
+        if not top:
+            bot.send_message(chat_id, "❌ В топе пока никого нет!")
+            return
+        
+        msg = "🏆 **ТОП 10 БОГАЧЕЙ**\n\n"
+        for i, (first_name, username, custom_name, balance) in enumerate(top, 1):
+            medal = "🥇" if i == 1 else "🥈" if i == 2 else "🥉" if i == 3 else f"{i}."
+            
+            if custom_name:
+                display_name = custom_name
+            elif username and username != "NoUsername":
+                display_name = f"@{username}"
+            else:
+                display_name = first_name
+            
+            msg += f"{medal} {display_name}: {balance:,} {CURRENCY}\n"
+        
+        bot.send_message(chat_id, msg, parse_mode="Markdown")
+    except Exception as e:
+        print(f"Ошибка топа: {e}")
+        bot.send_message(chat_id, "❌ Ошибка загрузки топа")
 
 # ========== КЛАВИАТУРЫ ==========
 def main_keyboard():
     markup = types.ReplyKeyboardMarkup(row_width=2, resize_keyboard=True)
-    markup.row(types.KeyboardButton("💼 Работы"), types.KeyboardButton("🏭 Бизнесы"))
-    markup.row(types.KeyboardButton("👕 Магазин одежды"), types.KeyboardButton("🎁 Ежедневно"))
-    markup.row(types.KeyboardButton("🗺️ Карта"), types.KeyboardButton("🔄"))
+    markup.row(
+        types.KeyboardButton("💼 Работы"),
+        types.KeyboardButton("🏭 Бизнесы")
+    )
+    markup.row(
+        types.KeyboardButton("👕 Магазин одежды"),
+        types.KeyboardButton("🎁 Ежедневно")
+    )
+    markup.row(
+        types.KeyboardButton("🗺️ Карта"),
+        types.KeyboardButton("🔄")
+    )
     return markup
 
 def cities_keyboard():
     markup = types.ReplyKeyboardMarkup(row_width=2, resize_keyboard=True)
-    markup.row(types.KeyboardButton("🏙️ Москва"), types.KeyboardButton("🏙️ Село Молочное"))
-    markup.row(types.KeyboardButton("🏙️ Кропоткин"), types.KeyboardButton("🏙️ Мурино"))
+    markup.row(
+        types.KeyboardButton("🏙️ Москва"),
+        types.KeyboardButton("🏙️ Село Молочное")
+    )
+    markup.row(
+        types.KeyboardButton("🏙️ Кропоткин"),
+        types.KeyboardButton("🏙️ Мурино")
+    )
     markup.row(types.KeyboardButton("🔙 Назад"))
     return markup
 
 def transport_keyboard(city):
     markup = types.ReplyKeyboardMarkup(row_width=2, resize_keyboard=True)
-    markup.row(types.KeyboardButton("🚕 Такси"), types.KeyboardButton("🚗 Личная машина"))
-    markup.row(types.KeyboardButton("✈️ Личный самолет"), types.KeyboardButton("🔙 Назад"))
+    markup.row(
+        types.KeyboardButton("🚕 Такси"),
+        types.KeyboardButton("🚗 Личная машина")
+    )
+    markup.row(
+        types.KeyboardButton("✈️ Личный самолет"),
+        types.KeyboardButton("🔙 Назад")
+    )
     return markup
 
 def jobs_keyboard(user_id):
+    jobs = get_available_jobs(user_id)
     markup = types.ReplyKeyboardMarkup(row_width=2, resize_keyboard=True)
-    for job in get_available_jobs(user_id): markup.add(types.KeyboardButton(f"{job[5]} {job[0]}"))
-    markup.row(types.KeyboardButton("👥 Рефералы"), types.KeyboardButton("🔙 Назад"))
+    
+    for job in jobs:
+        markup.add(types.KeyboardButton(f"{job[5]} {job[0]}"))
+    
+    markup.row(
+        types.KeyboardButton("👥 Рефералы"),
+        types.KeyboardButton("🔙 Назад")
+    )
     return markup
 
 def businesses_main_keyboard():
     markup = types.ReplyKeyboardMarkup(row_width=2, resize_keyboard=True)
-    markup.row(types.KeyboardButton("📊 Мой бизнес"), types.KeyboardButton("💰 Собрать прибыль"))
-    markup.row(types.KeyboardButton("📦 Закупить на всё"), types.KeyboardButton("🏪 Купить бизнес"))
-    markup.row(types.KeyboardButton("💰 Продать бизнес"), types.KeyboardButton("🔙 Назад"))
+    markup.row(
+        types.KeyboardButton("📊 Мой бизнес"),
+        types.KeyboardButton("💰 Собрать прибыль")
+    )
+    markup.row(
+        types.KeyboardButton("📦 Закупить на всё"),
+        types.KeyboardButton("🏪 Купить бизнес")
+    )
+    markup.row(
+        types.KeyboardButton("💰 Продать бизнес"),
+        types.KeyboardButton("🔙 Назад")
+    )
     return markup
 
 def buy_business_keyboard():
     markup = types.ReplyKeyboardMarkup(row_width=2, resize_keyboard=True)
-    markup.row(types.KeyboardButton("🥤 Киоск"), types.KeyboardButton("🍔 Фастфуд"))
-    markup.row(types.KeyboardButton("🏪 Минимаркет"), types.KeyboardButton("⛽ Заправка"))
-    markup.row(types.KeyboardButton("🏨 Отель"), types.KeyboardButton("🔙 Назад"))
+    markup.row(
+        types.KeyboardButton("🥤 Киоск"),
+        types.KeyboardButton("🍔 Фастфуд")
+    )
+    markup.row(
+        types.KeyboardButton("🏪 Минимаркет"),
+        types.KeyboardButton("⛽ Заправка")
+    )
+    markup.row(
+        types.KeyboardButton("🏨 Отель"),
+        types.KeyboardButton("🔙 Назад")
+    )
     return markup
 
 def settings_keyboard():
     markup = types.ReplyKeyboardMarkup(row_width=2, resize_keyboard=True)
-    markup.row(types.KeyboardButton("✏️ Сменить никнейм"), types.KeyboardButton("📋 Помощь"))
-    markup.row(types.KeyboardButton("🔙 Назад"))
+    markup.row(
+        types.KeyboardButton("✏️ Сменить никнейм")
+    )
+    markup.row(
+        types.KeyboardButton("📋 Помощь")
+    )
+    markup.row(
+        types.KeyboardButton("🔙 Назад")
+    )
     return markup
 
-def city_shop_keyboard(typ):
+def city_shop_keyboard(shop_type):
     markup = types.ReplyKeyboardMarkup(row_width=2, resize_keyboard=True)
-    if typ=='clothes': markup.row(types.KeyboardButton("👕 Смотреть одежду"))
-    elif typ=='cars': markup.row(types.KeyboardButton("🚗 Смотреть машины"))
-    elif typ=='planes': markup.row(types.KeyboardButton("✈️ Смотреть самолеты"))
-    elif typ=='houses': markup.row(types.KeyboardButton("🏠 Смотреть дома"))
+    
+    if shop_type == 'clothes':
+        markup.row(types.KeyboardButton("👕 Смотреть одежду"))
+    elif shop_type == 'cars':
+        markup.row(types.KeyboardButton("🚗 Смотреть машины"))
+    elif shop_type == 'planes':
+        markup.row(types.KeyboardButton("✈️ Смотреть самолеты"))
+    elif shop_type == 'houses':
+        markup.row(types.KeyboardButton("🏠 Смотреть дома"))
+    
     markup.row(types.KeyboardButton("🔙 Назад"))
     return markup
 
 # ========== СТАРТ ==========
 @bot.message_handler(commands=['start'])
-def start(m):
-    uid = m.from_user.id
-    if is_banned(uid): ban = BANS.get(uid,{}); bot.reply_to(m, f"🔨 Забанен {'навсегда' if ban.get('until')==0 else 'до '+datetime.fromtimestamp(ban['until']).strftime('%d.%m.%Y %H:%M')}"); return
-    uname = m.from_user.username or "NoUsername"
-    fname = m.from_user.first_name
+def start(message):
+    user_id = message.from_user.id
+    
+    if is_banned(user_id):
+        ban_info = BANS.get(user_id, {})
+        if ban_info.get('until') == 0:
+            bot.reply_to(message, "🔨 Вы забанены навсегда.")
+        else:
+            until = datetime.fromtimestamp(ban_info['until'])
+            bot.reply_to(message, f"🔨 Вы забанены до {until.strftime('%d.%m.%Y %H:%M')}")
+        return
+    
+    username = message.from_user.username or "NoUsername"
+    first_name = message.from_user.first_name
+    
     conn = get_db()
-    if not conn.execute('SELECT * FROM users WHERE user_id = ?', (uid,)).fetchone():
-        conn.execute('INSERT INTO users (user_id, username, first_name, balance, exp, level, work_count, total_earned, current_city) VALUES (?,?,?,0,0,1,0,0,?)', (uid, uname, fname, 'Москва'))
-        conn.commit(); conn.close()
-        bot.send_message(uid, "🌟 **ДОБРО ПОЖАЛОВАТЬ!**\n\n✨ Выбери никнейм:", parse_mode="Markdown")
-        bot.register_next_step_handler(bot.send_message(uid, "🔤 Напиши никнейм:", reply_markup=types.ForceReply()), process_name_step)
+    cursor = conn.cursor()
+    
+    cursor.execute('SELECT * FROM users WHERE user_id = ?', (user_id,))
+    user = cursor.fetchone()
+    
+    if not user:
+        cursor.execute('''
+            INSERT INTO users (user_id, username, first_name, balance, exp, level, work_count, total_earned, current_city)
+            VALUES (?, ?, ?, 0, 0, 1, 0, 0, 'Москва')
+        ''', (user_id, username, first_name))
+        conn.commit()
+        conn.close()
+        
+        welcome_text = (
+            "🌟 **ДОБРО ПОЖАЛОВАТЬ В МИР SuguruCoins!** 🌟\n\n"
+            f"👋 Рады видеть тебя, {first_name}!\n\n"
+            "🎮 Здесь ты сможешь:\n"
+            "💼 **Работать** в мини-играх и зарабатывать деньги\n"
+            "🏭 **Покупать бизнесы** и получать пассивный доход\n"
+            "🏙️ **Путешествовать по городам** и открывать новые магазины\n"
+            "👕 **Покупать крутую одежду** и менять свой стиль\n"
+            "🎰 **Играть в рулетку** и выигрывать миллионы\n"
+            "🏆 **Соревноваться** с другими игроками (/top)\n\n"
+            "✨ Но сначала выбери себе игровой никнейм!\n"
+            "Он будет отображаться в топе и в игре."
+        )
+        
+        bot.send_message(user_id, welcome_text, parse_mode="Markdown")
+        
+        markup = types.ForceReply(selective=True)
+        msg = bot.send_message(
+            user_id, 
+            "🔤 **Напиши свой игровой никнейм:**\n\n"
+            "📝 Он может быть любым (буквы, цифры, символы)\n"
+            "✨ Например: `DarkKnight`, `КиберПанк`, `SuguruKing`\n\n"
+            "⚠️ **Важно:** Никнейм должен быть **уникальным**!",
+            parse_mode="Markdown",
+            reply_markup=markup
+        )
+        
+        bot.register_next_step_handler(msg, process_name_step)
+        
     else:
         conn.close()
-        lvl = get_admin_level(uid)
-        bot.send_message(uid, f"👋 С возвращением, {fname}!" + (f"\n👑 Админ {lvl} уровня" if lvl>0 else ""))
-        send_main_menu_with_profile(uid)
+        level = get_admin_level(user_id)
+        
+        welcome_text = f"👋 С возвращением, {first_name}!"
+        
+        if level > 0:
+            welcome_text += f"\n\n👑 У вас права администратора {level} уровня!\n/adminhelp - список команд админа"
+        
+        bot.send_message(user_id, welcome_text)
+        send_main_menu_with_profile(user_id)
 
-def process_name_step(m):
-    uid = m.from_user.id; name = m.text.strip()
-    if len(name)<2 or len(name)>30: bot.send_message(uid, "❌ От 2 до 30 символов"); bot.register_next_step_handler(m, process_name_step); return
-    if not all(c in set("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_ -!@#$%^&*()") for c in name):
-        bot.send_message(uid, "❌ Недопустимые символы"); bot.register_next_step_handler(m, process_name_step); return
-    if get_user_by_custom_name(name):
-        bot.send_message(uid, f"❌ Ник {name} занят"); bot.register_next_step_handler(m, process_name_step); return
-    if set_custom_name(uid, name):
-        bot.send_message(uid, f"✅ Ник {name} сохранен!\n\n👇 Твоё меню:", parse_mode="Markdown")
-        send_main_menu_with_profile(uid)
+def process_name_step(message):
+    user_id = message.from_user.id
+    custom_name = message.text.strip()
+    
+    if len(custom_name) < 2 or len(custom_name) > 30:
+        bot.send_message(
+            user_id, 
+            "❌ Никнейм должен быть от 2 до 30 символов!\n\nПопробуй еще раз:"
+        )
+        bot.register_next_step_handler(message, process_name_step)
+        return
+    
+    allowed_chars = set("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_ -!@#$%^&*()")
+    if not all(c in allowed_chars for c in custom_name):
+        bot.send_message(
+            user_id,
+            "❌ Никнейм содержит недопустимые символы!\n\n"
+            "Разрешены: буквы, цифры, пробел и символы _ - ! @ # $ % ^ & * ( )\n\nПопробуй еще раз:"
+        )
+        bot.register_next_step_handler(message, process_name_step)
+        return
+    
+    existing_user = get_user_by_custom_name(custom_name)
+    if existing_user:
+        bot.send_message(
+            user_id,
+            f"❌ Никнейм **{custom_name}** уже занят другим игроком!\n\n"
+            "Пожалуйста, выбери другой никнейм:",
+            parse_mode="Markdown"
+        )
+        bot.register_next_step_handler(message, process_name_step)
+        return
+    
+    if set_custom_name(user_id, custom_name):
+        success_text = (
+            f"✅ **Отлично!** Твой никнейм `{custom_name}` сохранен!\n\n"
+            "🎉 Теперь ты готов к приключениям!\n"
+            "💰 У тебя 0 монет, но это временно.\n"
+            "💪 Работай в мини-играх, зарабатывай, покупай бизнесы и путешествуй!\n"
+            "👕 Загляни в **МАГАЗИН ОДЕЖДЫ** - там есть очень крутые комплекты!\n"
+            "🎰 А в **РУЛЕТКЕ** можешь испытать удачу!\n\n"
+            "👇 Твоё главное меню с фото профиля:"
+        )
+        bot.send_message(user_id, success_text, parse_mode="Markdown")
+        send_main_menu_with_profile(user_id)
     else:
-        bot.send_message(uid, "❌ Ошибка"); bot.register_next_step_handler(m, process_name_step)
+        bot.send_message(
+            user_id,
+            "❌ Произошла ошибка при сохранении ника. Попробуй еще раз /start"
+        )
 
-def change_nickname_step(m):
-    uid = m.from_user.id; nn = m.text.strip()
-    if len(nn)<2 or len(nn)>30: bot.send_message(uid, "❌ От 2 до 30"); bot.register_next_step_handler(m, change_nickname_step); return
-    if not all(c in set("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_ -!@#$%^&*()") for c in nn):
-        bot.send_message(uid, "❌ Недопустимые символы"); bot.register_next_step_handler(m, change_nickname_step); return
-    if get_user_by_custom_name(nn):
-        bot.send_message(uid, f"❌ Ник {nn} занят"); bot.register_next_step_handler(m, change_nickname_step); return
-    ud = get_user_profile(uid); old = ud[3] if ud and ud[3] else "Не установлен"
-    if set_custom_name(uid, nn):
-        bot.send_message(uid, f"✅ Ник изменен!\n🔄 {old} → {nn}", reply_markup=settings_keyboard())
+def change_nickname_step(message):
+    user_id = message.from_user.id
+    new_nickname = message.text.strip()
+    
+    if len(new_nickname) < 2 or len(new_nickname) > 30:
+        bot.send_message(
+            user_id, 
+            "❌ Никнейм должен быть от 2 до 30 символов!\n\nПопробуй еще раз:"
+        )
+        bot.register_next_step_handler(message, change_nickname_step)
+        return
+    
+    allowed_chars = set("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_ -!@#$%^&*()")
+    if not all(c in allowed_chars for c in new_nickname):
+        bot.send_message(
+            user_id,
+            "❌ Никнейм содержит недопустимые символы!\n\n"
+            "Разрешены: буквы, цифры, пробел и символы _ - ! @ # $ % ^ & * ( )\n\nПопробуй еще раз:"
+        )
+        bot.register_next_step_handler(message, change_nickname_step)
+        return
+    
+    existing_user = get_user_by_custom_name(new_nickname)
+    if existing_user:
+        bot.send_message(
+            user_id,
+            f"❌ Никнейм **{new_nickname}** уже занят другим игроком!\n\n"
+            "Пожалуйста, выбери другой никнейм:",
+            parse_mode="Markdown"
+        )
+        bot.register_next_step_handler(message, change_nickname_step)
+        return
+    
+    user_data = get_user_profile(user_id)
+    old_nickname = user_data[3] if user_data and user_data[3] else "Не установлен"
+    
+    if set_custom_name(user_id, new_nickname):
+        success_text = (
+            f"✅ **Никнейм успешно изменен!**\n\n"
+            f"🔄 Старый ник: `{old_nickname}`\n"
+            f"✨ Новый ник: `{new_nickname}`\n\n"
+            f"Теперь ты будешь отображаться в игре под новым именем!"
+        )
+        bot.send_message(user_id, success_text, parse_mode="Markdown", reply_markup=settings_keyboard())
     else:
-        bot.send_message(uid, "❌ Ошибка"); bot.register_next_step_handler(m, change_nickname_step)
+        bot.send_message(
+            user_id,
+            "❌ Произошла ошибка при сохранении ника. Попробуй еще раз."
+        )
+        bot.register_next_step_handler(message, change_nickname_step)
 
-# ========== ОСНОВНОЙ ОБРАБОТЧИК ==========
-@bot.message_handler(func=lambda m: True)
-def handle(m):
-    uid, txt = m.from_user.id, m.text
-    if is_banned(uid): ban = BANS.get(uid,{}); bot.reply_to(m, f"🔨 Забанен {'навсегда' if ban.get('until')==0 else 'до '+datetime.fromtimestamp(ban['until']).strftime('%d.%m.%Y %H:%M')}"); return
-    print(f"{txt} от {uid}")
+# ========== ОБРАБОТЧИК РУЛЕТКИ ==========
+@bot.message_handler(func=lambda message: message.text and message.text.lower().strip().startswith(('рул', 'рулетка')))
+def roulette_handler(message):
+    user_id = message.from_user.id
+    
+    if is_banned(user_id):
+        return
+    
+    bet_info = parse_roulette_bet(message.text)
+    if not bet_info:
+        bot.reply_to(message, 
+            "❌ **Неправильный формат!**\n\n"
+            "📝 **Примеры ставок:**\n"
+            "• `рул крас 5000` - на красное\n"
+            "• `рулетка чер все` - **ВЕСЬ БАЛАНС** на черное\n"
+            "• `рул чет алл` - **ВЕСЬ БАЛАНС** на четное\n"
+            "• `рул нечет максимум` - **ВЕСЬ БАЛАНС** на нечетное\n"
+            "• `рул бол 15000` - на 19-36\n"
+            "• `рул мал 3000` - на 1-18\n"
+            "• `рул 1-12 5000` - первая дюжина\n"
+            "• `рул 13-24 5000` - вторая дюжина\n"
+            "• `рул 25-36 5000` - третья дюжина\n"
+            "• `рул зеро все` - **ВЕСЬ БАЛАНС** на зеро\n"
+            "• `рул 7 все` - **ВЕСЬ БАЛАНС** на число 7\n\n"
+            "💰 **Сокращения:**\n"
+            "• `1к` = 1,000\n"
+            "• `5кк` = 5,000,000\n"
+            "• `100кк` = 100,000,000\n"
+            "• `2ккк` = 2,000,000,000\n"
+            "• `1кккк` = 1,000,000,000,000\n\n"
+            "💎 Для ставки всего баланса пиши: `все`, `алл` или `максимум`")
+        return
+    
+    bet_type, bet_amount = bet_info
+    
+    balance = get_balance(user_id)
+    
+    if bet_amount == -1:
+        bet_amount = balance
+    
+    if balance < bet_amount:
+        bot.reply_to(message, f"❌ Недостаточно средств! Твой баланс: {balance:,} {CURRENCY}")
+        return
+    
+    if bet_amount < 1:
+        bot.reply_to(message, f"❌ Минимальная ставка: 1 {CURRENCY}")
+        return
+    
+    number = random.randint(0, 36)
+    result = get_roulette_result(number)
+    
+    win_amount = check_roulette_win(number, bet_type, bet_amount)
+    
+    if win_amount > 0:
+        add_balance(user_id, win_amount - bet_amount)
+        new_balance = get_balance(user_id)
+        update_roulette_stats(user_id, bet_amount, win_amount)
+        
+        if bet_amount == balance and bet_amount > 0:
+            allin_text = "⚡ **ALL-IN!** ⚡\n"
+        else:
+            allin_text = ""
+        
+        response = (
+            f"🎡 **КРУТИМ РУЛЕТКУ!**\n\n"
+            f"{allin_text}"
+            f"👤 Игрок: {message.from_user.first_name}\n"
+            f"💰 Ставка: {bet_amount:,} на {get_bet_name(bet_type)}\n\n"
+            f"⚪ Шарик скачет по цифрам...\n"
+            f"{generate_animation(number)}\n\n"
+            f"🎯 Выпало: **{number} {result['emoji']} {result['name']}**!\n\n"
+            f"🎉 **ВЫИГРЫШ!** +{win_amount:,}💰\n"
+            f"💎 Новый баланс: {new_balance:,} {CURRENCY}"
+        )
+    else:
+        add_balance(user_id, -bet_amount)
+        new_balance = get_balance(user_id)
+        update_roulette_stats(user_id, bet_amount, 0)
+        
+        if bet_amount == balance and bet_amount > 0:
+            allin_text = "💔 **ПРОИГРАЛ ВСЁ!** 💔\n"
+        else:
+            allin_text = ""
+        
+        response = (
+            f"🎡 **КРУТИМ РУЛЕТКУ!**\n\n"
+            f"{allin_text}"
+            f"👤 Игрок: {message.from_user.first_name}\n"
+            f"💰 Ставка: {bet_amount:,} на {get_bet_name(bet_type)}\n\n"
+            f"⚪ Шарик скачет по цифрам...\n"
+            f"{generate_animation(number)}\n\n"
+            f"🎯 Выпало: **{number} {result['emoji']} {result['name']}**!\n\n"
+            f"😭 **ПРОИГРЫШ** -{bet_amount:,}💰\n"
+            f"💎 Новый баланс: {new_balance:,} {CURRENCY}"
+        )
+    
+    bot.send_message(message.chat.id, response, parse_mode="Markdown")
+
+# ========== ОБРАБОТЧИК СТАТИСТИКИ КАЗИНО ==========
+@bot.message_handler(func=lambda message: message.text and message.text.lower().strip() in [
+    'статистика', 'стата', 'статс', 
+    'моя статистика', 'моя стата', 'моя статс',
+    'общая статистика', 'статистика казино'
+])
+def casino_stats_handler(message):
+    user_id = message.from_user.id
+    
+    if is_banned(user_id):
+        return
+    
+    text = message.text.lower().strip()
+    
+    if text in ['общая статистика', 'статистика казино']:
+        send_top_to_chat(message.chat.id)
+        return
+    
+    stats = get_roulette_stats(user_id)
+    
+    if not stats:
+        bot.reply_to(message, "📊 Ты еще не играл в казино! Попробуй рулетку: `рул крас 1000`")
+        return
+    
+    profit = stats['total_win'] - stats['total_lose']
+    profit_sign = "+" if profit >= 0 else ""
+    win_rate = (stats['wins'] / stats['games_played'] * 100) if stats['games_played'] > 0 else 0
+    
+    msg = (
+        f"🎰 **ТВОЯ СТАТИСТИКА КАЗИНО**\n\n"
+        f"🎮 Сыграно игр: {stats['games_played']}\n"
+        f"✅ Побед: {stats['wins']} ({win_rate:.1f}%)\n"
+        f"❌ Поражений: {stats['losses']}\n\n"
+        f"💰 Всего выиграно: {stats['total_win']:,} {CURRENCY}\n"
+        f"💸 Всего проиграно: {stats['total_lose']:,} {CURRENCY}\n"
+        f"📈 Чистая прибыль: {profit_sign}{profit:,} {CURRENCY}\n\n"
+        f"🏆 Лучший выигрыш: {stats['biggest_win']:,} {CURRENCY}\n"
+        f"💔 Худший проигрыш: {stats['biggest_lose']:,} {CURRENCY}"
+    )
+    
+    bot.reply_to(message, msg, parse_mode="Markdown")
+
+# ========== ОБРАБОТЧИКИ ДЛЯ ЧАТА ==========
+@bot.message_handler(func=lambda message: message.text and message.text.lower().strip() == 'я')
+def me_command(message):
+    user_id = message.from_user.id
+    
+    if is_banned(user_id):
+        return
+    
+    send_profile_to_chat(message.chat.id, user_id, user_id)
+
+@bot.message_handler(func=lambda message: message.text and message.text.lower().strip() == 'сырье все')
+def raw_all_command(message):
+    user_id = message.from_user.id
+    
+    if is_banned(user_id):
+        return
+    
+    process_raw_order(user_id, message.chat.id)
+
+@bot.message_handler(func=lambda message: message.text and message.text.lower().strip() == 'топ')
+def top_chat_command(message):
+    user_id = message.from_user.id
+    
+    if is_banned(user_id):
+        return
+    
+    send_top_to_chat(message.chat.id)
+
+# ========== ОБРАБОТЧИК КОЛБЭКОВ ==========
+@bot.callback_query_handler(func=lambda call: True)
+def callback_handler(call):
+    user_id = call.from_user.id
+    
+    if is_banned(user_id):
+        bot.answer_callback_query(call.id, "🔨 Вы забанены!", show_alert=True)
+        return
+    
+    data = call.data
+    
+    if data == "top_money":
+        bot.delete_message(user_id, call.message.message_id)
+        send_top_by_type(user_id, "money")
+        bot.answer_callback_query(call.id)
+    
+    elif data == "top_exp":
+        bot.delete_message(user_id, call.message.message_id)
+        send_top_by_type(user_id, "exp")
+        bot.answer_callback_query(call.id)
+    
+    # ===== МИНИ-ИГРЫ =====
+    elif data.startswith("loader_"):
+        box_num = int(data.split("_")[1])
+        result = check_loader_click(user_id, box_num)
+        
+        if result is None:
+            bot.answer_callback_query(call.id, "❌ Игра не найдена или уже закончилась")
+            return
+        
+        if result['win']:
+            base_reward = 50
+            exp_reward = 10
+            speed_bonus = max(1.0, 30 / result['time'])
+            total = int(base_reward * speed_bonus)
+            
+            add_balance(user_id, total)
+            add_exp(user_id, exp_reward)
+            update_work_stats(user_id, "Грузчик", result['score'], result['time'], total)
+            
+            bot.edit_message_text(
+                f"✅ **ПОБЕДА!**\n\n"
+                f"⏱️ Время: {result['time']:.1f} сек\n"
+                f"💰 Награда: +{total} {CURRENCY}\n"
+                f"⭐ Опыт: +{exp_reward}\n\n"
+                f"Можешь поработать еще!",
+                chat_id=user_id,
+                message_id=call.message.message_id
+            )
+        else:
+            bot.answer_callback_query(call.id, f"✅ Собрано {result['collected']}/{result['total']}")
+    
+    elif data.startswith("courier_"):
+        parts = data.split("_")
+        is_correct = parts[1]
+        route_time = int(parts[2])
+        
+        result = check_courier_choice(user_id, is_correct, route_time)
+        
+        if result is None:
+            bot.answer_callback_query(call.id, "❌ Игра не найдена или уже закончилась")
+            return
+        
+        if result['win']:
+            base_reward = 70
+            exp_reward = 15
+            speed_bonus = max(1.0, 20 / result['time'])
+            total = int(base_reward * speed_bonus)
+            
+            add_balance(user_id, total)
+            add_exp(user_id, exp_reward)
+            update_work_stats(user_id, "Курьер", result['score'], result['time'], total)
+            
+            bot.edit_message_text(
+                f"✅ **ДОСТАВЛЕНО!**\n\n"
+                f"⏱️ Время: {result['time']:.1f} сек\n"
+                f"💰 Награда: +{total} {CURRENCY}\n"
+                f"⭐ Опыт: +{exp_reward}\n\n"
+                f"Отличная работа!",
+                chat_id=user_id,
+                message_id=call.message.message_id
+            )
+        else:
+            bot.edit_message_text(
+                f"❌ **НЕУДАЧА**\n\n"
+                f"Ты выбрал неправильный маршрут!\n"
+                f"Попробуй еще раз!",
+                chat_id=user_id,
+                message_id=call.message.message_id
+            )
+    
+    elif data.startswith("programmer_"):
+        is_correct = data.split("_")[1]
+        
+        result = check_programmer_choice(user_id, is_correct)
+        
+        if result is None:
+            bot.answer_callback_query(call.id, "❌ Игра не найдена или уже закончилась")
+            return
+        
+        if result['win']:
+            base_reward = 100
+            exp_reward = 20
+            total = int(base_reward * (result['score'] / 100))
+            
+            add_balance(user_id, total)
+            add_exp(user_id, exp_reward)
+            update_work_stats(user_id, "Программист", result['score'], result['time'], total)
+            
+            bot.edit_message_text(
+                f"✅ **БАГ ИСПРАВЛЕН!**\n\n"
+                f"⏱️ Время: {result['time']:.1f} сек\n"
+                f"📊 Точность: {result['score']}%\n"
+                f"💰 Награда: +{total} {CURRENCY}\n"
+                f"⭐ Опыт: +{exp_reward}\n\n"
+                f"Ты настоящий кодер!",
+                chat_id=user_id,
+                message_id=call.message.message_id
+            )
+        else:
+            bot.edit_message_text(
+                f"❌ **НЕПРАВИЛЬНО**\n\n"
+                f"Попробуй еще раз найти баг!",
+                chat_id=user_id,
+                message_id=call.message.message_id
+            )
+    
+    # ===== МАГАЗИНЫ =====
+    elif data.startswith("shop_page_"):
+        page = int(data.split("_")[2])
+        clothes, current_page, total = get_clothes_page(page)
+        
+        if clothes:
+            caption = (f"👕 *{clothes['name']}*\n\n"
+                      f"💰 Цена: {clothes['price']:,} {CURRENCY}\n\n"
+                      f"🛍️ Всего комплектов: {total}")
+            
+            try:
+                bot.edit_message_media(
+                    types.InputMediaPhoto(media=clothes['photo_url'], caption=caption, parse_mode="Markdown"),
+                    chat_id=user_id,
+                    message_id=call.message.message_id,
+                    reply_markup=get_clothes_navigation_keyboard(current_page, total)
+                )
+            except:
+                bot.send_photo(
+                    user_id,
+                    clothes['photo_url'],
+                    caption=caption,
+                    parse_mode="Markdown",
+                    reply_markup=get_clothes_navigation_keyboard(current_page, total)
+                )
+                bot.delete_message(user_id, call.message.message_id)
+        
+        bot.answer_callback_query(call.id)
+    
+    elif data.startswith("shop_buy_"):
+        page = int(data.split("_")[2])
+        clothes, current_page, total = get_clothes_page(page)
+        
+        if clothes:
+            conn = get_db()
+            cursor = conn.cursor()
+            existing = cursor.execute('''
+                SELECT id FROM user_clothes 
+                WHERE user_id = ? AND clothes_id = ?
+            ''', (user_id, clothes['id'])).fetchone()
+            
+            if existing:
+                conn.close()
+                bot.answer_callback_query(call.id, "❌ У тебя уже есть этот комплект!", show_alert=True)
+                return
+            
+            conn.close()
+            
+            success, message_text = buy_clothes(user_id, clothes['id'])
+            
+            if success:
+                caption = (f"👕 *{clothes['name']}*\n\n"
+                          f"💰 Цена: {clothes['price']:,} {CURRENCY}\n\n"
+                          f"✅ *КУПЛЕНО!* Комплект надет на тебя!")
+                
+                markup = types.InlineKeyboardMarkup()
+                markup.add(types.InlineKeyboardButton("◀️ В магазин", callback_data=f"shop_page_{current_page}"))
+                markup.add(types.InlineKeyboardButton("❌ Закрыть", callback_data="shop_close"))
+                
+                try:
+                    bot.edit_message_media(
+                        types.InputMediaPhoto(media=clothes['photo_url'], caption=caption, parse_mode="Markdown"),
+                        chat_id=user_id,
+                        message_id=call.message.message_id,
+                        reply_markup=markup
+                    )
+                except:
+                    pass
+                
+                bot.answer_callback_query(call.id, "✅ Покупка успешна!", show_alert=True)
+            else:
+                bot.answer_callback_query(call.id, message_text, show_alert=True)
+    
+    elif data.startswith("cars_page_"):
+        page = int(data.split("_")[2])
+        car, current_page, total = get_cars_page(page)
+        
+        if car:
+            caption = (f"🚗 *{car['name']}*\n\n"
+                      f"💰 Цена: {car['price']:,} {CURRENCY}\n"
+                      f"⚡ Скорость: {car['speed']} км/ч\n\n"
+                      f"🛍️ Всего машин: {total}")
+            
+            try:
+                bot.edit_message_media(
+                    types.InputMediaPhoto(media=car['photo_url'], caption=caption, parse_mode="Markdown"),
+                    chat_id=user_id,
+                    message_id=call.message.message_id,
+                    reply_markup=get_cars_navigation_keyboard(current_page, total, 'cars')
+                )
+            except:
+                bot.send_photo(
+                    user_id,
+                    car['photo_url'],
+                    caption=caption,
+                    parse_mode="Markdown",
+                    reply_markup=get_cars_navigation_keyboard(current_page, total, 'cars')
+                )
+                bot.delete_message(user_id, call.message.message_id)
+        
+        bot.answer_callback_query(call.id)
+    
+    elif data.startswith("cars_buy_"):
+        page = int(data.split("_")[2])
+        car, current_page, total = get_cars_page(page)
+        
+        if car:
+            success, message_text = buy_car(user_id, car['id'])
+            if success:
+                bot.edit_message_text(
+                    f"✅ **ПОКУПКА УСПЕШНА!**\n\n"
+                    f"🚗 Ты купил {car['name']}!\n"
+                    f"💰 Цена: {car['price']:,} {CURRENCY}",
+                    chat_id=user_id,
+                    message_id=call.message.message_id
+                )
+            else:
+                bot.answer_callback_query(call.id, message_text, show_alert=True)
+    
+    elif data.startswith("planes_page_"):
+        page = int(data.split("_")[2])
+        plane, current_page, total = get_planes_page(page)
+        
+        if plane:
+            caption = (f"✈️ *{plane['name']}*\n\n"
+                      f"💰 Цена: {plane['price']:,} {CURRENCY}\n"
+                      f"⚡ Скорость: {plane['speed']} км/ч\n\n"
+                      f"🛍️ Всего самолетов: {total}")
+            
+            try:
+                bot.edit_message_media(
+                    types.InputMediaPhoto(media=plane['photo_url'], caption=caption, parse_mode="Markdown"),
+                    chat_id=user_id,
+                    message_id=call.message.message_id,
+                    reply_markup=get_cars_navigation_keyboard(current_page, total, 'planes')
+                )
+            except:
+                bot.send_photo(
+                    user_id,
+                    plane['photo_url'],
+                    caption=caption,
+                    parse_mode="Markdown",
+                    reply_markup=get_cars_navigation_keyboard(current_page, total, 'planes')
+                )
+                bot.delete_message(user_id, call.message.message_id)
+        
+        bot.answer_callback_query(call.id)
+    
+    elif data.startswith("planes_buy_"):
+        page = int(data.split("_")[2])
+        plane, current_page, total = get_planes_page(page)
+        
+        if plane:
+            success, message_text = buy_plane(user_id, plane['id'])
+            if success:
+                bot.edit_message_text(
+                    f"✅ **ПОКУПКА УСПЕШНА!**\n\n"
+                    f"✈️ Ты купил {plane['name']}!\n"
+                    f"💰 Цена: {plane['price']:,} {CURRENCY}",
+                    chat_id=user_id,
+                    message_id=call.message.message_id
+                )
+            else:
+                bot.answer_callback_query(call.id, message_text, show_alert=True)
+    
+    elif data.startswith("houses_page_"):
+        page = int(data.split("_")[2])
+        house, current_page, total = get_houses_page(page)
+        
+        if house:
+            caption = (f"🏠 *{house['name']}*\n\n"
+                      f"💰 Цена: {house['price']:,} {CURRENCY}\n"
+                      f"🏡 Комфорт: {house['comfort']}\n\n"
+                      f"🛍️ Всего домов: {total}")
+            
+            try:
+                bot.edit_message_media(
+                    types.InputMediaPhoto(media=house['photo_url'], caption=caption, parse_mode="Markdown"),
+                    chat_id=user_id,
+                    message_id=call.message.message_id,
+                    reply_markup=get_cars_navigation_keyboard(current_page, total, 'houses')
+                )
+            except:
+                bot.send_photo(
+                    user_id,
+                    house['photo_url'],
+                    caption=caption,
+                    parse_mode="Markdown",
+                    reply_markup=get_cars_navigation_keyboard(current_page, total, 'houses')
+                )
+                bot.delete_message(user_id, call.message.message_id)
+        
+        bot.answer_callback_query(call.id)
+    
+    elif data.startswith("houses_buy_"):
+        page = int(data.split("_")[2])
+        house, current_page, total = get_houses_page(page)
+        
+        if house:
+            success, message_text = buy_house(user_id, house['id'])
+            if success:
+                bot.edit_message_text(
+                    f"✅ **ПОКУПКА УСПЕШНА!**\n\n"
+                    f"🏠 Ты купил {house['name']}!\n"
+                    f"💰 Цена: {house['price']:,} {CURRENCY}",
+                    chat_id=user_id,
+                    message_id=call.message.message_id
+                )
+            else:
+                bot.answer_callback_query(call.id, message_text, show_alert=True)
+    
+    elif data == "shop_close":
+        bot.delete_message(user_id, call.message.message_id)
+        send_main_menu_with_profile(user_id)
+        bot.answer_callback_query(call.id)
+    
+    elif data == "noop":
+        bot.answer_callback_query(call.id)
+
+def send_top_by_type(user_id, top_type):
     try:
         conn = get_db()
-        conn.execute('INSERT OR IGNORE INTO users (user_id) VALUES (?)', (uid,))
-        conn.commit(); conn.close()
-    except: pass
-    ud = get_user_profile(uid); dname = get_user_display_name(ud) if ud else "Игрок"
-    at = get_active_travel(uid)
-    if at:
-        et = datetime.fromisoformat(at['end_time'])
-        if datetime.now() >= et: complete_travel(at['id'], uid)
+        cursor = conn.cursor()
+        
+        if top_type == "money":
+            cursor.execute('''
+                SELECT first_name, username, custom_name, balance 
+                FROM users 
+                ORDER BY balance DESC 
+                LIMIT 10
+            ''')
+            title = "💰 ТОП 10 ПО ДЕНЬГАМ"
         else:
-            bot.reply_to(m, f"⏳ В пути! Осталось {(et-datetime.now()).seconds} сек.", reply_markup=types.ReplyKeyboardRemove())
+            cursor.execute('''
+                SELECT first_name, username, custom_name, exp 
+                FROM users 
+                ORDER BY exp DESC 
+                LIMIT 10
+            ''')
+            title = "⭐ ТОП 10 ПО ОПЫТУ"
+        
+        top = cursor.fetchall()
+        conn.close()
+        
+        if not top:
+            bot.send_message(user_id, "❌ В топе пока никого нет!")
             return
-    if txt == "💼 Работы": bot.send_message(uid, "🔨 Выбери работу:", reply_markup=jobs_keyboard(uid))
-    elif txt == "🏭 Бизнесы": bot.send_message(uid, "🏪 Управление:", reply_markup=businesses_main_keyboard())
-    elif txt == "👕 Магазин одежды":
-        city = get_user_city(uid); ci = get_city_info(city)
-        if ci and ci['shop_type']=='clothes':
-            c, p, t = get_clothes_page(0)
-            if c:
-                bot.send_message(uid, "🛍️ **МАГАЗИН ОДЕЖДЫ**", parse_mode="Markdown")
-                bot.send_photo(uid, c['photo_url'], caption=f"👕 *{c['name']}*\n💰 {c['price']:,}", parse_mode="Markdown", reply_markup=nav_kb(p,t))
-            else: bot.send_message(uid, "❌ Товаров нет")
-        else: bot.send_message(uid, f"❌ В {city} нет магазина одежды")
-    elif txt == "🎁 Ежедневно":
+        
+        msg = f"🏆 **{title}**\n\n"
+        for i, (first_name, username, custom_name, value) in enumerate(top, 1):
+            medal = "🥇" if i == 1 else "🥈" if i == 2 else "🥉" if i == 3 else f"{i}."
+            
+            if custom_name:
+                display_name = custom_name
+            elif username and username != "NoUsername":
+                display_name = f"@{username}"
+            else:
+                display_name = first_name
+            
+            msg += f"{medal} {display_name}: {value:,}\n"
+        
+        bot.send_message(user_id, msg, parse_mode="Markdown")
+        
+    except Exception as e:
+        print(f"Ошибка топа: {e}")
+        bot.send_message(user_id, "❌ Ошибка загрузки топа")
+
+# ========== ОСНОВНОЙ ОБРАБОТЧИК ==========
+@bot.message_handler(func=lambda message: True)
+def handle(message):
+    user_id = message.from_user.id
+    text = message.text
+    
+    if is_banned(user_id):
+        ban_info = BANS.get(user_id, {})
+        if ban_info.get('until') == 0:
+            bot.reply_to(message, "🔨 Вы забанены навсегда.")
+        else:
+            until = datetime.fromtimestamp(ban_info['until'])
+            bot.reply_to(message, f"🔨 Вы забанены до {until.strftime('%d.%m.%Y %H:%M')}")
+        return
+    
+    print(f"Получено сообщение: {text} от {user_id}")
+    
+    try:
+        conn = get_db()
+        cursor = conn.cursor()
+        cursor.execute('INSERT OR IGNORE INTO users (user_id) VALUES (?)', (user_id,))
+        conn.commit()
+        conn.close()
+    except:
+        pass
+    
+    user_data = get_user_profile(user_id)
+    display_name = get_user_display_name(user_data) if user_data else "Игрок"
+    
+    active_travel = get_active_travel(user_id)
+    if active_travel:
+        end_time = datetime.fromisoformat(active_travel['end_time'])
+        if datetime.now() >= end_time:
+            complete_travel(active_travel['id'], user_id)
+        else:
+            time_left = (end_time - datetime.now()).seconds
+            bot.reply_to(
+                message, 
+                f"⏳ Ты еще в пути! Осталось {time_left} сек.\nДождись прибытия.",
+                reply_markup=types.ReplyKeyboardRemove()
+            )
+            return
+    
+    if text == "💼 Работы":
+        bot.send_message(user_id, "🔨 Выбери работу:", reply_markup=jobs_keyboard(user_id))
+    
+    elif text == "🏭 Бизнесы":
+        bot.send_message(user_id, "🏪 Управление бизнесом:", reply_markup=businesses_main_keyboard())
+    
+    elif text == "👕 Магазин одежды":
+        current_city = get_user_city(user_id)
+        city_info = get_city_info(current_city)
+        
+        if city_info and city_info['shop_type'] == 'clothes':
+            clothes, current_page, total = get_clothes_page(0)
+            
+            if clothes:
+                welcome_text = ("🛍️ **ДОБРО ПОЖАЛОВАТЬ В МАГАЗИН ОДЕЖДЫ!**\n\n"
+                               "Мы подобрали самые лучшие и красивые комплекты одежды.\n"
+                               "Выберите какой вам понравится и нажмите купить!\n\n"
+                               "👉 При покупке комплект сразу надевается на тебя!")
+                
+                bot.send_message(user_id, welcome_text, parse_mode="Markdown")
+                
+                caption = (f"👕 *{clothes['name']}*\n\n"
+                          f"💰 Цена: {clothes['price']:,} {CURRENCY}\n\n"
+                          f"🛍️ Всего комплектов: {total}")
+                
+                bot.send_photo(
+                    user_id,
+                    clothes['photo_url'],
+                    caption=caption,
+                    parse_mode="Markdown",
+                    reply_markup=get_clothes_navigation_keyboard(current_page, total)
+                )
+            else:
+                bot.send_message(user_id, "❌ В магазине пока нет товаров!")
+        else:
+            bot.send_message(user_id, f"❌ В городе {current_city} нет магазина одежды!")
+    
+    elif text == "🎁 Ежедневно":
         try:
             conn = get_db()
-            last = conn.execute('SELECT last_daily FROM users WHERE user_id = ?', (uid,)).fetchone()
-            if last and last[0]:
-                lt = datetime.fromisoformat(last[0])
-                if datetime.now()-lt < timedelta(hours=24):
-                    nxt = lt+timedelta(hours=24); left = nxt-datetime.now()
-                    bot.send_message(uid, f"⏳ Через {left.seconds//3600}ч {(left.seconds%3600)//60}м"); conn.close(); return
-            bonus = random.randint(500,2000); bexp = random.randint(50,200)
-            conn.execute('UPDATE users SET balance = balance + ?, exp = exp + ?, last_daily = ? WHERE user_id = ?', (bonus, bexp, datetime.now().isoformat(), uid))
-            conn.commit(); conn.close()
-            bot.send_message(uid, f"🎁 +{bonus}💰 +{bexp}⭐!")
-        except: bot.send_message(uid, "❌ Ошибка")
-    elif txt == "🗺️ Карта":
-        bot.send_message(uid, "🗺️ **ВЫБЕРИ ГОРОД**\n\n🏙️ Москва - 👕 Одежда\n🏙️ Село Молочное - 🚗 Машины\n🏙️ Кропоткин - ✈️ Самолеты\n🏙️ Мурино - 🏠 Дома", parse_mode="Markdown", reply_markup=cities_keyboard())
-    elif txt == "🔄":
-        ud = get_user_profile(uid)
-        if ud: bot.send_photo(uid, get_user_profile_photo(uid), caption=f"👤 *{get_user_display_name(ud)}*\n💰 {get_balance(uid):,}", parse_mode="Markdown")
-        else: bot.send_message(uid, "❌ Ошибка")
-    elif txt in ["🏙️ Москва","🏙️ Село Молочное","🏙️ Кропоткин","🏙️ Мурино"]:
-        city = txt.replace("🏙️ ",""); cur = get_user_city(uid)
-        if city == cur:
-            ci = get_city_info(city)
-            bot.send_message(uid, f"🏙️ Ты в {city}\n📌 Продают: {ci['shop_type']}", reply_markup=city_shop_keyboard(ci['shop_type']))
-        else:
-            bot.send_message(uid, f"🚀 Транспорт в {city}:", reply_markup=transport_keyboard(city))
-            bot.register_next_step_handler(m, process_travel, city)
-    elif txt == "👕 Смотреть одежду":
-        c,p,t = get_clothes_page(0)
-        if c: bot.send_photo(uid, c['photo_url'], caption=f"👕 *{c['name']}*\n💰 {c['price']:,}", parse_mode="Markdown", reply_markup=nav_kb(p,t))
-        else: bot.send_message(uid, "❌ Нет товаров")
-    elif txt == "🚗 Смотреть машины":
-        c,p,t = get_cars_page(0)
-        if c: bot.send_photo(uid, c['photo_url'], caption=f"🚗 *{c['name']}*\n💰 {c['price']:,}\n⚡ {c['speed']} км/ч", parse_mode="Markdown", reply_markup=car_nav_kb(p,t,'cars'))
-        else: bot.send_message(uid, "❌ Нет машин")
-    elif txt == "✈️ Смотреть самолеты":
-        c,p,t = get_planes_page(0)
-        if c: bot.send_photo(uid, c['photo_url'], caption=f"✈️ *{c['name']}*\n💰 {c['price']:,}\n⚡ {c['speed']} км/ч", parse_mode="Markdown", reply_markup=car_nav_kb(p,t,'planes'))
-        else: bot.send_message(uid, "❌ Нет самолетов")
-    elif txt == "🏠 Смотреть дома":
-        c,p,t = get_houses_page(0)
-        if c: bot.send_photo(uid, c['photo_url'], caption=f"🏠 *{c['name']}*\n💰 {c['price']:,}\n🏡 Комфорт: {c['comfort']}", parse_mode="Markdown", reply_markup=car_nav_kb(p,t,'houses'))
-        else: bot.send_message(uid, "❌ Нет домов")
+            cursor = conn.cursor()
+            cursor.execute('SELECT last_daily FROM users WHERE user_id = ?', (user_id,))
+            result = cursor.fetchone()
+            last = result[0] if result else None
+            now = datetime.now().isoformat()
+            
+            if last:
+                last_time = datetime.fromisoformat(last)
+                if datetime.now() - last_time < timedelta(hours=24):
+                    next_time = last_time + timedelta(hours=24)
+                    time_left = next_time - datetime.now()
+                    hours = time_left.seconds // 3600
+                    minutes = (time_left.seconds % 3600) // 60
+                    bot.send_message(user_id, f"⏳ След. бонус через {hours}ч {minutes}м")
+                    conn.close()
+                    return
+            
+            bonus = random.randint(500, 2000)
+            bonus_exp = random.randint(50, 200)
+            cursor.execute('UPDATE users SET balance = balance + ?, exp = exp + ?, last_daily = ? WHERE user_id = ?', 
+                          (bonus, bonus_exp, now, user_id))
+            conn.commit()
+            conn.close()
+            bot.send_message(user_id, f"🎁 Бонус: +{bonus} {CURRENCY} и +{bonus_exp}⭐!")
+        except Exception as e:
+            print(f"Ошибка daily: {e}")
+            bot.send_message(user_id, "❌ Ошибка")
     
-    # ===== РАБОТЫ С МИНИ-ИГРАМИ (ИСПРАВЛЕНО) =====
-    elif any(job in txt for job in ["🚚 Грузчик", "🧹 Уборщик", "📦 Курьер", "🔧 Механик", "💻 Программист", "🕵️ Детектив", "👨‍🔧 Инженер", "👨‍⚕️ Врач", "👨‍🎤 Артист", "👨‍🚀 Космонавт"]):
-        job_name = txt
+    elif text == "🗺️ Карта":
+        bot.send_message(
+            user_id,
+            "🗺️ **ВЫБЕРИ ГОРОД**\n\n"
+            "Куда хочешь отправиться?\n\n"
+            "🏙️ **Москва** - 👕 Магазин одежды\n"
+            "🏙️ **Село Молочное** - 🚗 Магазин машин\n"
+            "🏙️ **Кропоткин** - ✈️ Магазин самолетов\n"
+            "🏙️ **Мурино** - 🏠 Магазин домов",
+            parse_mode="Markdown",
+            reply_markup=cities_keyboard()
+        )
+    
+    elif text == "🔄":
+        user_data = get_user_profile(user_id)
+        if user_data:
+            balance = get_balance(user_id)
+            display_name = get_user_display_name(user_data)
+            photo_url = get_user_profile_photo(user_id)
+            
+            caption = (f"👤 *{display_name}*\n\n"
+                       f"💰 Баланс: {balance:,} {CURRENCY}")
+            
+            bot.send_photo(
+                user_id,
+                photo_url,
+                caption=caption,
+                parse_mode="Markdown"
+            )
+        else:
+            bot.send_message(user_id, "❌ Ошибка загрузки профиля")
+    
+    elif text in ["🏙️ Москва", "🏙️ Село Молочное", "🏙️ Кропоткин", "🏙️ Мурино"]:
+        city_name = text.replace("🏙️ ", "")
+        current_city = get_user_city(user_id)
+        
+        if city_name == current_city:
+            city_info = get_city_info(city_name)
+            shop_keyboard = city_shop_keyboard(city_info['shop_type'])
+            bot.send_message(
+                user_id,
+                f"🏙️ Ты уже находишься в городе {city_name}\n"
+                f"📌 Здесь продают: {city_info['shop_type']}",
+                reply_markup=shop_keyboard
+            )
+        else:
+            bot.send_message(
+                user_id,
+                f"🚀 Выбери транспорт для поездки в {city_name}:",
+                reply_markup=transport_keyboard(city_name)
+            )
+            bot.register_next_step_handler(message, process_travel, city_name)
+    
+    elif text == "👕 Смотреть одежду":
+        clothes, current_page, total = get_clothes_page(0)
+        if clothes:
+            caption = (f"👕 *{clothes['name']}*\n\n"
+                      f"💰 Цена: {clothes['price']:,} {CURRENCY}\n\n"
+                      f"🛍️ Всего комплектов: {total}")
+            
+            bot.send_photo(
+                user_id,
+                clothes['photo_url'],
+                caption=caption,
+                parse_mode="Markdown",
+                reply_markup=get_clothes_navigation_keyboard(current_page, total)
+            )
+        else:
+            bot.send_message(user_id, "❌ В магазине пока нет товаров!")
+    
+    elif text == "🚗 Смотреть машины":
+        cars, current_page, total = get_cars_page(0)
+        if cars:
+            caption = (f"🚗 *{cars['name']}*\n\n"
+                      f"💰 Цена: {cars['price']:,} {CURRENCY}\n"
+                      f"⚡ Скорость: {cars['speed']} км/ч\n\n"
+                      f"🛍️ Всего машин: {total}")
+            
+            bot.send_photo(
+                user_id,
+                cars['photo_url'],
+                caption=caption,
+                parse_mode="Markdown",
+                reply_markup=get_cars_navigation_keyboard(current_page, total, 'cars')
+            )
+        else:
+            bot.send_message(user_id, "❌ В магазине пока нет машин!")
+    
+    elif text == "✈️ Смотреть самолеты":
+        planes, current_page, total = get_planes_page(0)
+        if planes:
+            caption = (f"✈️ *{planes['name']}*\n\n"
+                      f"💰 Цена: {planes['price']:,} {CURRENCY}\n"
+                      f"⚡ Скорость: {planes['speed']} км/ч\n\n"
+                      f"🛍️ Всего самолетов: {total}")
+            
+            bot.send_photo(
+                user_id,
+                planes['photo_url'],
+                caption=caption,
+                parse_mode="Markdown",
+                reply_markup=get_cars_navigation_keyboard(current_page, total, 'planes')
+            )
+        else:
+            bot.send_message(user_id, "❌ В магазине пока нет самолетов!")
+    
+    elif text == "🏠 Смотреть дома":
+        houses, current_page, total = get_houses_page(0)
+        if houses:
+            caption = (f"🏠 *{houses['name']}*\n\n"
+                      f"💰 Цена: {houses['price']:,} {CURRENCY}\n"
+                      f"🏡 Комфорт: {houses['comfort']}\n\n"
+                      f"🛍️ Всего домов: {total}")
+            
+            bot.send_photo(
+                user_id,
+                houses['photo_url'],
+                caption=caption,
+                parse_mode="Markdown",
+                reply_markup=get_cars_navigation_keyboard(current_page, total, 'houses')
+            )
+        else:
+            bot.send_message(user_id, "❌ В магазине пока нет домов!")
+    
+    # ===== ИСПРАВЛЕННЫЙ БЛОК РАБОТ =====
+    elif any(job in text for job in ["🚚 Грузчик", "🧹 Уборщик", "📦 Курьер", "🔧 Механик", "💻 Программист", "🕵️ Детектив", "👨‍🔧 Инженер", "👨‍⚕️ Врач", "👨‍🎤 Артист", "👨‍🚀 Космонавт"]):
+        job_name = text
         
         if "Грузчик" in job_name:
-            mk, msg = start_loader_game(uid, job_name)
-            bot.send_message(uid, msg, reply_markup=mk)
+            markup, msg = start_loader_game(user_id, job_name)
+            bot.send_message(user_id, msg, reply_markup=markup)
         
         elif "Курьер" in job_name:
-            mk, msg = start_courier_game(uid, job_name)
-            bot.send_message(uid, msg, reply_markup=mk)
+            markup, msg = start_courier_game(user_id, job_name)
+            bot.send_message(user_id, msg, reply_markup=markup)
         
         elif "Программист" in job_name:
-            mk, msg = start_programmer_game(uid, job_name)
-            bot.send_message(uid, msg, parse_mode="Markdown", reply_markup=mk)
+            markup, msg = start_programmer_game(user_id, job_name)
+            bot.send_message(user_id, msg, parse_mode="Markdown", reply_markup=markup)
         
         else:
             rewards = {
@@ -1012,348 +2962,752 @@ def handle(m):
                 min_r, max_r, exp_r = rewards[job_name]
                 earn = random.randint(min_r, max_r)
                 
-                if add_balance(uid, earn) and add_exp(uid, exp_r):
-                    bot.send_message(uid, f"✅ {job_name}\n💰 +{earn}\n⭐ +{exp_r}")
+                if add_balance(user_id, earn) and add_exp(user_id, exp_r):
+                    bot.send_message(user_id, f"✅ {job_name}\n💰 +{earn}\n⭐ +{exp_r} опыта")
                 else:
-                    bot.send_message(uid, "❌ Ошибка, попробуй позже")
+                    bot.send_message(user_id, "❌ Ошибка, попробуй позже")
             else:
-                bot.send_message(uid, "❌ Неизвестная работа")
+                bot.send_message(user_id, "❌ Неизвестная работа")
     
-    elif txt == "👥 Рефералы":
-        link = f"https://t.me/{bot.get_me().username}?start={uid}"
-        bot.send_message(uid, f"👥 **РЕФЕРАЛЫ**\n🔗 {link}\n\n💡 За друга +1000💰 +50⭐", parse_mode="Markdown")
-    elif txt == "📊 Мой бизнес":
-        biz = get_user_business(uid)
-        if not biz: bot.send_message(uid, "📭 Нет бизнеса"); return
-        d = get_business_data(biz['business_name'])
-        if not d: bot.send_message(uid, "❌ Ошибка"); return
-        sp = {1:1.0,2:1.2,3:2.0}; cs = sp.get(biz['level'],1.0); tpr = d['base_time']/cs
-        total = biz['raw_material']+biz['raw_in_delivery']; pot = biz['raw_material']*d['profit_per_raw']
-        msg = f"{d['emoji']} **{biz['business_name']}**\n📊 Ур.{biz['level']}\n⏱️ {tpr:.0f} сек/сырьё\n📦 {biz['raw_material']}/1000\n🚚 {biz['raw_in_delivery']}\n📊 {total}/1000\n💰 Прибыль: {biz['stored_profit']:,}\n💵 Вложено: {biz['total_invested']:,}\n🎯 Потенциал: {pot:,}"
-        if d['photo_url']: bot.send_photo(uid, d['photo_url'], caption=msg, parse_mode="Markdown")
-        else: bot.send_message(uid, msg, parse_mode="Markdown")
-    elif txt == "💰 Собрать прибыль":
-        biz = get_user_business(uid)
-        if not biz: bot.send_message(uid, "📭 Нет бизнеса"); return
-        if biz['stored_profit']<=0: bot.send_message(uid, "❌ Нет прибыли"); return
-        prof = biz['stored_profit']
-        conn = get_db()
-        conn.execute('UPDATE businesses SET stored_profit = 0 WHERE user_id = ?', (uid,))
-        conn.commit(); conn.close()
-        add_balance(uid, prof)
-        bot.send_message(uid, f"✅ Собрано {prof:,}💰")
-    elif txt == "📦 Закупить на всё":
-        biz = get_user_business(uid)
-        if not biz: bot.send_message(uid, "❌ Нет бизнеса"); return
-        d = get_business_data(biz['business_name'])
-        if not d: bot.send_message(uid, "❌ Ошибка"); return
-        bal = get_balance(uid); cost = d['raw_cost_per_unit']; maxb = bal//cost
-        total = biz['raw_material']+biz['raw_in_delivery']; free = 1000-total
-        amt = min(maxb, free)
-        if amt<=0: bot.send_message(uid, f"❌ {'Склад полон' if free<=0 else f'Нужно {cost:,}💰'}"); return
-        tc = amt*cost
-        if not add_balance(uid, -tc): bot.send_message(uid, "❌ Ошибка"); return
-        if has_active_delivery(uid):
-            bot.send_message(uid, "❌ Уже есть доставка")
-            add_balance(uid, tc); return
-        conn = get_db()
-        conn.execute('INSERT INTO deliveries (user_id, amount, end_time, delivered) VALUES (?,?,?,0)', (uid, amt, (datetime.now()+timedelta(minutes=15)).isoformat()))
-        conn.execute('UPDATE businesses SET raw_in_delivery = raw_in_delivery + ?, total_invested = total_invested + ? WHERE user_id = ?', (amt, tc, uid))
-        conn.commit(); conn.close()
-        bot.send_message(uid, f"✅ Заказ на {amt} сырья!\n💰 {tc:,}\n📦 Будет: {total+amt}/1000\n⏱️ 15 мин")
-    elif txt == "🏪 Купить бизнес": bot.send_message(uid, "Выбери бизнес:", reply_markup=buy_business_keyboard())
-    elif txt == "💰 Продать бизнес":
-        biz = get_user_business(uid)
-        if not biz: bot.send_message(uid, "❌ Нет бизнеса"); return
-        d = get_business_data(biz['business_name'])
-        if not d: bot.send_message(uid, "❌ Ошибка"); return
-        price = d['price']//2
-        if add_balance(uid, price):
-            conn = get_db()
-            conn.execute('DELETE FROM businesses WHERE user_id = ?', (uid,))
-            conn.execute('DELETE FROM deliveries WHERE user_id = ?', (uid,))
-            conn.commit(); conn.close()
-            bot.send_message(uid, f"💰 Продано за {price:,}!")
-        else: bot.send_message(uid, "❌ Ошибка")
-    elif txt in ["🥤 Киоск","🍔 Фастфуд","🏪 Минимаркет","⛽ Заправка","🏨 Отель"]:
-        if get_user_business(uid): bot.send_message(uid, "❌ Уже есть бизнес"); return
-        d = get_business_data(txt)
-        if not d: bot.send_message(uid, "❌ Не найден"); return
-        price = d['price']; bal = get_balance(uid)
-        if bal < price: bot.send_message(uid, f"❌ Нужно {price-bal:,}💰"); return
-        if add_balance(uid, -price):
-            conn = get_db()
-            conn.execute('INSERT INTO businesses (user_id, business_name, level, raw_material, raw_in_delivery, raw_spent, total_invested, stored_profit, last_update) VALUES (?,?,1,0,0,0,0,0,?)', (uid, txt, datetime.now().isoformat()))
-            conn.commit(); conn.close()
-            bot.send_message(uid, f"✅ Куплено {txt} за {price:,}!")
-        else: bot.send_message(uid, "❌ Ошибка")
-    elif txt == "📊 Статистика":
-        e,l,wc,t = get_user_stats(uid); eq = get_user_equipped_clothes(uid); ci = f", одет: {eq['name']}" if eq else ""
-        bot.send_message(uid, f"📊 **СТАТИСТИКА**\n👤 {dname}{ci}\n📍 {get_user_city(uid)}\n⭐ {e}\n📈 Ур.{l}\n🔨 {wc}\n💵 {t:,}", parse_mode="Markdown")
-    elif txt == "⚙️ Настройки": bot.send_message(uid, "🔧 **НАСТРОЙКИ**", parse_mode="Markdown", reply_markup=settings_keyboard())
-    elif txt == "✏️ Сменить никнейм":
-        cur = dname if dname!="Игрок" else "Не установлен"
-        bot.register_next_step_handler(bot.send_message(uid, f"🎮 **СМЕНА НИКА**\nТекущий: `{cur}`\n🔤 Новый ник:", parse_mode="Markdown"), change_nickname_step)
-    elif txt == "📋 Помощь":
-        bot.send_message(uid, "📚 **ПОМОЩЬ**\n💼 Работы - мини-игры, рефералы\n🏭 Бизнесы - управление\n👕 Магазин одежды (Москва)\n🚗 Магазин машин (С.Молочное)\n✈️ Самолеты (Кропоткин)\n🏠 Дома (Мурино)\n🎁 Ежедневно - бонус\n🗺️ Карта - города\n🔄 - профиль\n🎰 рул крас 1000 - рулетка\n📊 статистика - показатели\n🏆 /top - топ", parse_mode="Markdown")
-    elif txt == "❓ Помощь": bot.send_message(uid, "💼 Работы\n🏭 Бизнесы\n👕 Магазин одежды\n🎁 Ежедневно\n🗺️ Карта\n🔄 - профиль\n🎰 рул крас 1000\n📊 статистика\n🏆 /top")
-    elif txt == "🔙 Назад": send_main_menu_with_profile(uid)
-    else:
-        if txt and (txt.lower().startswith('рул') or txt.lower().startswith('рулетка')):
-            bi = parse_roulette_bet(txt)
-            if not bi:
-                bot.reply_to(m, "❌ Пример: рул крас 1000, рул чет все, рул 7 500")
-                return
-            bt, ba = bi
-            bal = get_balance(uid)
-            if ba == -1: ba = bal
-            if bal < ba: bot.reply_to(m, f"❌ Не хватает! Баланс: {bal:,}"); return
-            if ba < 1: bot.reply_to(m, "❌ Минимум 1💰"); return
-            n = random.randint(0,36); res = get_roulette_result(n); win = check_roulette_win(n, bt, ba)
-            if win > 0:
-                add_balance(uid, win-ba); nb = get_balance(uid)
-                update_roulette_stats(uid, ba, win)
-                bot.send_message(m.chat.id, f"🎡 **РУЛЕТКА**\n👤 {m.from_user.first_name}\n💰 {ba:,} на {bet_name(bt)}\n{gen_anim(n)}\n🎯 {n} {res['emoji']} {res['name']}\n🎉 **ВЫИГРЫШ!** +{win:,}💰\n💎 Баланс: {nb:,}", parse_mode="Markdown")
-            else:
-                add_balance(uid, -ba); nb = get_balance(uid)
-                update_roulette_stats(uid, ba, 0)
-                bot.send_message(m.chat.id, f"🎡 **РУЛЕТКА**\n👤 {m.from_user.first_name}\n💰 {ba:,} на {bet_name(bt)}\n{gen_anim(n)}\n🎯 {n} {res['emoji']} {res['name']}\n😭 **ПРОИГРЫШ** -{ba:,}💰\n💎 Баланс: {nb:,}", parse_mode="Markdown")
-        elif txt and txt.lower().strip() in ['статистика','стата','статс','моя статистика','моя стата','моя статс','общая статистика','статистика казино']:
-            if txt.lower().strip() in ['общая статистика','статистика казино']: send_top_to_chat(m.chat.id)
-            else:
-                s = get_roulette_stats(uid)
-                if not s: bot.reply_to(m, "📊 Еще не играл! Попробуй: рул крас 1000"); return
-                prof = s['total_win']-s['total_lose']; ps = "+" if prof>=0 else ""; wr = (s['wins']/s['games_played']*100) if s['games_played']>0 else 0
-                bot.reply_to(m, f"🎰 **ТВОЯ СТАТИСТИКА**\n🎮 Игр: {s['games_played']}\n✅ Побед: {s['wins']} ({wr:.1f}%)\n❌ Поражений: {s['losses']}\n💰 Выиграно: {s['total_win']:,}\n💸 Проиграно: {s['total_lose']:,}\n📈 {ps}{prof:,}\n🏆 Макс.выигрыш: {s['biggest_win']:,}\n💔 Макс.проигрыш: {s['biggest_lose']:,}", parse_mode="Markdown")
-        elif txt and txt.lower().strip() == 'я': send_profile_to_chat(m.chat.id, uid, uid)
-        elif txt and txt.lower().strip() == 'сырье все': process_raw_order(uid, m.chat.id)
-        elif txt and txt.lower().strip() == 'топ': send_top_to_chat(m.chat.id)
-
-def process_travel(m, target_city):
-    uid = m.from_user.id; tr = m.text
-    if tr == "🔙 Назад": send_main_menu_with_profile(uid); return
-    if tr not in ["🚕 Такси","🚗 Личная машина","✈️ Личный самолет"]:
-        bot.send_message(uid, "❌ Выбери транспорт")
-        bot.register_next_step_handler(m, process_travel, target_city)
-        return
-    conn = get_db()
-    u = conn.execute('SELECT has_car, has_plane FROM users WHERE user_id = ?', (uid,)).fetchone()
-    conn.close()
-    if tr == "🚗 Личная машина" and (not u or u['has_car']==0):
-        bot.send_message(uid, "❌ Нет машины! Купи в Селе Молочном.")
-        bot.send_message(uid, f"🚀 Транспорт в {target_city}:", reply_markup=transport_keyboard(target_city))
-        bot.register_next_step_handler(m, process_travel, target_city)
-        return
-    if tr == "✈️ Личный самолет" and (not u or u['has_plane']==0):
-        bot.send_message(uid, "❌ Нет самолета! Купи в Кропоткине.")
-        bot.send_message(uid, f"🚀 Транспорт в {target_city}:", reply_markup=transport_keyboard(target_city))
-        bot.register_next_step_handler(m, process_travel, target_city)
-        return
-    start_travel(uid, target_city, tr)
-
-# ========== КОЛБЭКИ ==========
-@bot.callback_query_handler(func=lambda call: True)
-def callback(call):
-    uid = call.from_user.id
-    if is_banned(uid): bot.answer_callback_query(call.id, "🔨 Забанен", show_alert=True); return
-    data = call.data
-    if data == "top_money": bot.delete_message(uid, call.message.message_id); send_top_by_type(uid, "money"); bot.answer_callback_query(call.id)
-    elif data == "top_exp": bot.delete_message(uid, call.message.message_id); send_top_by_type(uid, "exp"); bot.answer_callback_query(call.id)
-    elif data.startswith("loader_"):
-        bn = int(data.split("_")[1]); res = check_loader_click(uid, bn)
-        if not res: bot.answer_callback_query(call.id, "❌ Игра не найдена"); return
-        if res['win']:
-            rew = 50; ex = 10; bonus = max(1.0, 30/res['time']); tot = int(rew*bonus)
-            add_balance(uid, tot); add_exp(uid, ex); update_work_stats(uid, "Грузчик", res['score'], res['time'], tot)
-            bot.edit_message_text(f"✅ **ПОБЕДА!**\n⏱️ {res['time']:.1f} сек\n💰 +{tot}\n⭐ +{ex}", uid, call.message.message_id)
-        else: bot.answer_callback_query(call.id, f"✅ {res['collected']}/{res['total']}")
-    elif data.startswith("courier_"):
-        p = data.split("_"); cor, rt = p[1], int(p[2]); res = check_courier_choice(uid, cor, rt)
-        if not res: bot.answer_callback_query(call.id, "❌ Игра не найдена"); return
-        if res['win']:
-            rew = 70; ex = 15; bonus = max(1.0, 20/res['time']); tot = int(rew*bonus)
-            add_balance(uid, tot); add_exp(uid, ex); update_work_stats(uid, "Курьер", res['score'], res['time'], tot)
-            bot.edit_message_text(f"✅ **ДОСТАВЛЕНО!**\n⏱️ {res['time']:.1f} сек\n💰 +{tot}\n⭐ +{ex}", uid, call.message.message_id)
-        else: bot.edit_message_text("❌ **НЕУДАЧА**\nПопробуй еще!", uid, call.message.message_id)
-    elif data.startswith("programmer_"):
-        cor = data.split("_")[1]; res = check_programmer_choice(uid, cor)
-        if not res: bot.answer_callback_query(call.id, "❌ Игра не найдена"); return
-        if res['win']:
-            rew = 100; ex = 20; tot = int(rew*(res['score']/100))
-            add_balance(uid, tot); add_exp(uid, ex); update_work_stats(uid, "Программист", res['score'], res['time'], tot)
-            bot.edit_message_text(f"✅ **БАГ ИСПРАВЛЕН!**\n⏱️ {res['time']:.1f} сек\n📊 {res['score']}%\n💰 +{tot}\n⭐ +{ex}", uid, call.message.message_id)
-        else: bot.edit_message_text("❌ **НЕПРАВИЛЬНО**\nПопробуй еще!", uid, call.message.message_id)
-    elif data.startswith("shop_page_"):
-        p = int(data.split("_")[2]); c, cp, t = get_clothes_page(p)
-        if c:
-            cap = f"👕 *{c['name']}*\n💰 {c['price']:,}\n🛍️ {t}"
-            try: bot.edit_message_media(types.InputMediaPhoto(media=c['photo_url'], caption=cap, parse_mode="Markdown"), uid, call.message.message_id, reply_markup=nav_kb(cp,t))
-            except: bot.send_photo(uid, c['photo_url'], caption=cap, parse_mode="Markdown", reply_markup=nav_kb(cp,t)); bot.delete_message(uid, call.message.message_id)
-        bot.answer_callback_query(call.id)
-    elif data.startswith("shop_buy_"):
-        p = int(data.split("_")[2]); c, cp, t = get_clothes_page(p)
-        if c:
-            conn = get_db()
-            if conn.execute('SELECT id FROM user_clothes WHERE user_id = ? AND clothes_id = ?', (uid, c['id'])).fetchone():
-                conn.close(); bot.answer_callback_query(call.id, "❌ Уже есть!", show_alert=True); return
-            conn.close()
-            ok, msg = buy_clothes(uid, c['id'])
-            if ok:
-                cap = f"👕 *{c['name']}*\n💰 {c['price']:,}\n✅ КУПЛЕНО!"
-                mk = types.InlineKeyboardMarkup().add(types.InlineKeyboardButton("◀️ В магазин", callback_data=f"shop_page_{cp}"), types.InlineKeyboardButton("❌ Закрыть", callback_data="shop_close"))
-                try: bot.edit_message_media(types.InputMediaPhoto(media=c['photo_url'], caption=cap, parse_mode="Markdown"), uid, call.message.message_id, reply_markup=mk)
-                except: pass
-                bot.answer_callback_query(call.id, "✅ Куплено!", show_alert=True)
-            else: bot.answer_callback_query(call.id, msg, show_alert=True)
-    elif data.startswith("cars_page_"):
-        p = int(data.split("_")[2]); c, cp, t = get_cars_page(p)
-        if c:
-            cap = f"🚗 *{c['name']}*\n💰 {c['price']:,}\n⚡ {c['speed']} км/ч\n🛍️ {t}"
-            try: bot.edit_message_media(types.InputMediaPhoto(media=c['photo_url'], caption=cap, parse_mode="Markdown"), uid, call.message.message_id, reply_markup=car_nav_kb(cp,t,'cars'))
-            except: bot.send_photo(uid, c['photo_url'], caption=cap, parse_mode="Markdown", reply_markup=car_nav_kb(cp,t,'cars')); bot.delete_message(uid, call.message.message_id)
-        bot.answer_callback_query(call.id)
-    elif data.startswith("cars_buy_"):
-        p = int(data.split("_")[2]); c, cp, t = get_cars_page(p)
-        if c:
-            ok, msg = buy_car(uid, c['id'])
-            if ok:
-                bot.edit_message_text(f"✅ **КУПЛЕНО!**\n🚗 {c['name']}\n💰 {c['price']:,}", uid, call.message.message_id)
-            else: bot.answer_callback_query(call.id, msg, show_alert=True)
-    elif data.startswith("planes_page_"):
-        p = int(data.split("_")[2]); c, cp, t = get_planes_page(p)
-        if c:
-            cap = f"✈️ *{c['name']}*\n💰 {c['price']:,}\n⚡ {c['speed']} км/ч\n🛍️ {t}"
-            try: bot.edit_message_media(types.InputMediaPhoto(media=c['photo_url'], caption=cap, parse_mode="Markdown"), uid, call.message.message_id, reply_markup=car_nav_kb(cp,t,'planes'))
-            except: bot.send_photo(uid, c['photo_url'], caption=cap, parse_mode="Markdown", reply_markup=car_nav_kb(cp,t,'planes')); bot.delete_message(uid, call.message.message_id)
-        bot.answer_callback_query(call.id)
-    elif data.startswith("planes_buy_"):
-        p = int(data.split("_")[2]); c, cp, t = get_planes_page(p)
-        if c:
-            ok, msg = buy_plane(uid, c['id'])
-            if ok:
-                bot.edit_message_text(f"✅ **КУПЛЕНО!**\n✈️ {c['name']}\n💰 {c['price']:,}", uid, call.message.message_id)
-            else: bot.answer_callback_query(call.id, msg, show_alert=True)
-    elif data.startswith("houses_page_"):
-        p = int(data.split("_")[2]); c, cp, t = get_houses_page(p)
-        if c:
-            cap = f"🏠 *{c['name']}*\n💰 {c['price']:,}\n🏡 Комфорт: {c['comfort']}\n🛍️ {t}"
-            try: bot.edit_message_media(types.InputMediaPhoto(media=c['photo_url'], caption=cap, parse_mode="Markdown"), uid, call.message.message_id, reply_markup=car_nav_kb(cp,t,'houses'))
-            except: bot.send_photo(uid, c['photo_url'], caption=cap, parse_mode="Markdown", reply_markup=car_nav_kb(cp,t,'houses')); bot.delete_message(uid, call.message.message_id)
-        bot.answer_callback_query(call.id)
-    elif data.startswith("houses_buy_"):
-        p = int(data.split("_")[2]); c, cp, t = get_houses_page(p)
-        if c:
-            ok, msg = buy_house(uid, c['id'])
-            if ok:
-                bot.edit_message_text(f"✅ **КУПЛЕНО!**\n🏠 {c['name']}\n💰 {c['price']:,}", uid, call.message.message_id)
-            else: bot.answer_callback_query(call.id, msg, show_alert=True)
-    elif data == "shop_close":
-        bot.delete_message(uid, call.message.message_id)
-        send_main_menu_with_profile(uid)
-        bot.answer_callback_query(call.id)
-    elif data == "noop": bot.answer_callback_query(call.id)
-
-@bot.message_handler(commands=['top'])
-def top_cmd(m):
-    uid = m.from_user.id
-    mk = types.InlineKeyboardMarkup(row_width=2).add(types.InlineKeyboardButton("💰 Деньги", callback_data="top_money"), types.InlineKeyboardButton("⭐ Опыт", callback_data="top_exp"))
-    bot.send_message(uid, "🏆 **ВЫБЕРИ ТОП**", parse_mode="Markdown", reply_markup=mk)
-
-def send_top_by_type(uid, typ):
-    try:
-        conn = get_db()
-        if typ=="money":
-            top = conn.execute('SELECT first_name, username, custom_name, balance FROM users ORDER BY balance DESC LIMIT 10').fetchall()
-            title = "💰 ТОП 10 ПО ДЕНЬГАМ"
+    elif text == "👥 Рефералы":
+        bot_username = bot.get_me().username
+        link = f"https://t.me/{bot_username}?start={user_id}"
+        msg = f"👥 **РЕФЕРАЛЫ**\n\n"
+        msg += f"🔗 Твоя ссылка:\n{link}\n\n"
+        msg += f"💡 Приглашай друзей и получай бонусы!\n"
+        msg += f"💰 За каждого друга: +1000💰 и +50⭐"
+        bot.send_message(user_id, msg, parse_mode="Markdown")
+    
+    elif text == "📊 Мой бизнес":
+        business = get_user_business(user_id)
+        if not business:
+            bot.send_message(user_id, "📭 У тебя еще нет бизнеса!")
+            return
+        
+        data = get_business_data(business['business_name'])
+        if not data:
+            bot.send_message(user_id, "❌ Ошибка загрузки данных бизнеса")
+            return
+        
+        speed_multiplier = {1: 1.0, 2: 1.2, 3: 2.0}
+        current_speed = speed_multiplier.get(business['level'], 1.0)
+        time_per_raw = data['base_time'] / current_speed
+        
+        total_raw = business['raw_material'] + business['raw_in_delivery']
+        total_potential = business['raw_material'] * data['profit_per_raw']
+        
+        msg = f"{data['emoji']} **{business['business_name']}**\n\n"
+        msg += f"📊 Уровень: {business['level']}\n"
+        msg += f"⏱️ Время на 1 сырье: {time_per_raw:.0f} сек\n"
+        msg += f"📦 На складе: {business['raw_material']}/1000 сырья\n"
+        msg += f"🚚 В доставке: {business['raw_in_delivery']} сырья\n"
+        msg += f"📊 Всего: {total_raw}/1000\n"
+        msg += f"💰 Прибыль на складе: {business['stored_profit']:,} {CURRENCY}\n"
+        msg += f"💵 Всего вложено: {business['total_invested']:,} {CURRENCY}\n"
+        msg += f"🎯 Потенциальная прибыль: {total_potential:,} {CURRENCY}"
+        
+        if data['photo_url']:
+            bot.send_photo(user_id, data['photo_url'], caption=msg, parse_mode="Markdown")
         else:
-            top = conn.execute('SELECT first_name, username, custom_name, exp FROM users ORDER BY exp DESC LIMIT 10').fetchall()
-            title = "⭐ ТОП 10 ПО ОПЫТУ"
+            bot.send_message(user_id, msg, parse_mode="Markdown")
+    
+    elif text == "💰 Собрать прибыль":
+        business = get_user_business(user_id)
+        if not business:
+            bot.send_message(user_id, "📭 У тебя еще нет бизнеса!")
+            return
+        
+        if business['stored_profit'] <= 0:
+            bot.send_message(user_id, "❌ На складе нет прибыли! Сырье еще перерабатывается.")
+            return
+        
+        profit = business['stored_profit']
+        
+        conn = get_db()
+        cursor = conn.cursor()
+        cursor.execute('UPDATE businesses SET stored_profit = 0 WHERE user_id = ?', (user_id,))
+        conn.commit()
         conn.close()
-        if not top: bot.send_message(uid, "❌ Топ пуст"); return
-        msg = f"🏆 **{title}**\n"
-        for i,(fn,un,cn,val) in enumerate(top,1):
-            medal = "🥇" if i==1 else "🥈" if i==2 else "🥉" if i==3 else f"{i}."
-            name = cn or (f"@{un}" if un and un!="NoUsername" else fn)
-            msg += f"{medal} {name}: {val:,}\n"
-        bot.send_message(uid, msg, parse_mode="Markdown")
-    except: bot.send_message(uid, "❌ Ошибка")
+        
+        add_balance(user_id, profit)
+        
+        bot.send_message(user_id, f"✅ Ты собрал {profit:,} {CURRENCY} прибыли с бизнеса!")
+    
+    elif text == "📦 Закупить на всё":
+        business = get_user_business(user_id)
+        if not business:
+            bot.send_message(user_id, "❌ Сначала купи бизнес!")
+            return
+        
+        data = get_business_data(business['business_name'])
+        if not data:
+            bot.send_message(user_id, "❌ Ошибка загрузки данных бизнеса")
+            return
+        
+        balance = get_balance(user_id)
+        raw_cost = data['raw_cost_per_unit']
+        max_by_money = balance // raw_cost
+        
+        total_raw = business['raw_material'] + business['raw_in_delivery']
+        free_space = 1000 - total_raw
+        
+        amount = min(max_by_money, free_space)
+        
+        if amount <= 0:
+            if free_space <= 0:
+                bot.send_message(user_id, f"❌ Склад переполнен! Свободно места: 0/1000")
+            else:
+                bot.send_message(user_id, f"❌ У тебя недостаточно денег! Нужно минимум {raw_cost:,} {CURRENCY}")
+            return
+        
+        total_cost = amount * raw_cost
+        
+        if not add_balance(user_id, -total_cost):
+            bot.send_message(user_id, "❌ Ошибка при списании денег")
+            return
+        
+        if has_active_delivery(user_id):
+            bot.send_message(user_id, "❌ У тебя уже есть активная доставка! Дождись её завершения.")
+            add_balance(user_id, total_cost)
+            return
+        
+        conn = get_db()
+        cursor = conn.cursor()
+        
+        end_time = datetime.now() + timedelta(minutes=15)
+        cursor.execute('''
+            INSERT INTO deliveries (user_id, amount, end_time, delivered)
+            VALUES (?, ?, ?, 0)
+        ''', (user_id, amount, end_time.isoformat()))
+        
+        cursor.execute('''
+            UPDATE businesses 
+            SET raw_in_delivery = raw_in_delivery + ?,
+                total_invested = total_invested + ?
+            WHERE user_id = ?
+        ''', (amount, total_cost, user_id))
+        
+        conn.commit()
+        conn.close()
+        
+        new_total = total_raw + amount
+        bot.send_message(user_id, f"✅ Заказ на {amount} сырья оформлен!\n💰 Стоимость: {total_cost:,} {CURRENCY}\n📦 Будет: {new_total}/1000\n⏱️ Доставка через 15 минут")
+    
+    elif text == "🏪 Купить бизнес":
+        bot.send_message(user_id, "Выбери бизнес для покупки:", reply_markup=buy_business_keyboard())
+    
+    elif text == "💰 Продать бизнес":
+        business = get_user_business(user_id)
+        if not business:
+            bot.send_message(user_id, "❌ У тебя нет бизнеса!")
+            return
+        
+        data = get_business_data(business['business_name'])
+        if not data:
+            bot.send_message(user_id, "❌ Ошибка")
+            return
+        
+        sell_price = data['price'] // 2
+        if add_balance(user_id, sell_price):
+            try:
+                conn = get_db()
+                cursor = conn.cursor()
+                cursor.execute('DELETE FROM businesses WHERE user_id = ?', (user_id,))
+                cursor.execute('DELETE FROM deliveries WHERE user_id = ?', (user_id,))
+                conn.commit()
+                conn.close()
+                bot.send_message(user_id, f"💰 Бизнес продан за {sell_price:,} {CURRENCY}!")
+            except Exception as e:
+                print(f"Ошибка при продаже: {e}")
+                bot.send_message(user_id, "❌ Ошибка при продаже")
+                add_balance(user_id, -sell_price)
+    
+    elif text in ["🥤 Киоск", "🍔 Фастфуд", "🏪 Минимаркет", "⛽ Заправка", "🏨 Отель"]:
+        
+        if get_user_business(user_id):
+            bot.send_message(user_id, "❌ У тебя уже есть бизнес!")
+            return
+        
+        data = get_business_data(text)
+        if not data:
+            bot.send_message(user_id, "❌ Бизнес не найден")
+            return
+        
+        price = data['price']
+        balance = get_balance(user_id)
+        
+        if balance < price:
+            bot.send_message(user_id, f"❌ Не хватает {price - balance:,}💰")
+            return
+        
+        if add_balance(user_id, -price):
+            try:
+                conn = get_db()
+                cursor = conn.cursor()
+                cursor.execute('''
+                    INSERT INTO businesses (user_id, business_name, level, raw_material, raw_in_delivery, raw_spent, total_invested, stored_profit, last_update)
+                    VALUES (?, ?, 1, 0, 0, 0, 0, 0, ?)
+                ''', (user_id, text, datetime.now().isoformat()))
+                conn.commit()
+                conn.close()
+                bot.send_message(user_id, f"✅ Ты купил {text} за {price:,}💰!")
+            except Exception as e:
+                print(f"Ошибка при покупке: {e}")
+                bot.send_message(user_id, "❌ Ошибка при покупке")
+                add_balance(user_id, price)
+    
+    elif text == "📊 Статистика":
+        exp, level, work_count, total = get_user_stats(user_id)
+        equipped = get_user_equipped_clothes(user_id)
+        clothes_info = f", одет: {equipped['name']}" if equipped else ""
+        current_city = get_user_city(user_id)
+        
+        msg = f"📊 **СТАТИСТИКА**\n\n"
+        msg += f"👤 Игрок: {display_name}{clothes_info}\n"
+        msg += f"📍 Город: {current_city}\n"
+        msg += f"⭐ Опыт: {exp}\n"
+        msg += f"📈 Уровень: {level}\n"
+        msg += f"🔨 Работ: {work_count}\n"
+        msg += f"💰 Всего заработано: {total:,}"
+        bot.send_message(user_id, msg, parse_mode="Markdown")
+    
+    elif text == "⚙️ Настройки":
+        bot.send_message(user_id, "🔧 **НАСТРОЙКИ**\n\nВыбери что хочешь изменить:", reply_markup=settings_keyboard(), parse_mode="Markdown")
+    
+    elif text == "✏️ Сменить никнейм":
+        current_nick = display_name if display_name != "Игрок" else "Не установлен"
+        msg = bot.send_message(
+            user_id,
+            f"🎮 **СМЕНА ИГРОВОГО НИКНЕЙМА**\n\n"
+            f"Текущий ник: `{current_nick}`\n\n"
+            f"🔤 **Напиши новый никнейм:**\n\n"
+            f"📝 Он может быть любым (буквы, цифры, символы)\n"
+            f"✨ Например: `DarkKnight`, `КиберПанк`, `SuguruKing`\n\n"
+            f"⚠️ **Важно:** Никнейм должен быть **уникальным**!",
+            parse_mode="Markdown"
+        )
+        bot.register_next_step_handler(msg, change_nickname_step)
+    
+    elif text == "📋 Помощь":
+        help_text = (
+            "📚 **ПОЛНОЕ РУКОВОДСТВО ПО ИГРЕ** 📚\n\n"
+            "💼 **РАБОТЫ**\n"
+            "• Доступно 10 видов работ\n"
+            "• Некоторые работы теперь с мини-играми!\n"
+            "• Чем лучше сыграешь - тем больше денег\n"
+            "• Работы можно выполнять бесконечно\n"
+            "• В разделе работ есть **РЕФЕРАЛЫ**\n\n"
+            "🏭 **БИЗНЕСЫ**\n"
+            "• Можно купить только один бизнес\n"
+            "• 5 видов бизнеса\n"
+            "• У каждого бизнеса 3 уровня прокачки\n"
+            "• Склад вмещает максимум 1000 сырья\n"
+            "• Доставка сырья - 15 минут\n"
+            "• Прибыль накапливается на складе, нужно собирать вручную\n\n"
+            "📊 **ДАННЫЕ БИЗНЕСОВ**\n"
+            "🥤 Киоск - 500к | 1 сырьё = 1.000💰 | профит 2.000💰\n"
+            "🍔 Фастфуд - 5M | 1 сырьё = 2.500💰 | профит 5.000💰\n"
+            "🏪 Минимаркет - 15M | 1 сырьё = 30.000💰 | профит 60.000💰\n"
+            "⛽ Заправка - 50M | 1 сырьё = 200.000💰 | профит 400.000💰\n"
+            "🏨 Отель - 1B | 1 сырьё = 1.000.000💰 | профит 2.000.000💰\n\n"
+            "🗺️ **КАРТА**\n"
+            "• **Москва** - 👕 Магазин одежды (стартовый город)\n"
+            "• **Село Молочное** - 🚗 Магазин машин\n"
+            "• **Кропоткин** - ✈️ Магазин самолетов\n"
+            "• **Мурино** - 🏠 Магазин домов\n"
+            "• Время в пути: 30-60 секунд\n"
+            "• Транспорт: Такси, Личная машина, Личный самолет\n"
+            "• Во время поездки кнопки пропадают!\n\n"
+            "👕 **МАГАЗИН ОДЕЖДЫ** (доступен в Москве)\n"
+            "🚗 **МАГАЗИН МАШИН** (доступен в Селе Молочном)\n"
+            "✈️ **МАГАЗИН САМОЛЕТОВ** (доступен в Кропоткине)\n"
+            "🏠 **МАГАЗИН ДОМОВ** (доступен в Мурино)\n\n"
+            "🎰 **РУЛЕТКА**\n"
+            "• Играй прямо в чате: `рул крас 1000`\n"
+            "• Можно ставить на цвет, число, дюжины\n"
+            "• Поддержка сокращений: `1к` = 1000, `5кк` = 5 млн\n"
+            "• Команда `рул крас все` - поставить весь баланс\n"
+            "• Вся статистика сохраняется!\n\n"
+            "🏆 **ТОП 10** (команда /top)\n"
+            "• Можно выбрать топ по деньгам или опыту\n"
+            "• Соревнуйся с другими игроками\n\n"
+            "🎁 **ЕЖЕДНЕВНЫЙ БОНУС**\n"
+            "• Получай бонус раз в 24 часа\n"
+            "• Рандомный бонус от 500 до 2000💰\n"
+            "• Дополнительно 50-200⭐ опыта"
+        )
+        bot.send_message(user_id, help_text, parse_mode="Markdown")
+    
+    elif text == "❓ Помощь":
+        help_text = "🤖 **ПОМОЩЬ**\n\n"
+        help_text += "💼 Работы - работай в мини-играх (там же рефералы)\n"
+        help_text += "🏭 Бизнесы - управление бизнесом\n"
+        help_text += "👕 Магазин одежды - покупай крутые комплекты (только в Москве)\n"
+        help_text += "🎁 Ежедневно - бонус каждый день\n"
+        help_text += "🗺️ Карта - путешествуй по городам\n"
+        help_text += "🔄 - показать твой профиль (не трогает меню)\n"
+        help_text += "🎰 Рулетка - играй в чате: рул крас 1000\n"
+        help_text += "📊 Статистика - твои показатели\n"
+        help_text += "🏆 Топ 10 - лучшие игроки (команда /top)\n"
+        help_text += "⚙️ Настройки - изменить никнейм"
+        
+        level = get_admin_level(user_id)
+        if level > 0:
+            help_text += f"\n\n👑 У вас права администратора {level} уровня!\n/adminhelp - список команд админа"
+        
+        bot.send_message(user_id, help_text, parse_mode="Markdown")
+    
+    elif text == "🔙 Назад":
+        send_main_menu_with_profile(user_id)
 
-# ========== ФОН ==========
+def process_travel(message, target_city):
+    user_id = message.from_user.id
+    transport = message.text
+    
+    if transport == "🔙 Назад":
+        send_main_menu_with_profile(user_id)
+        return
+    
+    if transport not in ["🚕 Такси", "🚗 Личная машина", "✈️ Личный самолет"]:
+        bot.send_message(user_id, "❌ Пожалуйста, выбери транспорт из предложенных!")
+        bot.register_next_step_handler(message, process_travel, target_city)
+        return
+    
+    conn = get_db()
+    cursor = conn.cursor()
+    user = cursor.execute('SELECT has_car, has_plane FROM users WHERE user_id = ?', (user_id,)).fetchone()
+    conn.close()
+    
+    if transport == "🚗 Личная машина" and (not user or user['has_car'] == 0):
+        bot.send_message(
+            user_id, 
+            "❌ У вас нет личной машины!\n"
+            "🚕 Можете воспользоваться такси или купить машину в Селе Молочном."
+        )
+        bot.send_message(
+            user_id,
+            f"🚀 Выбери транспорт для поездки в {target_city}:",
+            reply_markup=transport_keyboard(target_city)
+        )
+        bot.register_next_step_handler(message, process_travel, target_city)
+        return
+    
+    if transport == "✈️ Личный самолет" and (not user or user['has_plane'] == 0):
+        bot.send_message(
+            user_id, 
+            "❌ У вас нет личного самолета!\n"
+            "🚕 Можете воспользоваться такси или купить самолет в Кропоткине."
+        )
+        bot.send_message(
+            user_id,
+            f"🚀 Выбери транспорт для поездки в {target_city}:",
+            reply_markup=transport_keyboard(target_city)
+        )
+        bot.register_next_step_handler(message, process_travel, target_city)
+        return
+    
+    success, _ = start_travel(user_id, target_city, transport)
+
+# ========== ФОНОВЫЕ ПРОЦЕССЫ ==========
 def check_travels():
     while True:
         try:
             conn = get_db()
-            for t in conn.execute('SELECT * FROM travels WHERE completed = 0 AND end_time <= ?', (datetime.now().isoformat(),)).fetchall():
-                conn.execute('UPDATE users SET current_city = ? WHERE user_id = ?', (t['to_city'], t['user_id']))
-                conn.execute('UPDATE travels SET completed = 1 WHERE id = ?', (t['id'],))
-                try: bot.send_message(t['user_id'], f"✅ Прибыл в {t['to_city']}!", reply_markup=main_keyboard())
-                except: pass
+            cursor = conn.cursor()
+            
+            travels = cursor.execute('''
+                SELECT * FROM travels 
+                WHERE completed = 0 AND end_time <= ?
+            ''', (datetime.now().isoformat(),)).fetchall()
+            
+            for t in travels:
+                cursor.execute('UPDATE users SET current_city = ? WHERE user_id = ?', 
+                             (t['to_city'], t['user_id']))
+                cursor.execute('UPDATE travels SET completed = 1 WHERE id = ?', (t['id'],))
+                
+                try:
+                    bot.send_message(
+                        t['user_id'],
+                        f"✅ Вы прибыли в {t['to_city']}!\nТранспорт: {t['transport']}",
+                        reply_markup=main_keyboard()
+                    )
+                except:
+                    pass
+                
                 conn.commit()
+            
             conn.close()
             time.sleep(5)
-        except: time.sleep(5)
+        except Exception as e:
+            print(f"Ошибка проверки поездок: {e}")
+            time.sleep(5)
 
 def process_raw_material():
     while True:
         try:
             conn = get_db()
-            for b in conn.execute('SELECT * FROM businesses').fetchall():
-                if b['raw_material']>0:
-                    d = get_business_data(b['business_name'])
-                    if d:
-                        sp = {1:1.0,2:1.2,3:2.0}; cs = sp.get(b['level'],1.0); tpr = d['base_time']/cs
-                        lu = datetime.fromisoformat(b['last_update'])
-                        tp = (datetime.now()-lu).total_seconds()
-                        units = int(tp/tpr)
-                        if units>0 and b['raw_material']>0:
-                            proc = min(units, b['raw_material'])
-                            prof = proc*d['profit_per_raw']
-                            conn.execute('UPDATE businesses SET raw_material = raw_material - ?, raw_spent = raw_spent + ?, stored_profit = stored_profit + ?, last_update = ? WHERE user_id = ?', (proc, proc, prof, datetime.now().isoformat(), b['user_id']))
-                            total = b['raw_spent']+proc
-                            if total>=50000 and b['level']==1:
-                                conn.execute('UPDATE businesses SET level = 2 WHERE user_id = ?', (b['user_id'],))
-                                try: bot.send_message(b['user_id'], "🎉 Бизнес 2 ур.! Скорость +20%!")
-                                except: pass
-                            elif total>=200000 and b['level']==2:
-                                conn.execute('UPDATE businesses SET level = 3 WHERE user_id = ?', (b['user_id'],))
-                                try: bot.send_message(b['user_id'], "🎉 Бизнес 3 ур.! Скорость +100%!")
-                                except: pass
+            cursor = conn.cursor()
+            businesses = cursor.execute('SELECT * FROM businesses').fetchall()
+            
+            for b in businesses:
+                if b['raw_material'] > 0:
+                    data = get_business_data(b['business_name'])
+                    if data:
+                        speed_multiplier = {1: 1.0, 2: 1.2, 3: 2.0}
+                        current_speed = speed_multiplier.get(b['level'], 1.0)
+                        time_per_raw = data['base_time'] / current_speed
+                        
+                        last_update = datetime.fromisoformat(b['last_update'])
+                        time_passed = (datetime.now() - last_update).total_seconds()
+                        
+                        units_to_process = int(time_passed / time_per_raw)
+                        
+                        if units_to_process > 0 and b['raw_material'] > 0:
+                            process = min(units_to_process, b['raw_material'])
+                            profit = process * data['profit_per_raw']
+                            
+                            cursor.execute('''
+                                UPDATE businesses 
+                                SET raw_material = raw_material - ?,
+                                    raw_spent = raw_spent + ?,
+                                    stored_profit = stored_profit + ?,
+                                    last_update = ?
+                                WHERE user_id = ?
+                            ''', (process, process, profit, datetime.now().isoformat(), b['user_id']))
+                            
+                            total_spent = b['raw_spent'] + process
+                            
+                            if total_spent >= 50000 and b['level'] == 1:
+                                cursor.execute('UPDATE businesses SET level = 2 WHERE user_id = ?', (b['user_id'],))
+                                try:
+                                    bot.send_message(b['user_id'], "🎉 Твой бизнес достиг 2 уровня! Скорость +20%!")
+                                except:
+                                    pass
+                            elif total_spent >= 200000 and b['level'] == 2:
+                                cursor.execute('UPDATE businesses SET level = 3 WHERE user_id = ?', (b['user_id'],))
+                                try:
+                                    bot.send_message(b['user_id'], "🎉 Твой бизнес достиг 3 уровня! Скорость +100%!")
+                                except:
+                                    pass
+                            
                             conn.commit()
+            
             conn.close()
             time.sleep(10)
-        except: time.sleep(10)
+        except Exception as e:
+            print(f"Ошибка переработки: {e}")
+            time.sleep(10)
 
 def check_deliveries():
     while True:
         try:
             conn = get_db()
-            for d in conn.execute('SELECT * FROM deliveries WHERE delivered = 0 AND end_time <= ?', (datetime.now().isoformat(),)).fetchall():
-                conn.execute('UPDATE businesses SET raw_material = raw_material + ?, raw_in_delivery = raw_in_delivery - ? WHERE user_id = ?', (d['amount'], d['amount'], d['user_id']))
-                conn.execute('UPDATE deliveries SET delivered = 1 WHERE id = ?', (d['id'],))
+            cursor = conn.cursor()
+            
+            deliveries = cursor.execute('''
+                SELECT * FROM deliveries 
+                WHERE delivered = 0 AND end_time <= ?
+            ''', (datetime.now().isoformat(),)).fetchall()
+            
+            for d in deliveries:
+                cursor.execute('''
+                    UPDATE businesses 
+                    SET raw_material = raw_material + ?,
+                        raw_in_delivery = raw_in_delivery - ?
+                    WHERE user_id = ?
+                ''', (d['amount'], d['amount'], d['user_id']))
+                
+                cursor.execute('UPDATE deliveries SET delivered = 1 WHERE id = ?', (d['id'],))
+                
                 try:
-                    b = get_user_business(d['user_id'])
-                    if b: bot.send_message(d['user_id'], f"✅ Сырье доставлено!\n📦 +{d['amount']}\n📦 Теперь: {b['raw_material']+d['amount']}/1000")
-                except: pass
-                conn.commit()
+                    business = get_user_business(d['user_id'])
+                    if business:
+                        total_raw = business['raw_material'] + d['amount']
+                        bot.send_message(
+                            d['user_id'],
+                            f"✅ Сырье доставлено на склад!\n📦 +{d['amount']} сырья\n📦 Теперь на складе: {total_raw}/1000"
+                        )
+                except:
+                    pass
+            
+            conn.commit()
             conn.close()
             time.sleep(30)
-        except: time.sleep(30)
+        except Exception as e:
+            print(f"Ошибка в доставках: {e}")
+            time.sleep(30)
 
+# ========== ЗАПУСК ФОНОВЫХ ПОТОКОВ ==========
 threading.Thread(target=process_raw_material, daemon=True).start()
 threading.Thread(target=check_deliveries, daemon=True).start()
 threading.Thread(target=check_travels, daemon=True).start()
 
-# ========== ЗАПУСК ==========
-app = Flask('')
-@app.route('/')
-def home(): return "Бот работает!"
-def run(): app.run(host='0.0.0.0', port=8080)
-threading.Thread(target=run, daemon=True).start()
+# ========== ЗАПУСК БОТА ==========
+@bot.message_handler(commands=['top'])
+def top_command(message):
+    user_id = message.from_user.id
+    
+    markup = types.InlineKeyboardMarkup(row_width=2)
+    markup.add(
+        types.InlineKeyboardButton("💰 Топ по деньгам", callback_data="top_money"),
+        types.InlineKeyboardButton("⭐ Топ по опыту", callback_data="top_exp")
+    )
+    
+    bot.send_message(
+        user_id,
+        "🏆 **ВЫБЕРИ ТОП**\n\n"
+        "По какому показателю показать рейтинг?",
+        parse_mode="Markdown",
+        reply_markup=markup
+    )
 
+@bot.message_handler(commands=['adminhelp'])
+def admin_help(message):
+    user_id = message.from_user.id
+    level = get_admin_level(user_id)
+    
+    if level == 0:
+        bot.reply_to(message, "❌ Эта команда только для администраторов!")
+        return
+    
+    help_text = f"👑 **АДМИН ПАНЕЛЬ (Уровень {level})**\n\n"
+    help_text += "**Уровень 1:**\n"
+    help_text += "  /giveme [сумма] - выдать деньги себе\n"
+    help_text += "  /addexpm [количество] - выдать опыт себе\n\n"
+    
+    if level >= 2:
+        help_text += "**Уровень 2:**\n"
+        help_text += "  /give [@user или ник] [сумма] - выдать деньги\n"
+        help_text += "  /addexp [@user или ник] [количество] - выдать опыт\n"
+        help_text += "  /profile [@user или ник] - посмотреть профиль\n\n"
+    
+    if level >= 3:
+        help_text += "**Уровень 3:**\n"
+        help_text += "  /addadmin [@user или ник] [уровень] - назначить админа\n"
+        help_text += "  /adminlist - список админов\n"
+        help_text += "  /reset [@user или ник] - обнулить аккаунт\n"
+        help_text += "  /wipe [@user или ник] - стереть баланс и опыт\n\n"
+    
+    if level >= 4:
+        help_text += "**Уровень 4:**\n"
+        help_text += "  /removeadmin [@user или ник] - снять админа\n"
+        help_text += "  /setadminlevel [@user или ник] [уровень] - изменить уровень\n"
+        help_text += "  /ban [@user или ник] [часы] - забанить (0 = навсегда)\n"
+        help_text += "  /unban [@user или ник] - разбанить\n"
+        help_text += "  /warn [@user или ник] - выдать варн\n"
+        help_text += "  /warns [@user или ник] - показать варны\n"
+    
+    bot.reply_to(message, help_text, parse_mode="Markdown")
+
+# ========== АДМИН КОМАНДЫ ==========
+@bot.message_handler(commands=['giveme'])
+def give_me(message):
+    user_id = message.from_user.id
+    
+    if not is_admin(user_id, 1):
+        bot.reply_to(message, "❌ У тебя нет прав администратора 1 уровня!")
+        return
+    
+    try:
+        parts = message.text.split()
+        if len(parts) != 2:
+            bot.reply_to(message, "❌ Формат: /giveme [сумма]")
+            return
+        
+        amount = int(parts[1])
+        
+        if add_balance(user_id, amount):
+            new_balance = get_balance(user_id)
+            bot.reply_to(message, f"✅ Выдано {amount} {CURRENCY} себе\nНовый баланс: {new_balance}")
+        else:
+            bot.reply_to(message, "❌ Ошибка при выдаче денег")
+            
+    except ValueError:
+        bot.reply_to(message, "❌ Сумма должна быть числом")
+
+@bot.message_handler(commands=['addexpm'])
+def add_exp_me(message):
+    user_id = message.from_user.id
+    
+    if not is_admin(user_id, 1):
+        bot.reply_to(message, "❌ У тебя нет прав администратора 1 уровня!")
+        return
+    
+    try:
+        parts = message.text.split()
+        if len(parts) != 2:
+            bot.reply_to(message, "❌ Формат: /addexpm [количество]")
+            return
+        
+        amount = int(parts[1])
+        
+        if add_exp(user_id, amount):
+            new_stats = get_user_stats(user_id)
+            bot.reply_to(message, f"✅ Выдано {amount}⭐ опыта себе\nТеперь опыта: {new_stats[0]}, уровень: {new_stats[1]}")
+        else:
+            bot.reply_to(message, "❌ Ошибка при выдаче опыта")
+            
+    except ValueError:
+        bot.reply_to(message, "❌ Количество должно быть числом")
+
+@bot.message_handler(commands=['give'])
+def give_money(message):
+    user_id = message.from_user.id
+    
+    if not is_admin(user_id, 2):
+        bot.reply_to(message, "❌ У тебя нет прав администратора 2 уровня!")
+        return
+    
+    try:
+        parts = message.text.split()
+        
+        if len(parts) == 2:
+            amount = int(parts[1])
+            if add_balance(user_id, amount):
+                new_balance = get_balance(user_id)
+                bot.reply_to(message, f"✅ Выдано {amount} {CURRENCY} себе\nНовый баланс: {new_balance}")
+            else:
+                bot.reply_to(message, "❌ Ошибка при выдаче денег")
+        
+        elif len(parts) == 3:
+            target_input = parts[1]
+            amount = int(parts[2])
+            
+            user_data = find_user_by_input(target_input)
+            
+            if not user_data:
+                bot.reply_to(message, f"❌ Пользователь {target_input} не найден")
+                return
+            
+            target_id = user_data[0]
+            display_name = get_user_display_name(user_data)
+            
+            if add_balance(target_id, amount):
+                new_balance = get_balance(target_id)
+                bot.send_message(target_id, f"💰 Админ выдал тебе {amount} {CURRENCY}!\nБаланс: {new_balance}")
+                bot.reply_to(message, f"✅ Выдано {amount} {CURRENCY} {display_name}\nНовый баланс: {new_balance}")
+            else:
+                bot.reply_to(message, "❌ Ошибка при выдаче денег")
+        
+        else:
+            bot.reply_to(message, "❌ Формат: /give [сумма] - себе\n/give [@user или ник] [сумма] - другому")
+            
+    except ValueError:
+        bot.reply_to(message, "❌ Сумма должна быть числом")
+    except Exception as e:
+        bot.reply_to(message, f"❌ Ошибка: {e}")
+
+@bot.message_handler(commands=['addexp'])
+def add_exp_command(message):
+    user_id = message.from_user.id
+    
+    if not is_admin(user_id, 2):
+        bot.reply_to(message, "❌ У тебя нет прав администратора 2 уровня!")
+        return
+    
+    try:
+        parts = message.text.split()
+        
+        if len(parts) == 2:
+            amount = int(parts[1])
+            if add_exp(user_id, amount):
+                new_stats = get_user_stats(user_id)
+                bot.reply_to(message, f"✅ Выдано {amount}⭐ опыта себе\nТеперь опыта: {new_stats[0]}, уровень: {new_stats[1]}")
+            else:
+                bot.reply_to(message, "❌ Ошибка при выдаче опыта")
+        
+        elif len(parts) == 3:
+            target_input = parts[1]
+            amount = int(parts[2])
+            
+            user_data = find_user_by_input(target_input)
+            
+            if not user_data:
+                bot.reply_to(message, f"❌ Пользователь {target_input} не найден")
+                return
+            
+            target_id = user_data[0]
+            display_name = get_user_display_name(user_data)
+            
+            if add_exp(target_id, amount):
+                new_stats = get_user_stats(target_id)
+                bot.send_message(target_id, f"⭐ Админ выдал тебе {amount} опыта!")
+                bot.reply_to(message, f"✅ Выдано {amount}⭐ опыта {display_name}\nТеперь опыта: {new_stats[0]}, уровень: {new_stats[1]}")
+            else:
+                bot.reply_to(message, "❌ Ошибка при выдаче опыта")
+        
+        else:
+            bot.reply_to(message, "❌ Формат: /addexp [количество] - себе\n/addexp [@user или ник] [количество] - другому")
+            
+    except ValueError:
+        bot.reply_to(message, "❌ Количество опыта должно быть числом")
+    except Exception as e:
+        bot.reply_to(message, f"❌ Ошибка: {e}")
+
+@bot.message_handler(commands=['profile'])
+def profile_command(message):
+    user_id = message.from_user.id
+    
+    if not is_admin(user_id, 2):
+        bot.reply_to(message, "❌ У тебя нет прав администратора 2 уровня!")
+        return
+    
+    try:
+        parts = message.text.split()
+        
+        if len(parts) != 2:
+            bot.reply_to(message, "❌ Формат: /profile [@user или ник]")
+            return
+        
+        target_input = parts[1]
+        
+        user_data = find_user_by_input(target_input)
+        
+        if not user_data:
+            bot.reply_to(message, f"❌ Пользователь {target_input} не найден")
+            return
+        
+        target_id = user_data[0]
+        send_profile_to_chat(message.chat.id, user_id, target_id)
+        
+    except Exception as e:
+        bot.reply_to(message, f"❌ Ошибка: {e}")
+
+# ========== ЗАПУСК ==========
+from flask import Flask
+from threading import Thread
+
+app = Flask('')
+
+@app.route('/')
+def home():
+    return "Бот работает!"
+
+def run():
+    app.run(host='0.0.0.0', port=8080)
+
+def keep_alive():
+    t = Thread(target=run)
+    t.start()
+
+keep_alive()
 print("✅ Бот запущен!")
-print(f"👑 Админов: {len(ADMINS)}, 🔨 Банов: {len(BANS)}, ⚠️ Варнов: {len(WARNS)}")
-print("🏙️ Города: Москва(👕), С.Молочное(🚗), Кропоткин(✈️), Мурино(🏠)")
-print("🎰 Рулетка, 🎮 Мини-игры, 🚕 Поездки")
-print("📢 Команды: я, топ, сырье все")
-print("🔄 - профиль (не трогает меню)")
+print(f"👑 Загружено админов: {len(ADMINS)}")
+print(f"🔨 Загружено банов: {len(BANS)}")
+print(f"⚠️ Загружено варнов: {len(WARNS)}")
+print("🏙️ Система городов активирована!")
+print("   🏙️ Москва - 👕 Магазин одежды")
+print("   🏙️ Село Молочное - 🚗 Магазин машин")
+print("   🏙️ Кропоткин - ✈️ Магазин самолетов")
+print("   🏙️ Мурино - 🏠 Магазин домов")
+print("👕 Магазин одежды загружен с 16 комплектами!")
+print("🚗 Магазин машин загружен!")
+print("✈️ Магазин самолетов загружен!")
+print("🏠 Магазин домов загружен!")
+print("🎰 Рулетка активна! Играй: рул крас 1000")
+print("🎮 Мини-игры для работ активированы! (Грузчик, Курьер, Программист)")
+print("🚕 Во время поездки кнопки пропадают!")
+print("📌 Админ команды: /adminhelp")
+print("📢 Команды для чата: я, топ, сырье все")
+print("🔄 - показать профиль (НЕ ТРОГАЕТ МЕНЮ!)")
 bot.infinity_polling()
