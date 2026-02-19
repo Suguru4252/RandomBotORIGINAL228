@@ -2236,7 +2236,7 @@ def main_keyboard():
         types.KeyboardButton("🏭 Бизнесы")
     )
     markup.row(
-        types.KeyboardButton("🏙️ ГОРОДА"),  # Статистика заменена на ГОРОДА
+        types.KeyboardButton("🏙️ ГОРОДА"),
         types.KeyboardButton("👥 Рефералы")
     )
     markup.row(
@@ -2957,13 +2957,14 @@ def handle(message):
         if datetime.now() >= end_time:
             complete_travel(active_travel['id'], user_id)
         else:
-            # Если еще в пути - игнорируем все кнопки
+            # Если еще в пути - игнорируем все кнопки, кроме 🔄
             time_left = (end_time - datetime.now()).seconds
-            bot.reply_to(
-                message, 
-                f"⏳ Ты еще в пути! Осталось {time_left} сек.\nДождись прибытия."
-            )
-            return
+            if text != "🔄":
+                bot.reply_to(
+                    message, 
+                    f"⏳ Ты еще в пути! Осталось {time_left} сек.\nДождись прибытия."
+                )
+                return
     
     if text == "🏙️ ГОРОДА":
         markup = cities_keyboard()
@@ -3406,9 +3407,12 @@ def handle(message):
                 add_balance(user_id, price)
     
     elif text == "🔙 Назад":
+        # Проверяем, откуда вернулись
         if "🏙️" in text or "🚕" in text or "🚗" in text or "✈️" in text:
+            # Если из городов - показываем главное меню
             send_main_menu_with_profile(user_id)
         else:
+            # Если из других разделов - показываем меню текущего города
             current_city = get_user_city(user_id)
             bot.send_message(
                 user_id,
@@ -3417,16 +3421,18 @@ def handle(message):
             )
 
 def process_travel(message, target_city):
+    """Обрабатывает выбор транспорта и начинает поездку"""
     user_id = message.from_user.id
     transport = message.text
+    
+    # ЕСЛИ НАЖАЛИ НАЗАД - ВОЗВРАЩАЕМСЯ В ГЛАВНОЕ МЕНЮ
+    if transport == "🔙 Назад":
+        send_main_menu_with_profile(user_id)
+        return
     
     if transport not in ["🚕 Такси", "🚗 Личная машина", "✈️ Личный самолет"]:
         bot.send_message(user_id, "❌ Пожалуйста, выбери транспорт из предложенных!")
         bot.register_next_step_handler(message, process_travel, target_city)
-        return
-    
-    if transport == "🔙 Назад":
-        send_main_menu_with_profile(user_id)
         return
     
     conn = get_db()
