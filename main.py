@@ -790,7 +790,9 @@ def get_city_info(city_name):
         return None
 
 def start_travel(user_id, to_city, transport):
+    """Начинает поездку в другой город"""
     try:
+        # Проверяем, нет ли уже активной поездки
         conn = get_db()
         cursor = conn.cursor()
         active = cursor.execute('''
@@ -804,6 +806,7 @@ def start_travel(user_id, to_city, transport):
         
         from_city = get_user_city(user_id)
         
+        # Время поездки: рандом 30-60 секунд
         travel_time = random.randint(30, 60)
         end_time = datetime.now() + timedelta(seconds=travel_time)
         
@@ -815,7 +818,14 @@ def start_travel(user_id, to_city, transport):
         conn.commit()
         conn.close()
         
-        return True, f"🚀 Ты отправился в {to_city} на {transport}! Время в пути: {travel_time} сек."
+        # Отправляем сообщение и УБИРАЕМ клавиатуру полностью
+        bot.send_message(
+            user_id,
+            f"🚀 Ты отправился в {to_city} на {transport}!\n⏱️ Время в пути: {travel_time} сек.\n\n⌛ Ожидайте прибытия...",
+            reply_markup=types.ReplyKeyboardRemove()  # Убираем кнопки
+        )
+        
+        return True, None
     except Exception as e:
         print(f"Ошибка поездки: {e}")
         return False, "❌ Ошибка при начале поездки"
@@ -834,21 +844,24 @@ def get_active_travel(user_id):
         return None
 
 def complete_travel(travel_id, user_id):
+    """Завершает поездку"""
     try:
         conn = get_db()
         cursor = conn.cursor()
         travel = cursor.execute('SELECT * FROM travels WHERE id = ?', (travel_id,)).fetchone()
         
         if travel:
+            # Меняем город пользователя
             cursor.execute('UPDATE users SET current_city = ? WHERE user_id = ?', 
                          (travel['to_city'], user_id))
             cursor.execute('UPDATE travels SET completed = 1 WHERE id = ?', (travel_id,))
             conn.commit()
             
+            # Возвращаем клавиатуру
             bot.send_message(
                 user_id,
-                f"✅ Вы прибыли в {travel['to_city']}!\n"
-                f"Транспорт: {travel['transport']}"
+                f"✅ Вы прибыли в {travel['to_city']}!\nТранспорт: {travel['transport']}",
+                reply_markup=city_menu_keyboard(travel['to_city'])  # Возвращаем кнопки
             )
         
         conn.close()
@@ -2223,8 +2236,8 @@ def main_keyboard():
         types.KeyboardButton("🏭 Бизнесы")
     )
     markup.row(
-        types.KeyboardButton("📊 Статистика"),
-        types.KeyboardButton("🏙️ ГОРОДА")
+        types.KeyboardButton("🏙️ ГОРОДА"),  # Статистика заменена на ГОРОДА
+        types.KeyboardButton("👥 Рефералы")
     )
     markup.row(
         types.KeyboardButton("🎁 Ежедневно"),
@@ -2937,16 +2950,18 @@ def handle(message):
     user_data = get_user_profile(user_id)
     display_name = get_user_display_name(user_data) if user_data else "Игрок"
     
+    # ПРОВЕРЯЕМ АКТИВНУЮ ПОЕЗДКУ
     active_travel = get_active_travel(user_id)
     if active_travel:
         end_time = datetime.fromisoformat(active_travel['end_time'])
         if datetime.now() >= end_time:
             complete_travel(active_travel['id'], user_id)
-            current_city = get_user_city(user_id)
-            bot.send_message(
-                user_id,
-                f"🏙️ Ты находишься в городе {current_city}",
-                reply_markup=city_menu_keyboard(current_city)
+        else:
+            # Если еще в пути - игнорируем все кнопки
+            time_left = (end_time - datetime.now()).seconds
+            bot.reply_to(
+                message, 
+                f"⏳ Ты еще в пути! Осталось {time_left} сек.\nДождись прибытия."
             )
             return
     
@@ -2979,6 +2994,7 @@ def handle(message):
             bot.register_next_step_handler(message, process_travel, city_name)
     
     elif text in ["🚕 Такси", "🚗 Личная машина", "✈️ Личный самолет"]:
+        # Этот случай обрабатывается в process_travel
         pass
     
     # ===== МАГАЗИНЫ =====
@@ -3013,7 +3029,6 @@ def handle(message):
     elif text.lower() == "✈️ магазин самолетов":
         bot.send_message(user_id, "✈️ Магазин самолетов скоро откроется! Следи за обновлениями!")
     
-    # ===== ИСПРАВЛЕННАЯ КНОПКА ОБНОВЛЕНИЯ =====
     elif text == "🔄":
         # Только показываем профиль, не трогаем меню города
         user_data = get_user_profile(user_id)
@@ -3169,7 +3184,8 @@ def handle(message):
             "• В каждом городе свои магазины\n"
             "• Время в пути: 30-60 секунд\n"
             "• Транспорт: Такси, Личная машина, Личный самолет\n"
-            "• Для машины и самолета нужно их купить\n\n"
+            "• Для машины и самолета нужно их купить\n"
+            "• Во время поездки кнопки пропадают!\n\n"
             "👕 **МАГАЗИН ОДЕЖДЫ**\n"
             "• Покупай крутые комплекты одежды\n"
             "• При покупке комплект сразу надевается\n"
@@ -3444,24 +3460,8 @@ def process_travel(message, target_city):
         )
         return
     
-    success, msg = start_travel(user_id, target_city, transport)
-    
-    if success:
-        bot.send_message(user_id, msg)
-        current_city = get_user_city(user_id)
-        bot.send_message(
-            user_id,
-            f"⏳ Ты в пути... Прибудешь через некоторое время.\n"
-            f"📍 Текущий город: {current_city}",
-            reply_markup=main_keyboard()
-        )
-    else:
-        bot.send_message(user_id, msg)
-        bot.send_message(
-            user_id,
-            "🏙️ Выбери город:",
-            reply_markup=cities_keyboard()
-        )
+    # Начинаем поездку
+    success, _ = start_travel(user_id, target_city, transport)
 
 # ========== ФОНОВАЯ ПРОВЕРКА ПОЕЗДОК ==========
 def check_travels():
@@ -3481,10 +3481,10 @@ def check_travels():
                 cursor.execute('UPDATE travels SET completed = 1 WHERE id = ?', (t['id'],))
                 
                 try:
+                    # Отправляем сообщение и ВОЗВРАЩАЕМ клавиатуру
                     bot.send_message(
                         t['user_id'],
-                        f"✅ Вы прибыли в {t['to_city']}!\n"
-                        f"Транспорт: {t['transport']}",
+                        f"✅ Вы прибыли в {t['to_city']}!\nТранспорт: {t['transport']}",
                         reply_markup=city_menu_keyboard(t['to_city'])
                     )
                 except:
@@ -3626,6 +3626,7 @@ print("👕 Магазин одежды загружен с 16 комплект�
 print("🎰 Рулетка активна! Играй: рул крас 1000")
 print("📸 Фото для бизнесов загружены!")
 print("🎮 Мини-игры для работ активированы! (Грузчик, Курьер, Программист)")
+print("🚕 Во время поездки кнопки пропадают!")
 print("📌 Админ команды: /adminhelp")
 print("📢 Команды для чата: я, топ, сырье все")
 print("🔄 - показать профиль (не трогает меню)")
