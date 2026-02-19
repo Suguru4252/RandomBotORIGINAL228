@@ -83,6 +83,9 @@ def init_db():
             has_car INTEGER DEFAULT 0,
             has_plane INTEGER DEFAULT 0,
             has_house INTEGER DEFAULT 0,
+            house_purchase_city TEXT,
+            house_purchase_price INTEGER DEFAULT 0,
+            wardrobe_slots INTEGER DEFAULT 0,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
     ''')
@@ -152,7 +155,8 @@ def init_db():
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             user_id INTEGER,
             clothes_id INTEGER,
-            equipped INTEGER DEFAULT 1,
+            equipped INTEGER DEFAULT 0,
+            slot_number INTEGER,
             purchased_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY (user_id) REFERENCES users(user_id),
             FOREIGN KEY (clothes_id) REFERENCES shop_clothes(id)
@@ -344,36 +348,78 @@ def init_db():
             VALUES (?, ?, ?)
         ''', clothes_data)
     
-    if cursor.execute('SELECT COUNT(*) FROM shop_cars').fetchone()[0] == 0:
+    # ========== НОВЫЕ МАШИНЫ ==========
+    if cursor.execute('SELECT COUNT(*) FROM shop_cars').fetchone()[0] <= 4:
+        cursor.execute('DELETE FROM shop_cars')
+        
         cars_data = [
+            # Старые машины
             ("Лада", 500000, "https://iimg.su/i/car1", 80),
             ("BMW", 5000000, "https://iimg.su/i/car2", 200),
             ("Mercedes", 10000000, "https://iimg.su/i/car3", 220),
-            ("Ferrari", 50000000, "https://iimg.su/i/car4", 350)
+            ("Ferrari", 50000000, "https://iimg.su/i/car4", 350),
+            
+            # НОВЫЕ МАШИНЫ
+            ("Развалюха", 10000000, "https://iimg.su/i/kqaEfh", 60),
+            ("Жигули", 50000000, "https://iimg.su/i/C53UkD", 90),
+            ("Хендай", 300000000, "https://iimg.su/i/ajQsBS", 180),
+            ("РолсРойс", 7777777777, "https://iimg.su/i/T8Uji6", 250),
+            ("БЭМЭВЭ", 1000000000, "https://iimg.su/i/F2Jfb4", 240),
+            ("Мерседес-ГелентВаген", 1000000000, "https://iimg.su/i/Lsmr1y", 230),
+            ("Мерседес-Акула", 777777777, "https://iimg.su/i/CSVixs", 225),
+            ("Крузак-300", 600000000, "https://iimg.su/i/gwyWEO", 210),
+            ("Ауди", 50000000, "https://iimg.su/i/v5CjqO", 190)
         ]
         cursor.executemany('''
             INSERT INTO shop_cars (name, price, photo_url, speed)
             VALUES (?, ?, ?, ?)
         ''', cars_data)
     
-    if cursor.execute('SELECT COUNT(*) FROM shop_planes').fetchone()[0] == 0:
+    # ========== НОВЫЕ САМОЛЕТЫ ==========
+    if cursor.execute('SELECT COUNT(*) FROM shop_planes').fetchone()[0] <= 4:
+        cursor.execute('DELETE FROM shop_planes')
+        
         planes_data = [
+            # Старые самолеты
             ("Cessna", 5000000, "https://iimg.su/i/plane1", 300),
             ("Boeing 737", 50000000, "https://iimg.su/i/plane2", 900),
             ("Airbus A380", 200000000, "https://iimg.su/i/plane3", 950),
-            ("Gulfstream", 500000000, "https://iimg.su/i/plane4", 1000)
+            ("Gulfstream", 500000000, "https://iimg.su/i/plane4", 1000),
+            
+            # НОВЫЕ САМОЛЕТЫ
+            ("АйлевАйтигр", 1000000000000, "https://iimg.su/i/bJ0CFE", 1500),
+            ("Синий Самолет", 10000000000, "https://iimg.su/i/PZh4JY", 1100),
+            ("Беспилотник", 5000000000, "https://iimg.su/i/3G1BUD", 800),
+            ("Истрибитель", 100000000000, "https://iimg.su/i/RZ9heW", 1300),
+            ("БизнесаКласс", 20000000000, "https://iimg.su/i/Ct1CjG", 1050),
+            ("Гигант", 50000000000, "https://iimg.su/i/5IVWH7", 950)
         ]
         cursor.executemany('''
             INSERT INTO shop_planes (name, price, photo_url, speed)
             VALUES (?, ?, ?, ?)
         ''', planes_data)
     
-    if cursor.execute('SELECT COUNT(*) FROM shop_houses').fetchone()[0] == 0:
+    # ========== НОВЫЕ ДОМА ==========
+    if cursor.execute('SELECT COUNT(*) FROM shop_houses').fetchone()[0] <= 4:
+        cursor.execute('DELETE FROM shop_houses')
+        
         houses_data = [
+            # Старые дома
             ("Хрущевка", 1000000, "https://iimg.su/i/house1", 10),
             ("Квартира", 5000000, "https://iimg.su/i/house2", 50),
             ("Коттедж", 20000000, "https://iimg.su/i/house3", 80),
-            ("Особняк", 100000000, "https://iimg.su/i/house4", 100)
+            ("Особняк", 100000000, "https://iimg.su/i/house4", 100),
+            
+            # НОВЫЕ ДОМА
+            ("Свалка", 50000000, "https://iimg.su/i/EjWevF", 5),
+            ("Как у бабушки", 100000000, "https://iimg.su/i/AfRIlY", 20),
+            ("Тестная халупа", 200000000, "https://iimg.su/i/icWz0I", 30),
+            ("Домик", 500000000, "https://iimg.su/i/YiNOvU", 60),
+            ("Красивый дом", 1000000000, "https://iimg.su/i/UtiAP3", 85),
+            ("Дом 2.0", 2000000000, "https://iimg.su/i/yxkgAD", 110),
+            ("Замок", 5000000000, "https://iimg.su/i/3V4lup", 150),
+            ("Особняк Люкс", 10000000000, "https://iimg.su/i/jthfeq", 200),
+            ("Мэрия", 20000000000, "https://iimg.su/i/xVVHLe", 300)
         ]
         cursor.executemany('''
             INSERT INTO shop_houses (name, price, photo_url, comfort)
@@ -418,9 +464,9 @@ def init_db():
     print("✅ База данных проверена/создана")
     print("🏙️ Система городов активирована!")
     print("👕 Магазин одежды загружен с 16 комплектами!")
-    print("🚗 Магазин машин загружен!")
-    print("✈️ Магазин самолетов загружен!")
-    print("🏠 Магазин домов загружен!")
+    print("🚗 Магазин машин загружен с 13 машинами!")
+    print("✈️ Магазин самолетов загружен с 10 самолетами!")
+    print("🏠 Магазин домов загружен с 13 домами!")
     print("🎰 Система рулетки активирована!")
     print("🎮 Все 10 работ с уникальными мини-играми активированы!")
 
@@ -869,7 +915,6 @@ def find_user_by_input(input_str):
 
 # ========== ФУНКЦИИ ДЛЯ ПРОВЕРКИ ПЕРЕЗАРЯДКИ ==========
 def check_cooldown(user_id, job_name):
-    """Проверяет перезарядку работы (7 секунд)"""
     key = f"{user_id}_{job_name}"
     if key in job_cooldowns:
         last_time = job_cooldowns[key]
@@ -879,7 +924,6 @@ def check_cooldown(user_id, job_name):
     return True, 0
 
 def set_cooldown(user_id, job_name):
-    """Устанавливает перезарядку"""
     key = f"{user_id}_{job_name}"
     job_cooldowns[key] = time.time()
 
@@ -925,7 +969,6 @@ def get_shop_type_for_city(city_name):
     return 'clothes'
 
 def start_travel(user_id, to_city, transport):
-    """Начинает поездку в другой город"""
     try:
         conn = get_db()
         cursor = conn.cursor()
@@ -940,7 +983,27 @@ def start_travel(user_id, to_city, transport):
         
         from_city = get_user_city(user_id)
         
-        travel_time = random.randint(30, 60)
+        if transport == "🚕 Такси":
+            travel_time = random.randint(40, 70)
+        elif transport == "🚗 Личная машина":
+            car = get_user_equipped_car(user_id)
+            if car:
+                speed_factor = max(0.5, 100 / car['speed'])
+                travel_time = int(random.randint(30, 50) * speed_factor)
+            else:
+                travel_time = random.randint(35, 60)
+        elif transport == "✈️ Личный самолет":
+            plane = get_user_equipped_plane(user_id)
+            if plane:
+                speed_factor = max(0.3, 300 / plane['speed'])
+                travel_time = int(random.randint(20, 40) * speed_factor)
+            else:
+                travel_time = random.randint(25, 45)
+        else:
+            travel_time = random.randint(30, 60)
+        
+        travel_time = max(10, min(120, travel_time))
+        
         end_time = datetime.now() + timedelta(seconds=travel_time)
         
         cursor.execute('''
@@ -1061,6 +1124,171 @@ def get_user_equipped_house(user_id):
     except:
         return None
 
+def get_user_wardrobe(user_id):
+    try:
+        conn = get_db()
+        cursor = conn.cursor()
+        clothes = cursor.execute('''
+            SELECT sc.*, uc.id as user_clothes_id, uc.slot_number, uc.equipped 
+            FROM user_clothes uc
+            JOIN shop_clothes sc ON uc.clothes_id = sc.id
+            WHERE uc.user_id = ?
+            ORDER BY uc.slot_number NULLS LAST, uc.purchased_at DESC
+        ''', (user_id,)).fetchall()
+        conn.close()
+        return clothes
+    except Exception as e:
+        print(f"Ошибка получения шкафа: {e}")
+        return []
+
+def get_user_wardrobe_slots_count(user_id):
+    try:
+        conn = get_db()
+        cursor = conn.cursor()
+        user = cursor.execute('SELECT wardrobe_slots FROM users WHERE user_id = ?', (user_id,)).fetchone()
+        conn.close()
+        return user['wardrobe_slots'] if user else 0
+    except:
+        return 0
+
+def get_next_slot_price(user_id):
+    slots = get_user_wardrobe_slots_count(user_id)
+    return (slots + 1) * 100_000_000
+
+def buy_wardrobe_slot(user_id):
+    try:
+        conn = get_db()
+        cursor = conn.cursor()
+        
+        user = cursor.execute('SELECT balance, wardrobe_slots FROM users WHERE user_id = ?', (user_id,)).fetchone()
+        if not user:
+            conn.close()
+            return False, "❌ Пользователь не найден"
+        
+        current_slots = user['wardrobe_slots']
+        price = (current_slots + 1) * 100_000_000
+        
+        if user['balance'] < price:
+            conn.close()
+            return False, f"❌ Недостаточно средств! Нужно {price:,} {CURRENCY}"
+        
+        cursor.execute('UPDATE users SET balance = balance - ?, wardrobe_slots = wardrobe_slots + 1 WHERE user_id = ?', 
+                      (price, user_id))
+        conn.commit()
+        conn.close()
+        
+        return True, f"✅ Слот {current_slots + 1} куплен за {price:,} {CURRENCY}!"
+    except Exception as e:
+        print(f"Ошибка покупки слота: {e}")
+        return False, "❌ Ошибка при покупке слота"
+
+def add_clothes_to_wardrobe(user_id, clothes_id):
+    try:
+        conn = get_db()
+        cursor = conn.cursor()
+        
+        existing = cursor.execute('''
+            SELECT id FROM user_clothes 
+            WHERE user_id = ? AND clothes_id = ?
+        ''', (user_id, clothes_id)).fetchone()
+        
+        if existing:
+            conn.close()
+            return False, "❌ У тебя уже есть этот комплект!"
+        
+        user = cursor.execute('SELECT wardrobe_slots FROM users WHERE user_id = ?', (user_id,)).fetchone()
+        max_slots = user['wardrobe_slots'] if user else 0
+        
+        used_slots = cursor.execute('''
+            SELECT slot_number FROM user_clothes 
+            WHERE user_id = ? AND slot_number IS NOT NULL
+        ''', (user_id,)).fetchall()
+        used_slots = [s['slot_number'] for s in used_slots]
+        
+        free_slot = None
+        for i in range(1, max_slots + 1):
+            if i not in used_slots:
+                free_slot = i
+                break
+        
+        if free_slot is None:
+            conn.close()
+            return False, "❌ В шкафу нет свободных слотов! Купи новый слот."
+        
+        cursor.execute('''
+            INSERT INTO user_clothes (user_id, clothes_id, equipped, slot_number)
+            VALUES (?, ?, 0, ?)
+        ''', (user_id, clothes_id, free_slot))
+        
+        conn.commit()
+        conn.close()
+        return True, f"✅ Одежда перемещена в шкаф (слот {free_slot})!"
+    except Exception as e:
+        print(f"Ошибка добавления в шкаф: {e}")
+        return False, "❌ Ошибка при добавлении в шкаф"
+
+def equip_clothes_from_wardrobe(user_id, user_clothes_id):
+    try:
+        conn = get_db()
+        cursor = conn.cursor()
+        
+        clothes = cursor.execute('''
+            SELECT sc.*, uc.slot_number FROM user_clothes uc
+            JOIN shop_clothes sc ON uc.clothes_id = sc.id
+            WHERE uc.id = ? AND uc.user_id = ?
+        ''', (user_clothes_id, user_id)).fetchone()
+        
+        if not clothes:
+            conn.close()
+            return False, "❌ Одежда не найдена"
+        
+        current_equipped = cursor.execute('''
+            SELECT id, slot_number FROM user_clothes 
+            WHERE user_id = ? AND equipped = 1
+        ''', (user_id,)).fetchone()
+        
+        if current_equipped:
+            used_slots = cursor.execute('''
+                SELECT slot_number FROM user_clothes 
+                WHERE user_id = ? AND slot_number IS NOT NULL
+            ''', (user_id,)).fetchall()
+            used_slots = [s['slot_number'] for s in used_slots]
+            
+            user = cursor.execute('SELECT wardrobe_slots FROM users WHERE user_id = ?', (user_id,)).fetchone()
+            max_slots = user['wardrobe_slots'] if user else 0
+            
+            free_slot = None
+            for i in range(1, max_slots + 1):
+                if i not in used_slots:
+                    free_slot = i
+                    break
+            
+            if free_slot:
+                cursor.execute('''
+                    UPDATE user_clothes 
+                    SET equipped = 0, slot_number = ? 
+                    WHERE id = ?
+                ''', (free_slot, current_equipped['id']))
+            else:
+                cursor.execute('UPDATE user_clothes SET equipped = 0, slot_number = NULL WHERE id = ?', 
+                             (current_equipped['id'],))
+        
+        cursor.execute('''
+            UPDATE user_clothes 
+            SET equipped = 1, slot_number = NULL 
+            WHERE id = ?
+        ''', (user_clothes_id,))
+        
+        cursor.execute('UPDATE users SET equipped_clothes = ? WHERE user_id = ?', 
+                      (clothes['id'], user_id))
+        
+        conn.commit()
+        conn.close()
+        return True, f"✅ Ты надел {clothes['name']}!"
+    except Exception as e:
+        print(f"Ошибка надевания: {e}")
+        return False, "❌ Ошибка при надевании"
+
 def get_user_profile_photo(user_id):
     equipped = get_user_equipped_clothes(user_id)
     if equipped and equipped['photo_url']:
@@ -1103,25 +1331,28 @@ def buy_clothes(user_id, clothes_id):
             conn.close()
             return False, "❌ Товар не найден"
         
-        user = cursor.execute('SELECT balance FROM users WHERE user_id = ?', (user_id,)).fetchone()
+        user = cursor.execute('SELECT balance, has_house FROM users WHERE user_id = ?', (user_id,)).fetchone()
         if not user or user['balance'] < clothes['price']:
             conn.close()
             return False, f"❌ Недостаточно средств! Нужно {clothes['price']:,} {CURRENCY}"
         
+        if not user['has_house']:
+            conn.close()
+            return False, "❌ У тебя нет дома! Сначала купи дом в Мурино, чтобы было куда складывать одежду."
+        
         cursor.execute('UPDATE users SET balance = balance - ? WHERE user_id = ?', (clothes['price'], user_id))
         
-        cursor.execute('UPDATE user_clothes SET equipped = 0 WHERE user_id = ?', (user_id,))
+        success, msg = add_clothes_to_wardrobe(user_id, clothes_id)
         
-        cursor.execute('''
-            INSERT INTO user_clothes (user_id, clothes_id, equipped)
-            VALUES (?, ?, 1)
-        ''', (user_id, clothes_id))
-        
-        cursor.execute('UPDATE users SET equipped_clothes = ? WHERE user_id = ?', (clothes_id, user_id))
+        if not success:
+            cursor.execute('UPDATE users SET balance = balance + ? WHERE user_id = ?', (clothes['price'], user_id))
+            conn.commit()
+            conn.close()
+            return False, msg
         
         conn.commit()
         conn.close()
-        return True, f"✅ Поздравляем! Ты купил комплект {clothes['name']} и сразу надел его!"
+        return True, f"✅ Ты купил {clothes['name']}! {msg}"
     except Exception as e:
         print(f"Ошибка при покупке: {e}")
         return False, "❌ Ошибка при покупке"
@@ -1130,6 +1361,11 @@ def buy_car(user_id, car_id):
     try:
         conn = get_db()
         cursor = conn.cursor()
+        
+        existing = cursor.execute('SELECT id FROM user_cars WHERE user_id = ?', (user_id,)).fetchone()
+        if existing:
+            conn.close()
+            return False, "❌ У тебя уже есть машина! Сначала продай старую."
         
         car = cursor.execute('SELECT * FROM shop_cars WHERE id = ?', (car_id,)).fetchone()
         if not car:
@@ -1142,8 +1378,6 @@ def buy_car(user_id, car_id):
             return False, f"❌ Недостаточно средств! Нужно {car['price']:,} {CURRENCY}"
         
         cursor.execute('UPDATE users SET balance = balance - ? WHERE user_id = ?', (car['price'], user_id))
-        
-        cursor.execute('UPDATE user_cars SET equipped = 0 WHERE user_id = ?', (user_id,))
         
         cursor.execute('''
             INSERT INTO user_cars (user_id, car_id, equipped)
@@ -1159,10 +1393,43 @@ def buy_car(user_id, car_id):
         print(f"Ошибка при покупке: {e}")
         return False, "❌ Ошибка при покупке"
 
+def sell_car(user_id):
+    try:
+        conn = get_db()
+        cursor = conn.cursor()
+        
+        car = cursor.execute('''
+            SELECT sc.* FROM user_cars uc
+            JOIN shop_cars sc ON uc.car_id = sc.id
+            WHERE uc.user_id = ?
+        ''', (user_id,)).fetchone()
+        
+        if not car:
+            conn.close()
+            return False, "❌ У тебя нет машины!"
+        
+        sell_price = car['price'] // 2
+        
+        cursor.execute('DELETE FROM user_cars WHERE user_id = ?', (user_id,))
+        cursor.execute('UPDATE users SET has_car = 0 WHERE user_id = ?', (user_id,))
+        cursor.execute('UPDATE users SET balance = balance + ? WHERE user_id = ?', (sell_price, user_id))
+        
+        conn.commit()
+        conn.close()
+        return True, f"💰 Ты продал {car['name']} за {sell_price:,} {CURRENCY}!"
+    except Exception as e:
+        print(f"Ошибка при продаже: {e}")
+        return False, "❌ Ошибка при продаже"
+
 def buy_plane(user_id, plane_id):
     try:
         conn = get_db()
         cursor = conn.cursor()
+        
+        existing = cursor.execute('SELECT id FROM user_planes WHERE user_id = ?', (user_id,)).fetchone()
+        if existing:
+            conn.close()
+            return False, "❌ У тебя уже есть самолет! Сначала продай старый."
         
         plane = cursor.execute('SELECT * FROM shop_planes WHERE id = ?', (plane_id,)).fetchone()
         if not plane:
@@ -1175,8 +1442,6 @@ def buy_plane(user_id, plane_id):
             return False, f"❌ Недостаточно средств! Нужно {plane['price']:,} {CURRENCY}"
         
         cursor.execute('UPDATE users SET balance = balance - ? WHERE user_id = ?', (plane['price'], user_id))
-        
-        cursor.execute('UPDATE user_planes SET equipped = 0 WHERE user_id = ?', (user_id,))
         
         cursor.execute('''
             INSERT INTO user_planes (user_id, plane_id, equipped)
@@ -1192,10 +1457,43 @@ def buy_plane(user_id, plane_id):
         print(f"Ошибка при покупке: {e}")
         return False, "❌ Ошибка при покупке"
 
+def sell_plane(user_id):
+    try:
+        conn = get_db()
+        cursor = conn.cursor()
+        
+        plane = cursor.execute('''
+            SELECT sp.* FROM user_planes up
+            JOIN shop_planes sp ON up.plane_id = sp.id
+            WHERE up.user_id = ?
+        ''', (user_id,)).fetchone()
+        
+        if not plane:
+            conn.close()
+            return False, "❌ У тебя нет самолета!"
+        
+        sell_price = plane['price'] // 2
+        
+        cursor.execute('DELETE FROM user_planes WHERE user_id = ?', (user_id,))
+        cursor.execute('UPDATE users SET has_plane = 0 WHERE user_id = ?', (user_id,))
+        cursor.execute('UPDATE users SET balance = balance + ? WHERE user_id = ?', (sell_price, user_id))
+        
+        conn.commit()
+        conn.close()
+        return True, f"💰 Ты продал {plane['name']} за {sell_price:,} {CURRENCY}!"
+    except Exception as e:
+        print(f"Ошибка при продаже: {e}")
+        return False, "❌ Ошибка при продаже"
+
 def buy_house(user_id, house_id):
     try:
         conn = get_db()
         cursor = conn.cursor()
+        
+        existing = cursor.execute('SELECT id FROM user_houses WHERE user_id = ?', (user_id,)).fetchone()
+        if existing:
+            conn.close()
+            return False, "❌ У тебя уже есть дом! Сначала продай старый."
         
         house = cursor.execute('SELECT * FROM shop_houses WHERE id = ?', (house_id,)).fetchone()
         if not house:
@@ -1207,23 +1505,68 @@ def buy_house(user_id, house_id):
             conn.close()
             return False, f"❌ Недостаточно средств! Нужно {house['price']:,} {CURRENCY}"
         
-        cursor.execute('UPDATE users SET balance = balance - ? WHERE user_id = ?', (house['price'], user_id))
+        current_city = get_user_city(user_id)
         
-        cursor.execute('UPDATE user_houses SET equipped = 0 WHERE user_id = ?', (user_id,))
+        cursor.execute('UPDATE users SET balance = balance - ? WHERE user_id = ?', (house['price'], user_id))
         
         cursor.execute('''
             INSERT INTO user_houses (user_id, house_id, equipped)
             VALUES (?, ?, 1)
         ''', (user_id, house_id))
         
-        cursor.execute('UPDATE users SET has_house = 1 WHERE user_id = ?', (user_id,))
+        cursor.execute('''
+            UPDATE users 
+            SET has_house = 1, 
+                house_purchase_city = ?, 
+                house_purchase_price = ?,
+                wardrobe_slots = 1
+            WHERE user_id = ?
+        ''', (current_city, house['price'], user_id))
         
         conn.commit()
         conn.close()
-        return True, f"✅ Поздравляем! Ты купил {house['name']}!"
+        return True, f"✅ Поздравляем! Ты купил {house['name']}!\n🎁 Ты получил 1 бесплатный слот в шкафу!"
     except Exception as e:
         print(f"Ошибка при покупке: {e}")
         return False, "❌ Ошибка при покупке"
+
+def sell_house(user_id):
+    try:
+        conn = get_db()
+        cursor = conn.cursor()
+        
+        house = cursor.execute('''
+            SELECT sh.*, u.house_purchase_price FROM user_houses uh
+            JOIN shop_houses sh ON uh.house_id = sh.id
+            JOIN users u ON u.user_id = uh.user_id
+            WHERE uh.user_id = ?
+        ''', (user_id,)).fetchone()
+        
+        if not house:
+            conn.close()
+            return False, "❌ У тебя нет дома!"
+        
+        sell_price = (house['house_purchase_price'] or house['price']) // 2
+        
+        cursor.execute('DELETE FROM user_houses WHERE user_id = ?', (user_id,))
+        cursor.execute('DELETE FROM user_clothes WHERE user_id = ?', (user_id,))
+        cursor.execute('''
+            UPDATE users 
+            SET has_house = 0, 
+                house_purchase_city = NULL, 
+                house_purchase_price = 0,
+                wardrobe_slots = 0,
+                equipped_clothes = NULL
+            WHERE user_id = ?
+        ''', (user_id,))
+        cursor.execute('UPDATE users SET balance = balance + ? WHERE user_id = ?', (sell_price, user_id))
+        
+        conn.commit()
+        conn.close()
+        return True, f"💰 Ты продал дом за {sell_price:,} {CURRENCY}!\n📦 Вся одежда из шкафа утеряна."
+    except Exception as e:
+        print(f"Ошибка при продаже: {e}")
+        return False, "❌ Ошибка при продаже"
 
 def get_clothes_page(page=0):
     try:
@@ -1330,7 +1673,7 @@ def get_clothes_navigation_keyboard(current_page, total_items):
     
     return markup
 
-def get_cars_navigation_keyboard(current_page, total_items, shop_type):
+def get_cars_navigation_keyboard(current_page, total_items, shop_type, has_car=False):
     markup = types.InlineKeyboardMarkup(row_width=3)
     
     buttons = []
@@ -1347,12 +1690,65 @@ def get_cars_navigation_keyboard(current_page, total_items, shop_type):
         buttons.append(types.InlineKeyboardButton("⬜️", callback_data="noop"))
     
     markup.row(*buttons)
+    
+    if has_car:
+        markup.row(types.InlineKeyboardButton("💰 Продать текущий", callback_data=f"{shop_type}_sell"))
+    
+    markup.row(types.InlineKeyboardButton("❌ Закрыть", callback_data="shop_close"))
+    
+    return markup
+
+def get_planes_navigation_keyboard(current_page, total_items, shop_type, has_plane=False):
+    markup = types.InlineKeyboardMarkup(row_width=3)
+    
+    buttons = []
+    if current_page > 0:
+        buttons.append(types.InlineKeyboardButton("◀️", callback_data=f"{shop_type}_page_{current_page-1}"))
+    else:
+        buttons.append(types.InlineKeyboardButton("⬜️", callback_data="noop"))
+    
+    buttons.append(types.InlineKeyboardButton(f"🛒 Купить", callback_data=f"{shop_type}_buy_{current_page}"))
+    
+    if current_page < total_items - 1:
+        buttons.append(types.InlineKeyboardButton("▶️", callback_data=f"{shop_type}_page_{current_page+1}"))
+    else:
+        buttons.append(types.InlineKeyboardButton("⬜️", callback_data="noop"))
+    
+    markup.row(*buttons)
+    
+    if has_plane:
+        markup.row(types.InlineKeyboardButton("💰 Продать текущий", callback_data=f"{shop_type}_sell"))
+    
+    markup.row(types.InlineKeyboardButton("❌ Закрыть", callback_data="shop_close"))
+    
+    return markup
+
+def get_houses_navigation_keyboard(current_page, total_items, shop_type, has_house=False):
+    markup = types.InlineKeyboardMarkup(row_width=3)
+    
+    buttons = []
+    if current_page > 0:
+        buttons.append(types.InlineKeyboardButton("◀️", callback_data=f"{shop_type}_page_{current_page-1}"))
+    else:
+        buttons.append(types.InlineKeyboardButton("⬜️", callback_data="noop"))
+    
+    buttons.append(types.InlineKeyboardButton(f"🛒 Купить", callback_data=f"{shop_type}_buy_{current_page}"))
+    
+    if current_page < total_items - 1:
+        buttons.append(types.InlineKeyboardButton("▶️", callback_data=f"{shop_type}_page_{current_page+1}"))
+    else:
+        buttons.append(types.InlineKeyboardButton("⬜️", callback_data="noop"))
+    
+    markup.row(*buttons)
+    
+    if has_house:
+        markup.row(types.InlineKeyboardButton("💰 Продать текущий", callback_data=f"{shop_type}_sell"))
+    
     markup.row(types.InlineKeyboardButton("❌ Закрыть", callback_data="shop_close"))
     
     return markup
 
 def get_business_buy_keyboard(business_name):
-    """Клавиатура для покупки бизнеса"""
     markup = types.InlineKeyboardMarkup(row_width=2)
     markup.add(
         types.InlineKeyboardButton("✅ Купить", callback_data=f"buy_business_{business_name}"),
@@ -1360,10 +1756,18 @@ def get_business_buy_keyboard(business_name):
     )
     return markup
 
+def get_wardrobe_keyboard():
+    markup = types.ReplyKeyboardMarkup(row_width=2, resize_keyboard=True)
+    markup.row(
+        types.KeyboardButton("👕 Посмотреть шкаф"),
+        types.KeyboardButton("🔓 Купить слот")
+    )
+    markup.row(types.KeyboardButton("🔙 В дом"))
+    return markup
+
 # ========== ФУНКЦИИ ДЛЯ РУЛЕТКИ ==========
 
 def parse_bet_amount(amount_str):
-    """Парсит сумму ставки с поддержкой к, кк, ккк, кккк"""
     amount_str = amount_str.lower().strip()
     
     multipliers = {
@@ -1893,7 +2297,7 @@ def check_engineer_click(user_id, color):
     
     return {'progress': len(game['answer']), 'total': len(game['scheme'])}
 
-# ===== МИНИ-ИГРА: ВРАЧ (СТАРАЯ ВЕРСИЯ) =====
+# ===== МИНИ-ИГРА: ВРАЧ =====
 def start_doctor_game(user_id, job_name):
     patients = [
         {'symptoms': 'Боль в груди, одышка', 'actions': ['Нитроглицерин', 'Аспирин', 'Валидол'], 'correct': 0, 'time': 10},
@@ -1930,7 +2334,7 @@ def check_doctor_choice(user_id, is_correct, time_limit):
     else:
         return {'win': False, 'time': time_spent, 'score': 0}
 
-# ===== МИНИ-ИГРА: АРТИСТ (ИСПРАВЛЕННАЯ) =====
+# ===== МИНИ-ИГРА: АРТИСТ =====
 def start_artist_game(user_id, job_name):
     songs = [
         {'emojis': '🎸🌧️🎵', 'options': ['Группа крови', 'Звезда по имени Солнце', 'Кукушка'], 'correct': 0},
@@ -1968,21 +2372,18 @@ def check_artist_choice(user_id, is_correct):
     else:
         return {'win': False, 'time': time_spent, 'score': 0}
 
-# ===== МИНИ-ИГРА: КОСМОНАВТ (ИСПРАВЛЕННАЯ) =====
+# ===== МИНИ-ИГРА: КОСМОНАВТ =====
 def start_cosmonaut_game(user_id, job_name):
-    # Создаем поле 5x5
     size = 5
-    rocket_pos = (2, 2)  # Стартовая позиция ракеты
-    station_pos = (0, 4)  # Позиция станции
+    rocket_pos = (2, 2)
+    station_pos = (0, 4)
     
-    # Расставляем топливо (3 случайные позиции)
     fuel_positions = []
     while len(fuel_positions) < 3:
         pos = (random.randint(0, size-1), random.randint(0, size-1))
         if pos != rocket_pos and pos != station_pos and pos not in fuel_positions:
             fuel_positions.append(pos)
     
-    # Создаем карту
     markup = types.InlineKeyboardMarkup(row_width=size)
     for i in range(size):
         row = []
@@ -1997,7 +2398,6 @@ def start_cosmonaut_game(user_id, job_name):
                 row.append(types.InlineKeyboardButton("⬜", callback_data=f"cosmo_move_{i}_{j}"))
         markup.row(*row)
     
-    # Добавляем кнопки управления
     markup.row(
         types.InlineKeyboardButton("⬆️", callback_data="cosmo_up"),
         types.InlineKeyboardButton("⬇️", callback_data="cosmo_down"),
@@ -2030,7 +2430,6 @@ def check_cosmonaut_move(user_id, direction):
     x, y = game['rocket']
     size = game['size']
     
-    # Вычисляем новую позицию
     new_x, new_y = x, y
     if direction == 'up' and x > 0:
         new_x = x - 1
@@ -2045,11 +2444,9 @@ def check_cosmonaut_move(user_id, direction):
     
     game['rocket'] = (new_x, new_y)
     
-    # Проверяем, собрали ли топливо
     if (new_x, new_y) in game['fuel'] and (new_x, new_y) not in game['collected_fuel']:
         game['collected_fuel'].append((new_x, new_y))
     
-    # Обновляем карту
     markup = types.InlineKeyboardMarkup(row_width=size)
     for i in range(size):
         row = []
@@ -2071,7 +2468,6 @@ def check_cosmonaut_move(user_id, direction):
         types.InlineKeyboardButton("➡️", callback_data="cosmo_right")
     )
     
-    # Проверяем победу
     if game['rocket'] == game['station'] and len(game['collected_fuel']) == len(game['fuel']):
         time_spent = time.time() - game['start_time']
         score = max(100 - int(time_spent), 70)
@@ -2101,11 +2497,23 @@ def send_profile_to_chat(chat_id, user_id, target_id=None):
     equipped_clothes = get_user_equipped_clothes(target_id)
     clothes_info = f", одет: {equipped_clothes['name']}" if equipped_clothes else ""
     
+    equipped_car = get_user_equipped_car(target_id)
+    car_info = f", машина: {equipped_car['name']}" if equipped_car else ""
+    
+    equipped_plane = get_user_equipped_plane(target_id)
+    plane_info = f", самолёт: {equipped_plane['name']}" if equipped_plane else ""
+    
+    equipped_house = get_user_equipped_house(target_id)
+    house_info = f", дом: {equipped_house['name']}" if equipped_house else ""
+    
     business = get_user_business(target_id)
     business_info = "Нет" if not business else f"{business['business_name']} (ур.{business['level']})"
     
+    wardrobe_slots = get_user_wardrobe_slots_count(target_id)
+    wardrobe_clothes = get_user_wardrobe(target_id)
+    
     msg = f"👤 **ПРОФИЛЬ ИГРОКА**\n\n"
-    msg += f"👤 Игрок: {display_name}{clothes_info}\n"
+    msg += f"👤 Игрок: {display_name}{clothes_info}{car_info}{plane_info}{house_info}\n"
     msg += f"📍 Город: {current_city}\n"
     msg += f"💰 Баланс: {balance:,} {CURRENCY}\n"
     msg += f"⭐ Опыт: {exp} (ур.{level})\n"
@@ -2116,6 +2524,14 @@ def send_profile_to_chat(chat_id, user_id, target_id=None):
     if business:
         msg += f"📦 Сырье: {business['raw_material']}/1000\n"
         msg += f"💰 Прибыль на складе: {business['stored_profit']:,}"
+    
+    if equipped_house:
+        msg += f"\n\n🏠 **ДОМ:** {equipped_house['name']}\n"
+        msg += f"📍 Куплен в: {user_data['house_purchase_city'] or 'Неизвестно'}\n"
+        msg += f"💰 Цена покупки: {user_data['house_purchase_price'] or equipped_house['price']:,}\n"
+        msg += f"🏡 Комфорт: {equipped_house['comfort']}\n"
+        msg += f"🔓 Слотов в шкафу: {wardrobe_slots}\n"
+        msg += f"👕 Одежды в шкафу: {len(wardrobe_clothes)}"
     
     roulette_stats = get_roulette_stats(target_id)
     if roulette_stats:
@@ -2237,10 +2653,13 @@ def main_keyboard():
         types.KeyboardButton("🎁 Ежедневно")
     )
     markup.row(
-        types.KeyboardButton("🗺️ Карта"),
-        types.KeyboardButton("⚙️ Настройки")
+        types.KeyboardButton("🏠 Дом"),
+        types.KeyboardButton("🗺️ Карта")
     )
-    markup.row(types.KeyboardButton("🔄"))
+    markup.row(
+        types.KeyboardButton("⚙️ Настройки"),
+        types.KeyboardButton("🔄")
+    )
     return markup
 
 def cities_keyboard():
@@ -2337,6 +2756,24 @@ def city_shop_keyboard(shop_type):
         markup.row(types.KeyboardButton("🏠 Смотреть дома"))
     
     markup.row(types.KeyboardButton("🔙 Назад"))
+    return markup
+
+def house_menu_keyboard():
+    markup = types.ReplyKeyboardMarkup(row_width=2, resize_keyboard=True)
+    markup.row(
+        types.KeyboardButton("👕 Шкаф"),
+        types.KeyboardButton("💰 Продать дом")
+    )
+    markup.row(types.KeyboardButton("🔙 Назад"))
+    return markup
+
+def wardrobe_keyboard():
+    markup = types.ReplyKeyboardMarkup(row_width=2, resize_keyboard=True)
+    markup.row(
+        types.KeyboardButton("👕 Посмотреть шкаф"),
+        types.KeyboardButton("🔓 Купить слот")
+    )
+    markup.row(types.KeyboardButton("🔙 В дом"))
     return markup
 
 def get_business_buy_keyboard(business_name):
@@ -2620,10 +3057,25 @@ def give_skin_command(message):
         
         conn.execute('UPDATE user_clothes SET equipped = 0 WHERE user_id = ?', (target_id,))
         
+        user = conn.execute('SELECT wardrobe_slots FROM users WHERE user_id = ?', (target_id,)).fetchone()
+        max_slots = user['wardrobe_slots'] if user else 0
+        
+        used_slots = conn.execute('''
+            SELECT slot_number FROM user_clothes 
+            WHERE user_id = ? AND slot_number IS NOT NULL
+        ''', (target_id,)).fetchall()
+        used_slots = [s['slot_number'] for s in used_slots]
+        
+        free_slot = None
+        for i in range(1, max_slots + 1):
+            if i not in used_slots:
+                free_slot = i
+                break
+        
         conn.execute('''
-            INSERT INTO user_clothes (user_id, clothes_id, equipped)
-            VALUES (?, ?, 1)
-        ''', (target_id, skin['id']))
+            INSERT INTO user_clothes (user_id, clothes_id, equipped, slot_number)
+            VALUES (?, ?, 1, ?)
+        ''', (target_id, skin['id'], free_slot))
         
         conn.execute('UPDATE users SET equipped_clothes = ? WHERE user_id = ?', (skin['id'], target_id))
         
@@ -2755,7 +3207,8 @@ def reset_account(message):
             UPDATE users 
             SET balance = 0, exp = 0, level = 1, work_count = 0, 
                 total_earned = 0, custom_name = NULL, equipped_clothes = NULL,
-                current_city = 'Москва', has_car = 0, has_plane = 0, has_house = 0
+                current_city = 'Москва', has_car = 0, has_plane = 0, has_house = 0,
+                house_purchase_city = NULL, house_purchase_price = 0, wardrobe_slots = 0
             WHERE user_id = ?
         ''', (target_id,))
         
@@ -3139,7 +3592,8 @@ def start(message):
             "💼 **Работать** в мини-играх и зарабатывать деньги\n"
             "🏭 **Покупать бизнесы** и получать пассивный доход\n"
             "🏙️ **Путешествовать по городам** и открывать новые магазины\n"
-            "👕 **Покупать крутую одежду** и менять свой стиль\n"
+            "👕 **Покупать крутую одежду** и хранить её в шкафу своего дома\n"
+            "🏠 **Купить дом** с бесконечными слотами для одежды\n"
             "🎰 **Играть в рулетку** и выигрывать миллионы\n"
             "🏆 **Соревноваться** с другими игроками (/top)\n\n"
             "✨ Но сначала выбери себе игровой никнейм!\n"
@@ -3213,6 +3667,7 @@ def process_name_step(message):
             "💰 У тебя 0 монет, но это временно.\n"
             "💪 Работай в мини-играх, зарабатывай, покупай бизнесы и путешествуй!\n"
             "👕 Загляни в **МАГАЗИН ОДЕЖДЫ** - там есть очень крутые комплекты!\n"
+            "🏠 Не забудь купить **ДОМ** в Мурино, чтобы хранить одежду!\n"
             "🎰 А в **РУЛЕТКЕ** можешь испытать удачу!\n\n"
             "👇 Твоё главное меню с фото профиля:"
         )
@@ -3783,7 +4238,7 @@ def callback_handler(call):
                 f"✅ **ПРАВИЛЬНО!**\n\n"
                 f"⏱️ Время: {result['time']:.1f} сек\n"
                 f"💰 Награда: +{earn} {CURRENCY}\n"
-                f"⭐ Опыт: +{exp_r}\n\n"
+                f"⭐ Опыт: +{exp_r}\n\n
                 f"Можешь поработать еще через 7 сек!",
                 chat_id=user_id,
                 message_id=call.message.message_id
@@ -3869,26 +4324,17 @@ def callback_handler(call):
         clothes, current_page, total = get_clothes_page(page)
         
         if clothes:
-            conn = get_db()
-            cursor = conn.cursor()
-            existing = cursor.execute('''
-                SELECT id FROM user_clothes 
-                WHERE user_id = ? AND clothes_id = ?
-            ''', (user_id, clothes['id'])).fetchone()
-            
-            if existing:
-                conn.close()
-                bot.answer_callback_query(call.id, "❌ У тебя уже есть этот комплект!", show_alert=True)
+            user = get_user_profile(user_id)
+            if not user or not user['has_house']:
+                bot.answer_callback_query(call.id, "❌ Сначала купи дом в Мурино!", show_alert=True)
                 return
-            
-            conn.close()
             
             success, message_text = buy_clothes(user_id, clothes['id'])
             
             if success:
                 caption = (f"👕 *{clothes['name']}*\n\n"
                           f"💰 Цена: {clothes['price']:,} {CURRENCY}\n\n"
-                          f"✅ *КУПЛЕНО!* Комплект надет на тебя!")
+                          f"✅ *КУПЛЕНО!* Одежда в шкафу!")
                 
                 markup = types.InlineKeyboardMarkup()
                 markup.add(types.InlineKeyboardButton("◀️ В магазин", callback_data=f"shop_page_{current_page}"))
@@ -3912,6 +4358,8 @@ def callback_handler(call):
         page = int(data.split("_")[2])
         car, current_page, total = get_cars_page(page)
         
+        has_car = get_user_equipped_car(user_id) is not None
+        
         if car:
             caption = (f"🚗 *{car['name']}*\n\n"
                       f"💰 Цена: {car['price']:,} {CURRENCY}\n"
@@ -3923,7 +4371,7 @@ def callback_handler(call):
                     types.InputMediaPhoto(media=car['photo_url'], caption=caption, parse_mode="Markdown"),
                     chat_id=user_id,
                     message_id=call.message.message_id,
-                    reply_markup=get_cars_navigation_keyboard(current_page, total, 'cars')
+                    reply_markup=get_cars_navigation_keyboard(current_page, total, 'cars', has_car)
                 )
             except:
                 bot.send_photo(
@@ -3931,7 +4379,7 @@ def callback_handler(call):
                     car['photo_url'],
                     caption=caption,
                     parse_mode="Markdown",
-                    reply_markup=get_cars_navigation_keyboard(current_page, total, 'cars')
+                    reply_markup=get_cars_navigation_keyboard(current_page, total, 'cars', has_car)
                 )
                 bot.delete_message(user_id, call.message.message_id)
         
@@ -3942,6 +4390,11 @@ def callback_handler(call):
         car, current_page, total = get_cars_page(page)
         
         if car:
+            current_city = get_user_city(user_id)
+            if current_city != "Село Молочное":
+                bot.answer_callback_query(call.id, "❌ Машины продаются только в Селе Молочном!", show_alert=True)
+                return
+            
             success, message_text = buy_car(user_id, car['id'])
             if success:
                 bot.edit_message_text(
@@ -3954,9 +4407,27 @@ def callback_handler(call):
             else:
                 bot.answer_callback_query(call.id, message_text, show_alert=True)
     
+    elif data == "cars_sell":
+        current_city = get_user_city(user_id)
+        if current_city != "Село Молочное":
+            bot.answer_callback_query(call.id, "❌ Продать машину можно только в Селе Молочном!", show_alert=True)
+            return
+        
+        success, message_text = sell_car(user_id)
+        if success:
+            bot.edit_message_text(
+                message_text,
+                chat_id=user_id,
+                message_id=call.message.message_id
+            )
+        else:
+            bot.answer_callback_query(call.id, message_text, show_alert=True)
+    
     elif data.startswith("planes_page_"):
         page = int(data.split("_")[2])
         plane, current_page, total = get_planes_page(page)
+        
+        has_plane = get_user_equipped_plane(user_id) is not None
         
         if plane:
             caption = (f"✈️ *{plane['name']}*\n\n"
@@ -3969,7 +4440,7 @@ def callback_handler(call):
                     types.InputMediaPhoto(media=plane['photo_url'], caption=caption, parse_mode="Markdown"),
                     chat_id=user_id,
                     message_id=call.message.message_id,
-                    reply_markup=get_cars_navigation_keyboard(current_page, total, 'planes')
+                    reply_markup=get_planes_navigation_keyboard(current_page, total, 'planes', has_plane)
                 )
             except:
                 bot.send_photo(
@@ -3977,7 +4448,7 @@ def callback_handler(call):
                     plane['photo_url'],
                     caption=caption,
                     parse_mode="Markdown",
-                    reply_markup=get_cars_navigation_keyboard(current_page, total, 'planes')
+                    reply_markup=get_planes_navigation_keyboard(current_page, total, 'planes', has_plane)
                 )
                 bot.delete_message(user_id, call.message.message_id)
         
@@ -3988,6 +4459,11 @@ def callback_handler(call):
         plane, current_page, total = get_planes_page(page)
         
         if plane:
+            current_city = get_user_city(user_id)
+            if current_city != "Кропоткин":
+                bot.answer_callback_query(call.id, "❌ Самолеты продаются только в Кропоткине!", show_alert=True)
+                return
+            
             success, message_text = buy_plane(user_id, plane['id'])
             if success:
                 bot.edit_message_text(
@@ -4000,22 +4476,41 @@ def callback_handler(call):
             else:
                 bot.answer_callback_query(call.id, message_text, show_alert=True)
     
+    elif data == "planes_sell":
+        current_city = get_user_city(user_id)
+        if current_city != "Кропоткин":
+            bot.answer_callback_query(call.id, "❌ Продать самолет можно только в Кропоткине!", show_alert=True)
+            return
+        
+        success, message_text = sell_plane(user_id)
+        if success:
+            bot.edit_message_text(
+                message_text,
+                chat_id=user_id,
+                message_id=call.message.message_id
+            )
+        else:
+            bot.answer_callback_query(call.id, message_text, show_alert=True)
+    
     elif data.startswith("houses_page_"):
         page = int(data.split("_")[2])
         house, current_page, total = get_houses_page(page)
+        
+        has_house = get_user_equipped_house(user_id) is not None
         
         if house:
             caption = (f"🏠 *{house['name']}*\n\n"
                       f"💰 Цена: {house['price']:,} {CURRENCY}\n"
                       f"🏡 Комфорт: {house['comfort']}\n\n"
-                      f"🛍️ Всего домов: {total}")
+                      f"🛍️ Всего домов: {total}\n\n"
+                      f"🎁 При покупке вы получаете 1 бесплатный слот в шкафу!")
             
             try:
                 bot.edit_message_media(
                     types.InputMediaPhoto(media=house['photo_url'], caption=caption, parse_mode="Markdown"),
                     chat_id=user_id,
                     message_id=call.message.message_id,
-                    reply_markup=get_cars_navigation_keyboard(current_page, total, 'houses')
+                    reply_markup=get_houses_navigation_keyboard(current_page, total, 'houses', has_house)
                 )
             except:
                 bot.send_photo(
@@ -4023,7 +4518,7 @@ def callback_handler(call):
                     house['photo_url'],
                     caption=caption,
                     parse_mode="Markdown",
-                    reply_markup=get_cars_navigation_keyboard(current_page, total, 'houses')
+                    reply_markup=get_houses_navigation_keyboard(current_page, total, 'houses', has_house)
                 )
                 bot.delete_message(user_id, call.message.message_id)
         
@@ -4034,17 +4529,44 @@ def callback_handler(call):
         house, current_page, total = get_houses_page(page)
         
         if house:
+            current_city = get_user_city(user_id)
+            if current_city != "Мурино":
+                bot.answer_callback_query(call.id, "❌ Дома продаются только в Мурино!", show_alert=True)
+                return
+            
             success, message_text = buy_house(user_id, house['id'])
             if success:
                 bot.edit_message_text(
                     f"✅ **ПОКУПКА УСПЕШНА!**\n\n"
                     f"🏠 Ты купил {house['name']}!\n"
-                    f"💰 Цена: {house['price']:,} {CURRENCY}",
+                    f"💰 Цена: {house['price']:,} {CURRENCY}\n"
+                    f"🎁 Ты получил 1 бесплатный слот в шкафу!",
                     chat_id=user_id,
                     message_id=call.message.message_id
                 )
             else:
                 bot.answer_callback_query(call.id, message_text, show_alert=True)
+    
+    elif data == "houses_sell":
+        success, message_text = sell_house(user_id)
+        if success:
+            bot.edit_message_text(
+                message_text,
+                chat_id=user_id,
+                message_id=call.message.message_id
+            )
+        else:
+            bot.answer_callback_query(call.id, message_text, show_alert=True)
+    
+    # ===== ШКАФ =====
+    elif data.startswith("wardrobe_equip_"):
+        user_clothes_id = int(data.split("_")[2])
+        success, message_text = equip_clothes_from_wardrobe(user_id, user_clothes_id)
+        if success:
+            bot.answer_callback_query(call.id, "✅ Одежда надета!", show_alert=True)
+            show_wardrobe(user_id, call.message.chat.id)
+        else:
+            bot.answer_callback_query(call.id, message_text, show_alert=True)
     
     # ===== ПОКУПКА БИЗНЕСА =====
     elif data.startswith("buy_business_"):
@@ -4092,6 +4614,43 @@ def callback_handler(call):
     
     elif data == "noop":
         bot.answer_callback_query(call.id)
+
+def show_wardrobe(user_id, chat_id):
+    wardrobe = get_user_wardrobe(user_id)
+    slots = get_user_wardrobe_slots_count(user_id)
+    
+    if not wardrobe:
+        bot.send_message(
+            chat_id,
+            f"👕 **ТВОЙ ШКАФ**\n\n"
+            f"🔓 Слотов: {slots}\n"
+            f"📦 В шкафу пусто! Купи одежду в магазине.",
+            parse_mode="Markdown",
+            reply_markup=get_wardrobe_keyboard()
+        )
+        return
+    
+    msg = f"👕 **ТВОЙ ШКАФ**\n\n"
+    msg += f"🔓 Слотов: {slots}\n"
+    msg += f"👕 Одежды: {len(wardrobe)}\n\n"
+    
+    markup = types.InlineKeyboardMarkup(row_width=1)
+    
+    for item in wardrobe:
+        status = "✅ НАДЕТО" if item['equipped'] else f"📦 Слот {item['slot_number']}"
+        btn_text = f"{item['name']} - {status}"
+        if not item['equipped']:
+            markup.add(types.InlineKeyboardButton(
+                f"👕 {btn_text}",
+                callback_data=f"wardrobe_equip_{item['user_clothes_id']}"
+            ))
+    
+    bot.send_message(
+        chat_id,
+        msg,
+        parse_mode="Markdown",
+        reply_markup=markup
+    )
 
 # ========== ОСНОВНОЙ ОБРАБОТЧИК ==========
 @bot.message_handler(func=lambda message: True)
@@ -4153,7 +4712,7 @@ def handle(message):
                 welcome_text = ("🛍️ **ДОБРО ПОЖАЛОВАТЬ В МАГАЗИН ОДЕЖДЫ!**\n\n"
                                "Мы подобрали самые лучшие и красивые комплекты одежды.\n"
                                "Выберите какой вам понравится и нажмите купить!\n\n"
-                               "👉 При покупке комплект сразу надевается на тебя!")
+                               "👉 Одежда будет ждать тебя в шкафу твоего дома!")
                 
                 bot.send_message(user_id, welcome_text, parse_mode="Markdown")
                 
@@ -4203,6 +4762,110 @@ def handle(message):
         except Exception as e:
             print(f"Ошибка daily: {e}")
             bot.send_message(user_id, "❌ Ошибка")
+    
+    elif text == "🏠 Дом":
+        user_data = get_user_profile(user_id)
+        if not user_data or not user_data['has_house']:
+            bot.send_message(
+                user_id,
+                "🏠 **У ТЕБЯ ЕЩЁ НЕТ ДОМА**\n\n"
+                "Отправляйся в город **Мурино** и купи себе дом!\n"
+                "В доме ты сможешь хранить одежду в шкафу.",
+                parse_mode="Markdown"
+            )
+            return
+        
+        house = get_user_equipped_house(user_id)
+        if not house:
+            bot.send_message(user_id, "❌ Ошибка загрузки дома")
+            return
+        
+        slots = get_user_wardrobe_slots_count(user_id)
+        wardrobe = get_user_wardrobe(user_id)
+        
+        caption = (f"🏠 *{house['name']}*\n\n"
+                  f"📍 Куплен в: {user_data['house_purchase_city']}\n"
+                  f"💰 Цена покупки: {user_data['house_purchase_price']:,} {CURRENCY}\n"
+                  f"🏡 Комфорт: {house['comfort']}\n"
+                  f"🔓 Слотов в шкафу: {slots}\n"
+                  f"👕 Одежды в шкафу: {len(wardrobe)}")
+        
+        bot.send_photo(
+            user_id,
+            house['photo_url'],
+            caption=caption,
+            parse_mode="Markdown",
+            reply_markup=house_menu_keyboard()
+        )
+    
+    elif text == "👕 Шкаф":
+        user_data = get_user_profile(user_id)
+        if not user_data or not user_data['has_house']:
+            bot.send_message(user_id, "❌ У тебя нет дома!")
+            return
+        
+        show_wardrobe(user_id, user_id)
+    
+    elif text == "👕 Посмотреть шкаф":
+        show_wardrobe(user_id, user_id)
+    
+    elif text == "🔓 Купить слот":
+        user_data = get_user_profile(user_id)
+        if not user_data or not user_data['has_house']:
+            bot.send_message(user_id, "❌ У тебя нет дома!")
+            return
+        
+        price = get_next_slot_price(user_id)
+        slots = get_user_wardrobe_slots_count(user_id)
+        
+        markup = types.InlineKeyboardMarkup()
+        markup.add(
+            types.InlineKeyboardButton("✅ Купить", callback_data="buy_slot_confirm"),
+            types.InlineKeyboardButton("❌ Отмена", callback_data="buy_slot_cancel")
+        )
+        
+        bot.send_message(
+            user_id,
+            f"🔓 **ПОКУПКА СЛОТА**\n\n"
+            f"📊 Текущие слоты: {slots}\n"
+            f"💰 Цена следующего слота: {price:,} {CURRENCY}\n\n"
+            f"Подтверждаешь покупку?",
+            parse_mode="Markdown",
+            reply_markup=markup
+        )
+    
+    elif text == "💰 Продать дом":
+        user_data = get_user_profile(user_id)
+        if not user_data or not user_data['has_house']:
+            bot.send_message(user_id, "❌ У тебя нет дома!")
+            return
+        
+        house = get_user_equipped_house(user_id)
+        if not house:
+            bot.send_message(user_id, "❌ Ошибка загрузки дома")
+            return
+        
+        sell_price = (user_data['house_purchase_price'] or house['price']) // 2
+        
+        markup = types.InlineKeyboardMarkup()
+        markup.add(
+            types.InlineKeyboardButton("✅ Продать", callback_data="sell_house_confirm"),
+            types.InlineKeyboardButton("❌ Отмена", callback_data="sell_house_cancel")
+        )
+        
+        bot.send_message(
+            user_id,
+            f"⚠️ **ПРОДАЖА ДОМА**\n\n"
+            f"🏠 Ты продаёшь: {house['name']}\n"
+            f"💰 Цена продажи: {sell_price:,} {CURRENCY} (50%)\n\n"
+            f"❗ Вся одежда из шкафа будет утеряна!\n\n"
+            f"Точно хочешь продать?",
+            parse_mode="Markdown",
+            reply_markup=markup
+        )
+    
+    elif text == "🔙 В дом":
+        handle_house_back(user_id)
     
     elif text == "🗺️ Карта":
         bot.send_message(
@@ -4290,7 +4953,7 @@ def handle(message):
                 cars['photo_url'],
                 caption=caption,
                 parse_mode="Markdown",
-                reply_markup=get_cars_navigation_keyboard(current_page, total, 'cars')
+                reply_markup=get_cars_navigation_keyboard(current_page, total, 'cars', False)
             )
         else:
             bot.send_message(user_id, "❌ В магазине пока нет машин!")
@@ -4308,7 +4971,7 @@ def handle(message):
                 planes['photo_url'],
                 caption=caption,
                 parse_mode="Markdown",
-                reply_markup=get_cars_navigation_keyboard(current_page, total, 'planes')
+                reply_markup=get_planes_navigation_keyboard(current_page, total, 'planes', False)
             )
         else:
             bot.send_message(user_id, "❌ В магазине пока нет самолетов!")
@@ -4319,14 +4982,15 @@ def handle(message):
             caption = (f"🏠 *{houses['name']}*\n\n"
                       f"💰 Цена: {houses['price']:,} {CURRENCY}\n"
                       f"🏡 Комфорт: {houses['comfort']}\n\n"
-                      f"🛍️ Всего домов: {total}")
+                      f"🛍️ Всего домов: {total}\n\n"
+                      f"🎁 При покупке вы получаете 1 бесплатный слот в шкафу!")
             
             bot.send_photo(
                 user_id,
                 houses['photo_url'],
                 caption=caption,
                 parse_mode="Markdown",
-                reply_markup=get_cars_navigation_keyboard(current_page, total, 'houses')
+                reply_markup=get_houses_navigation_keyboard(current_page, total, 'houses', False)
             )
         else:
             bot.send_message(user_id, "❌ В магазине пока нет домов!")
@@ -4364,7 +5028,6 @@ def handle(message):
     elif any(job in text for job in ["🚚 Грузчик", "🧹 Уборщик", "📦 Курьер", "🔧 Механик", "💻 Программист", "🕵️ Детектив", "👨‍🔧 Инженер", "👨‍⚕️ Врач", "👨‍🎤 Артист", "👨‍🚀 Космонавт"]):
         job_name = text
         
-        # Проверяем перезарядку
         ok, rem = check_cooldown(user_id, job_name)
         if not ok:
             bot.send_message(user_id, f"⏳ Подожди еще {rem} сек перед следующей работой!")
@@ -4609,12 +5272,27 @@ def handle(message):
             "🏪 Минимаркет - 15M | сырьё 30к💰 | профит 60к💰\n"
             "⛽ Заправка - 50M | сырьё 200к💰 | профит 400к💰\n"
             "🏨 Отель - 1B | сырьё 1M💰 | профит 2M💰\n\n"
+            "🏠 **ДОМ И ШКАФ**\n"
+            "• Купить дом можно только в Мурино\n"
+            "• При покупке дома даётся 1 бесплатный слот\n"
+            "• Слоты покупаются за 100M, 200M, 300M...\n"
+            "• В шкафу можно хранить до 5 предметов одежды\n"
+            "• Одежду можно надевать и снимать\n"
+            "• Продажа дома = 50% цены, вся одежда теряется\n\n"
+            "🚗 **МАШИНЫ**\n"
+            "• Продаются в Селе Молочном\n"
+            "• Можно владеть только одной машиной\n"
+            "• Чем дороже машина, тем быстрее поездки\n\n"
+            "✈️ **САМОЛЕТЫ**\n"
+            "• Продаются в Кропоткине\n"
+            "• Можно владеть только одним самолетом\n"
+            "• Чем дороже самолет, тем быстрее перелёты\n\n"
             "🗺️ **КАРТА**\n"
             "• **Москва** - 👕 Магазин одежды\n"
             "• **Село Молочное** - 🚗 Магазин машин\n"
             "• **Кропоткин** - ✈️ Магазин самолетов\n"
             "• **Мурино** - 🏠 Магазин домов\n"
-            "• Время в пути: 30-60 секунд\n\n"
+            "• Время в пути зависит от транспорта\n\n"
             "⚙️ **НАСТРОЙКИ**\n"
             "• Сменить никнейм\n"
             "• Полная помощь\n\n"
@@ -4637,6 +5315,7 @@ def handle(message):
         help_text += "🚗 Магазин машин - в Селе Молочном\n"
         help_text += "✈️ Магазин самолетов - в Кропоткине\n"
         help_text += "🏠 Магазин домов - в Мурино\n"
+        help_text += "🏠 Дом - твой дом и шкаф для одежды\n"
         help_text += "🎁 Ежедневно - бонус каждый день\n"
         help_text += "🗺️ Карта - путешествуй по городам\n"
         help_text += "⚙️ Настройки - сменить ник, помощь\n"
@@ -4653,6 +5332,35 @@ def handle(message):
     
     elif text == "🔙 Назад":
         send_main_menu_with_profile(user_id)
+
+def handle_house_back(user_id):
+    user_data = get_user_profile(user_id)
+    if not user_data or not user_data['has_house']:
+        send_main_menu_with_profile(user_id)
+        return
+    
+    house = get_user_equipped_house(user_id)
+    if not house:
+        send_main_menu_with_profile(user_id)
+        return
+    
+    slots = get_user_wardrobe_slots_count(user_id)
+    wardrobe = get_user_wardrobe(user_id)
+    
+    caption = (f"🏠 *{house['name']}*\n\n"
+              f"📍 Куплен в: {user_data['house_purchase_city']}\n"
+              f"💰 Цена покупки: {user_data['house_purchase_price']:,} {CURRENCY}\n"
+              f"🏡 Комфорт: {house['comfort']}\n"
+              f"🔓 Слотов в шкафу: {slots}\n"
+              f"👕 Одежды в шкафу: {len(wardrobe)}")
+    
+    bot.send_photo(
+        user_id,
+        house['photo_url'],
+        caption=caption,
+        parse_mode="Markdown",
+        reply_markup=house_menu_keyboard()
+    )
 
 def process_travel(message, target_city):
     user_id = message.from_user.id
@@ -4859,13 +5567,13 @@ print(f"🔨 Загружено банов: {len(BANS)}")
 print(f"⚠️ Загружено варнов: {len(WARNS)}")
 print("🏙️ Система городов активирована!")
 print("   🏙️ Москва - 👕 Магазин одежды")
-print("   🏙️ Село Молочное - 🚗 Магазин машин")
-print("   🏙️ Кропоткин - ✈️ Магазин самолетов")
-print("   🏙️ Мурино - 🏠 Магазин домов")
+print("   🏙️ Село Молочное - 🚗 Магазин машин (13 машин)")
+print("   🏙️ Кропоткин - ✈️ Магазин самолетов (10 самолетов)")
+print("   🏙️ Мурино - 🏠 Магазин домов (13 домов)")
 print("👕 Магазин одежды загружен с 16 комплектами!")
-print("🚗 Магазин машин загружен!")
-print("✈️ Магазин самолетов загружен!")
-print("🏠 Магазин домов загружен!")
+print("🏠 Система домов и шкафа активирована!")
+print("   🏠 1 слот - 100M, 2 слот - 200M, 3 слот - 300M...")
+print("   👕 Можно надевать/снимать одежду")
 print("🎰 Рулетка активна! Играй: рул крас 1000")
 print("🎮 **ВСЕ 10 РАБОТ** с мини-играми и перезарядкой 7 сек!")
 print("⚙️ Кнопка Настройки добавлена в главное меню!")
