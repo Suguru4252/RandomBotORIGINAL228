@@ -347,10 +347,10 @@ def init_db():
     cursor.execute('SELECT COUNT(*) FROM shop_cars')
     if cursor.fetchone()[0] == 0:
         cars_data = [
-            ("🚗 Лада", 500000, "https://iimg.su/i/car1", 80),
-            ("🚗 BMW", 5000000, "https://iimg.su/i/car2", 200),
-            ("🚗 Mercedes", 10000000, "https://iimg.su/i/car3", 220),
-            ("🚗 Ferrari", 50000000, "https://iimg.su/i/car4", 350)
+            ("Лада", 500000, "https://iimg.su/i/car1", 80),
+            ("BMW", 5000000, "https://iimg.su/i/car2", 200),
+            ("Mercedes", 10000000, "https://iimg.su/i/car3", 220),
+            ("Ferrari", 50000000, "https://iimg.su/i/car4", 350)
         ]
         cursor.executemany('''
             INSERT INTO shop_cars (name, price, photo_url, speed)
@@ -361,10 +361,10 @@ def init_db():
     cursor.execute('SELECT COUNT(*) FROM shop_planes')
     if cursor.fetchone()[0] == 0:
         planes_data = [
-            ("✈️ Cessna", 5000000, "https://iimg.su/i/plane1", 300),
-            ("✈️ Boeing 737", 50000000, "https://iimg.su/i/plane2", 900),
-            ("✈️ Airbus A380", 200000000, "https://iimg.su/i/plane3", 950),
-            ("✈️ Gulfstream", 500000000, "https://iimg.su/i/plane4", 1000)
+            ("Cessna", 5000000, "https://iimg.su/i/plane1", 300),
+            ("Boeing 737", 50000000, "https://iimg.su/i/plane2", 900),
+            ("Airbus A380", 200000000, "https://iimg.su/i/plane3", 950),
+            ("Gulfstream", 500000000, "https://iimg.su/i/plane4", 1000)
         ]
         cursor.executemany('''
             INSERT INTO shop_planes (name, price, photo_url, speed)
@@ -375,10 +375,10 @@ def init_db():
     cursor.execute('SELECT COUNT(*) FROM shop_houses')
     if cursor.fetchone()[0] == 0:
         houses_data = [
-            ("🏠 Хрущевка", 1000000, "https://iimg.su/i/house1", 10),
-            ("🏠 Квартира", 5000000, "https://iimg.su/i/house2", 50),
-            ("🏠 Коттедж", 20000000, "https://iimg.su/i/house3", 80),
-            ("🏠 Особняк", 100000000, "https://iimg.su/i/house4", 100)
+            ("Хрущевка", 1000000, "https://iimg.su/i/house1", 10),
+            ("Квартира", 5000000, "https://iimg.su/i/house2", 50),
+            ("Коттедж", 20000000, "https://iimg.su/i/house3", 80),
+            ("Особняк", 100000000, "https://iimg.su/i/house4", 100)
         ]
         cursor.executemany('''
             INSERT INTO shop_houses (name, price, photo_url, comfort)
@@ -908,6 +908,13 @@ def get_city_info(city_name):
     except:
         return None
 
+def get_shop_type_for_city(city_name):
+    """Возвращает тип магазина для города"""
+    city_info = get_city_info(city_name)
+    if city_info:
+        return city_info['shop_type']
+    return 'clothes'  # По умолчанию
+
 def start_travel(user_id, to_city, transport):
     """Начинает поездку в другой город"""
     try:
@@ -980,7 +987,7 @@ def complete_travel(travel_id, user_id):
             bot.send_message(
                 user_id,
                 f"✅ Вы прибыли в {travel['to_city']}!\nТранспорт: {travel['transport']}",
-                reply_markup=main_keyboard()  # ВСЕГДА главное меню
+                reply_markup=main_keyboard()  # Всегда главное меню
             )
         
         conn.close()
@@ -2581,17 +2588,18 @@ def send_top_by_type(user_id, top_type):
 
 # ========== КЛАВИАТУРЫ ==========
 def main_keyboard():
+    """Главное меню с кнопками (первая буква большая)"""
     markup = types.ReplyKeyboardMarkup(row_width=2, resize_keyboard=True)
     markup.row(
-        types.KeyboardButton("💼 РАБОТЫ"),
-        types.KeyboardButton("🏭 БИЗНЕСЫ")
+        types.KeyboardButton("💼 Работы"),
+        types.KeyboardButton("🏭 Бизнесы")
     )
     markup.row(
-        types.KeyboardButton("👕 МАГАЗИН ОДЕЖДЫ"),
-        types.KeyboardButton("🎁 ЕЖЕДНЕВНО")
+        types.KeyboardButton("👕 Магазин одежды"),
+        types.KeyboardButton("🎁 Ежедневно")
     )
     markup.row(
-        types.KeyboardButton("🗺️ КАРТА"),
+        types.KeyboardButton("🗺️ Карта"),
         types.KeyboardButton("🔄")
     )
     return markup
@@ -2599,12 +2607,12 @@ def main_keyboard():
 def cities_keyboard():
     markup = types.ReplyKeyboardMarkup(row_width=2, resize_keyboard=True)
     markup.row(
-        types.KeyboardButton("🏙️ МОСКВА"),
-        types.KeyboardButton("🏙️ СЕЛО МОЛОЧНОЕ")
+        types.KeyboardButton("🏙️ Москва"),
+        types.KeyboardButton("🏙️ Село Молочное")
     )
     markup.row(
-        types.KeyboardButton("🏙️ КРОПОТКИН"),
-        types.KeyboardButton("🏙️ МУРИНО")
+        types.KeyboardButton("🏙️ Кропоткин"),
+        types.KeyboardButton("🏙️ Мурино")
     )
     markup.row(types.KeyboardButton("🔙 Назад"))
     return markup
@@ -2628,7 +2636,7 @@ def jobs_keyboard(user_id):
     for job in jobs:
         markup.add(types.KeyboardButton(f"{job[5]} {job[0]}"))
     
-    markup.row(types.KeyboardButton("👥 РЕФЕРАЛЫ"))
+    markup.row(types.KeyboardButton("👥 Рефералы"))
     markup.row(types.KeyboardButton("🔙 Назад"))
     return markup
 
@@ -2680,25 +2688,25 @@ def settings_keyboard():
 def city_shop_keyboard(shop_type):
     """Возвращает клавиатуру для магазина в зависимости от города"""
     if shop_type == 'clothes':
-        return types.ReplyKeyboardMarkup(row_width=2, resize_keyboard=True).add(
-            types.KeyboardButton("👕 Смотреть одежду"),
-            types.KeyboardButton("🔙 Назад")
-        )
+        markup = types.ReplyKeyboardMarkup(row_width=2, resize_keyboard=True)
+        markup.row(types.KeyboardButton("👕 Смотреть одежду"))
+        markup.row(types.KeyboardButton("🔙 Назад"))
+        return markup
     elif shop_type == 'cars':
-        return types.ReplyKeyboardMarkup(row_width=2, resize_keyboard=True).add(
-            types.KeyboardButton("🚗 Смотреть машины"),
-            types.KeyboardButton("🔙 Назад")
-        )
+        markup = types.ReplyKeyboardMarkup(row_width=2, resize_keyboard=True)
+        markup.row(types.KeyboardButton("🚗 Смотреть машины"))
+        markup.row(types.KeyboardButton("🔙 Назад"))
+        return markup
     elif shop_type == 'planes':
-        return types.ReplyKeyboardMarkup(row_width=2, resize_keyboard=True).add(
-            types.KeyboardButton("✈️ Смотреть самолеты"),
-            types.KeyboardButton("🔙 Назад")
-        )
+        markup = types.ReplyKeyboardMarkup(row_width=2, resize_keyboard=True)
+        markup.row(types.KeyboardButton("✈️ Смотреть самолеты"))
+        markup.row(types.KeyboardButton("🔙 Назад"))
+        return markup
     elif shop_type == 'houses':
-        return types.ReplyKeyboardMarkup(row_width=2, resize_keyboard=True).add(
-            types.KeyboardButton("🏠 Смотреть дома"),
-            types.KeyboardButton("🔙 Назад")
-        )
+        markup = types.ReplyKeyboardMarkup(row_width=2, resize_keyboard=True)
+        markup.row(types.KeyboardButton("🏠 Смотреть дома"))
+        markup.row(types.KeyboardButton("🔙 Назад"))
+        return markup
     return None
 
 # ========== СТАРТ ==========
@@ -3443,14 +3451,14 @@ def handle(message):
             )
             return
     
-    # ===== НОВОЕ МЕНЮ =====
-    if text == "💼 РАБОТЫ":
+    # ===== НОВОЕ МЕНЮ (с одной большой буквой) =====
+    if text == "💼 Работы":
         bot.send_message(user_id, "🔨 Выбери работу:", reply_markup=jobs_keyboard(user_id))
     
-    elif text == "🏭 БИЗНЕСЫ":
+    elif text == "🏭 Бизнесы":
         bot.send_message(user_id, "🏪 Управление бизнесом:", reply_markup=businesses_main_keyboard())
     
-    elif text == "👕 МАГАЗИН ОДЕЖДЫ":
+    elif text == "👕 Магазин одежды":
         # Получаем текущий город
         current_city = get_user_city(user_id)
         city_info = get_city_info(current_city)
@@ -3480,9 +3488,9 @@ def handle(message):
             else:
                 bot.send_message(user_id, "❌ В магазине пока нет товаров!")
         else:
-            bot.send_message(user_id, f"❌ В городе {current_city} нет магазина одежды! Здесь продают: {city_info['shop_type']}")
+            bot.send_message(user_id, f"❌ В городе {current_city} нет магазина одежды!")
     
-    elif text == "🎁 ЕЖЕДНЕВНО":
+    elif text == "🎁 Ежедневно":
         try:
             conn = get_db()
             cursor = conn.cursor()
@@ -3513,13 +3521,13 @@ def handle(message):
             print(f"Ошибка daily: {e}")
             bot.send_message(user_id, "❌ Ошибка")
     
-    elif text == "🗺️ КАРТА":
+    elif text == "🗺️ Карта":
         markup = cities_keyboard()
         bot.send_message(
             user_id,
             "🗺️ **ВЫБЕРИ ГОРОД**\n\n"
             "Куда хочешь отправиться?\n\n"
-            "🏙️ **Москва** - 👕 Магазин одежды\n"
+            "🏙️ **Москва** - 👕 Магазин одежды (стартовый)\n"
             "🏙️ **Село Молочное** - 🚗 Магазин машин\n"
             "🏙️ **Кропоткин** - ✈️ Магазин самолетов\n"
             "🏙️ **Мурино** - 🏠 Магазин домов",
@@ -3549,7 +3557,7 @@ def handle(message):
             bot.send_message(user_id, "❌ Ошибка загрузки профиля")
     
     # ===== ОБРАБОТКА ГОРОДОВ =====
-    elif text in ["🏙️ МОСКВА", "🏙️ СЕЛО МОЛОЧНОЕ", "🏙️ КРОПОТКИН", "🏙️ МУРИНО"]:
+    elif text in ["🏙️ Москва", "🏙️ Село Молочное", "🏙️ Кропоткин", "🏙️ Мурино"]:
         city_name = text.replace("🏙️ ", "")
         current_city = get_user_city(user_id)
         
@@ -3642,17 +3650,7 @@ def handle(message):
         else:
             bot.send_message(user_id, "❌ В магазине пока нет домов!")
     
-    # ===== РАБОТЫ =====
-    elif text == "👥 РЕФЕРАЛЫ":
-        bot_username = bot.get_me().username
-        link = f"https://t.me/{bot_username}?start={user_id}"
-        msg = f"👥 **РЕФЕРАЛЫ**\n\n"
-        msg += f"🔗 Твоя ссылка:\n{link}\n\n"
-        msg += f"💡 Приглашай друзей и получай бонусы!\n"
-        msg += f"💰 За каждого друга: +1000💰 и +50⭐"
-        bot.send_message(user_id, msg, parse_mode="Markdown")
-    
-    # ===== ОСТАЛЬНЫЕ ОБРАБОТЧИКИ =====
+    # ===== РАБОТЫ (ИСПРАВЛЕНО) =====
     elif text in ["🚚 Грузчик", "🧹 Уборщик", "📦 Курьер", "🔧 Механик", "💻 Программист", "🕵️ Детектив", "👨‍🔧 Инженер", "👨‍⚕️ Врач", "👨‍🎤 Артист", "👨‍🚀 Космонавт"]:
         job_name = text
         
@@ -3683,13 +3681,25 @@ def handle(message):
                 "👨‍🚀 Космонавт": (1000, 5000, 50)
             }
             
-            min_r, max_r, exp_r = rewards[job_name]
-            earn = random.randint(min_r, max_r)
-            
-            if add_balance(user_id, earn) and add_exp(user_id, exp_r):
-                bot.send_message(user_id, f"✅ {job_name}\n💰 +{earn}\n⭐ +{exp_r} опыта")
+            if job_name in rewards:
+                min_r, max_r, exp_r = rewards[job_name]
+                earn = random.randint(min_r, max_r)
+                
+                if add_balance(user_id, earn) and add_exp(user_id, exp_r):
+                    bot.send_message(user_id, f"✅ {job_name}\n💰 +{earn}\n⭐ +{exp_r} опыта")
+                else:
+                    bot.send_message(user_id, "❌ Ошибка, попробуй позже")
             else:
-                bot.send_message(user_id, "❌ Ошибка, попробуй позже")
+                bot.send_message(user_id, "❌ Неизвестная работа")
+    
+    elif text == "👥 Рефералы":
+        bot_username = bot.get_me().username
+        link = f"https://t.me/{bot_username}?start={user_id}"
+        msg = f"👥 **РЕФЕРАЛЫ**\n\n"
+        msg += f"🔗 Твоя ссылка:\n{link}\n\n"
+        msg += f"💡 Приглашай друзей и получай бонусы!\n"
+        msg += f"💰 За каждого друга: +1000💰 и +50⭐"
+        bot.send_message(user_id, msg, parse_mode="Markdown")
     
     # ===== БИЗНЕСЫ =====
     elif text == "📊 Мой бизнес":
@@ -3934,9 +3944,6 @@ def handle(message):
             "• Транспорт: Такси, Личная машина, Личный самолет\n"
             "• Во время поездки кнопки пропадают!\n\n"
             "👕 **МАГАЗИН ОДЕЖДЫ** (доступен в Москве)\n"
-            "• Покупай крутые комплекты одежды\n"
-            "• При покупке комплект сразу надевается\n"
-            "• Одежда видна в главном меню и статистике\n\n"
             "🚗 **МАГАЗИН МАШИН** (доступен в Селе Молочном)\n"
             "✈️ **МАГАЗИН САМОЛЕТОВ** (доступен в Кропоткине)\n"
             "🏠 **МАГАЗИН ДОМОВ** (доступен в Мурино)\n\n"
@@ -3958,11 +3965,11 @@ def handle(message):
     
     elif text == "❓ Помощь":
         help_text = "🤖 **ПОМОЩЬ**\n\n"
-        help_text += "💼 РАБОТЫ - работай в мини-играх (там же рефералы)\n"
-        help_text += "🏭 БИЗНЕСЫ - управление бизнесом\n"
-        help_text += "👕 МАГАЗИН ОДЕЖДЫ - покупай крутые комплекты (только в Москве)\n"
-        help_text += "🎁 ЕЖЕДНЕВНО - бонус каждый день\n"
-        help_text += "🗺️ КАРТА - путешествуй по городам\n"
+        help_text += "💼 Работы - работай в мини-играх (там же рефералы)\n"
+        help_text += "🏭 Бизнесы - управление бизнесом\n"
+        help_text += "👕 Магазин одежды - покупай крутые комплекты (только в Москве)\n"
+        help_text += "🎁 Ежедневно - бонус каждый день\n"
+        help_text += "🗺️ Карта - путешествуй по городам\n"
         help_text += "🔄 - показать твой профиль (не трогает меню)\n"
         help_text += "🎰 Рулетка - играй в чате: рул крас 1000\n"
         help_text += "📊 Статистика - твои показатели\n"
@@ -3979,7 +3986,7 @@ def handle(message):
         send_main_menu_with_profile(user_id)
 
 def process_travel(message, target_city):
-    """Обрабатывает выбор транспорта и начинает поездку"""
+    """Обрабатывает выбор транспорта и начинает поездку (ИСПРАВЛЕНО)"""
     user_id = message.from_user.id
     transport = message.text
     
@@ -3990,6 +3997,7 @@ def process_travel(message, target_city):
     
     if transport not in ["🚕 Такси", "🚗 Личная машина", "✈️ Личный самолет"]:
         bot.send_message(user_id, "❌ Пожалуйста, выбери транспорт из предложенных!")
+        # Регистрируем следующий шаг с тем же городом
         bot.register_next_step_handler(message, process_travel, target_city)
         return
     
@@ -4004,11 +4012,13 @@ def process_travel(message, target_city):
             "❌ У вас нет личной машины!\n"
             "🚕 Можете воспользоваться такси или купить машину в Селе Молочном."
         )
+        # ВОЗВРАЩАЕМ клавиатуру выбора транспорта и регистрируем следующий шаг
         bot.send_message(
             user_id,
             f"🚀 Выбери транспорт для поездки в {target_city}:",
             reply_markup=transport_keyboard(target_city)
         )
+        bot.register_next_step_handler(message, process_travel, target_city)
         return
     
     if transport == "✈️ Личный самолет" and (not user or user['has_plane'] == 0):
@@ -4017,14 +4027,16 @@ def process_travel(message, target_city):
             "❌ У вас нет личного самолета!\n"
             "🚕 Можете воспользоваться такси или купить самолет в Кропоткине."
         )
+        # ВОЗВРАЩАЕМ клавиатуру выбора транспорта и регистрируем следующий шаг
         bot.send_message(
             user_id,
             f"🚀 Выбери транспорт для поездки в {target_city}:",
             reply_markup=transport_keyboard(target_city)
         )
+        bot.register_next_step_handler(message, process_travel, target_city)
         return
     
-    # Начинаем поездку
+    # Если всё ок - начинаем поездку
     success, _ = start_travel(user_id, target_city, transport)
 
 # ========== ФОНОВАЯ ПРОВЕРКА ПОЕЗДОК ==========
