@@ -9,7 +9,7 @@ import time
 import re
 
 # ⚠️ ВСТАВЬ СЮДА НОВЫЙ ТОКЕН ПОСЛЕ ОТЗЫВА СТАРОГО!
-TOKEN = "7952669809:AAEbPgEqnVWoPzRjdsW1MopwCfT1epm7AmA"
+TOKEN = "7952669809:AAGWRKCVWluswRysvH2qVYKQnuAn4KvDMcs"
 bot = telebot.TeleBot(TOKEN)
 CURRENCY = "💰 SuguruCoins"
 
