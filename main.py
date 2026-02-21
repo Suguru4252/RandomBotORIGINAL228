@@ -3806,7 +3806,7 @@ def callback_handler(call):
     
     elif data == "closet_back":
         house_data = get_user_house(user_id)
-        if house_
+        if house_data:
             house = house_data['house']
             msg = (f"🏠 **{house['name']}**\n\n"
                    f"💰 Куплен за: {house_data['price']:,} {CURRENCY}\n"
