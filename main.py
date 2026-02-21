@@ -419,7 +419,7 @@ def init_db():
         ("👨‍🚀 Космонавт", 3000, 500000, 1000000, 80, "👨‍🚀")
     ]
     
-    for job in jobs_
+    for job in jobs_data:
         cursor.execute('''
             INSERT OR REPLACE INTO jobs (job_name, min_exp, min_reward, max_reward, exp_reward, emoji)
             VALUES (?, ?, ?, ?, ?, ?)
