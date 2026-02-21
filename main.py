@@ -4257,7 +4257,7 @@ def handle(message):
             return
         
         data = get_business_data(text)
-        if not 
+        if not data:
             bot.send_message(user_id, "❌ Бизнес не найден")
             return
         
@@ -4396,7 +4396,7 @@ def handle(message):
             return
         
         data = get_business_data(business['business_name'])
-        if not 
+        if not data:
             bot.send_message(user_id, "❌ Ошибка загрузки данных бизнеса")
             return
         
