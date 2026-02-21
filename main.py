@@ -2362,7 +2362,7 @@ def send_profile_to_chat(chat_id, user_id, target_id=None):
         target_id = user_id
     
     user_data = get_user_profile(target_id)
-    if not user_
+    if not user_data:
         bot.send_message(chat_id, "❌ Пользователь не найден")
         return
     
