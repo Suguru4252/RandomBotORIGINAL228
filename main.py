@@ -4685,7 +4685,7 @@ def process_raw_material():
             for b in businesses:
                 if b['raw_material'] > 0:
                     data = get_business_data(b['business_name'])
-                    if 
+                    if data:
                         speed_multiplier = {1: 1.0, 2: 1.2, 3: 2.0}
                         current_speed = speed_multiplier.get(b['level'], 1.0)
                         time_per_raw = data['base_time'] / current_speed
