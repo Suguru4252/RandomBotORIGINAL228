@@ -2429,7 +2429,7 @@ def process_raw_order(user_id, chat_id):
         return
     
     data = get_business_data(business['business_name'])
-    if not 
+    if not data:
         bot.send_message(chat_id, "❌ Ошибка загрузки данных бизнеса")
         return
     
