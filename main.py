@@ -4086,7 +4086,7 @@ def handle(message):
     
     elif text == "👕 Шкаф":
         house_data = get_user_house(user_id)
-        if not house_
+        if not house_data:
             bot.send_message(user_id, "🏠 Сначала купи дом в Мурино!")
             return
         
