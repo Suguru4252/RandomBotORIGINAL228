@@ -47,7 +47,8 @@ cleaner_games = {}
 courier_games = {}
 mechanic_games = {}
 programmer_games = {}
-detective_games = {}engineer_games = {}
+detective_games = {}
+engineer_games = {}
 doctor_games = {}
 artist_games = {}
 cosmonaut_games = {}
