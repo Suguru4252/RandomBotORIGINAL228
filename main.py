@@ -3180,7 +3180,7 @@ def callback_handler(call):
             job_data = conn.execute('SELECT min_reward, max_reward, exp_reward FROM jobs WHERE job_name = ?', ("🧹 Уборщик",)).fetchone()
             conn.close()
             
-            if job_
+            if job_data:
                 min_r, max_r, exp_r = job_data
                 earn = random.randint(min_r, max_r)
                 
@@ -3220,7 +3220,7 @@ def callback_handler(call):
             job_data = conn.execute('SELECT min_reward, max_reward, exp_reward FROM jobs WHERE job_name = ?', ("📦 Курьер",)).fetchone()
             conn.close()
             
-            if job_
+            if job_data:
                 min_r, max_r, exp_r = job_data
                 earn = random.randint(min_r, max_r)
                 
@@ -3386,7 +3386,7 @@ def callback_handler(call):
             job_data = conn.execute('SELECT min_reward, max_reward, exp_reward FROM jobs WHERE job_name = ?', ("👨‍🔧 Инженер",)).fetchone()
             conn.close()
             
-            if job_
+            if job_data:
                 min_r, max_r, exp_r = job_data
                 earn = random.randint(min_r, max_r)
                 
@@ -3511,7 +3511,7 @@ def callback_handler(call):
                 job_data = conn.execute('SELECT min_reward, max_reward, exp_reward FROM jobs WHERE job_name = ?', ("👨‍🚀 Космонавт",)).fetchone()
                 conn.close()
                 
-                if job_
+                if job_data:
                     min_r, max_r, exp_r = job_data
                     earn = random.randint(min_r, max_r)
                     
