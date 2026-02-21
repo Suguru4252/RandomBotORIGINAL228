@@ -789,7 +789,7 @@ def get_user_by_custom_name(custom_name):
         return None
 
 def get_user_display_name(user_data):
-    if not user_
+    if not user_data:
         return "Игрок"
     
     custom = user_data[3]
