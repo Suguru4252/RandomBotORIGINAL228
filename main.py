@@ -802,8 +802,9 @@ def get_user_by_custom_name(custom_name):
     except:
         return None
 
+# ИСПРАВЛЕНО: строка 1035
 def get_user_display_name(user_data):
-    if not user_
+    if not user_data:
         return "Игрок"
     
     custom = user_data[3]
@@ -1033,7 +1034,7 @@ def complete_travel(travel_id, user_id):
             bot.send_message(
                 user_id,
                 f"✅ Вы прибыли в {travel['to_city']}!\nТранспорт: {travel['transport']}",
-                reply_markup=main_keyboard_for_city(user_id)  # ← ИЗМЕНЕНИЕ: динамическое меню
+                reply_markup=main_keyboard_for_city(user_id)
             )
         
         conn.close()
@@ -1087,7 +1088,7 @@ def main_keyboard_for_city(user_id):
         types.KeyboardButton("🏭 Бизнесы")
     )
     markup.row(
-        types.KeyboardButton(shop_button),  # ← ДИНАМИЧЕСКАЯ КНОПКА
+        types.KeyboardButton(shop_button),
         types.KeyboardButton("🎁 Ежедневно")
     )
     markup.row(
@@ -1100,12 +1101,13 @@ def main_keyboard_for_city(user_id):
     )
     return markup
 
+# ИСПРАВЛЕНО: строка 2451
 def send_main_menu_with_profile(user_id, chat_id=None):
     if not chat_id:
         chat_id = user_id
     
     user_data = get_user_profile(user_id)
-    if not user_
+    if not user_data:
         return
     
     balance = get_balance(user_id)
@@ -1123,7 +1125,7 @@ def send_main_menu_with_profile(user_id, chat_id=None):
         photo_url,
         caption=caption,
         parse_mode="Markdown",
-        reply_markup=main_keyboard_for_city(user_id)  # ← ИЗМЕНЕНИЕ: динамическое меню
+        reply_markup=main_keyboard_for_city(user_id)
     )
 
 # ========== НОВЫЕ ФУНКЦИИ ДЛЯ МАШИН ==========
@@ -2377,7 +2379,7 @@ def send_profile_to_chat(chat_id, user_id, target_id=None):
         target_id = user_id
     
     user_data = get_user_profile(target_id)
-    if not user_
+    if not user_data:
         bot.send_message(chat_id, "❌ Пользователь не найден")
         return
     
@@ -2655,14 +2657,6 @@ def house_menu_keyboard():
     )
     markup.row(
         types.KeyboardButton("🔙 Назад")
-    )
-    return markup
-
-def get_business_buy_keyboard(business_name):
-    markup = types.InlineKeyboardMarkup(row_width=2)
-    markup.add(
-        types.InlineKeyboardButton("✅ Купить", callback_data=f"buy_business_{business_name}"),
-        types.InlineKeyboardButton("❌ Отмена", callback_data="cancel_buy_business")
     )
     return markup
 
@@ -3268,6 +3262,7 @@ def callback_handler(call):
         bot.answer_callback_query(call.id)
         return
     
+    # ИСПРАВЛЕНО: строка 2161
     elif data.startswith("cars_buy_"):
         page = int(data.split("_")[2])
         car, current_page, total = get_cars_page(page)
@@ -3321,6 +3316,7 @@ def callback_handler(call):
         bot.answer_callback_query(call.id)
         return
     
+    # ИСПРАВЛЕНО: строка 2175
     elif data.startswith("planes_buy_"):
         page = int(data.split("_")[2])
         plane, current_page, total = get_planes_page(page)
@@ -3370,6 +3366,7 @@ def callback_handler(call):
         bot.answer_callback_query(call.id)
         return
     
+    # ИСПРАВЛЕНО: строка 2245
     elif data.startswith("houses_buy_"):
         page = int(data.split("_")[2])
         house, current_page, total = get_houses_page(page)
@@ -3420,9 +3417,10 @@ def callback_handler(call):
         bot.answer_callback_query(call.id, msg, show_alert=True)
         return
     
+    # ИСПРАВЛЕНО: строка 2431
     elif data == "closet_back":
         house_data = get_user_house(user_id)
-        if house_
+        if house_data:
             house = house_data['house']
             msg = (f"🏠 **{house['name']}**\n\n"
                    f"💰 Куплен за: {house_data['price']:,} {CURRENCY}\n"
@@ -3448,7 +3446,8 @@ def callback_handler(call):
             return
         
         data = get_business_data(business_name)
-        if not 
+        # ИСПРАВЛЕНО: строка 2147
+        if not data:
             bot.answer_callback_query(call.id, "❌ Ошибка загрузки данных", show_alert=True)
             return
         
@@ -3681,7 +3680,7 @@ def handle(message):
     
     elif text == "🏠 Мой дом":
         house_data = get_user_house(user_id)
-        if not house_
+        if not house_data:
             bot.send_message(
                 user_id,
                 "🏠 У тебя нет дома!\n"
@@ -3706,7 +3705,7 @@ def handle(message):
     
     elif text == "👕 Шкаф":
         house_data = get_user_house(user_id)
-        if not house_
+        if not house_data:
             bot.send_message(user_id, "🏠 Сначала купи дом в Мурино!")
             return
         
@@ -3751,7 +3750,7 @@ def handle(message):
                 photo_url,
                 caption=caption,
                 parse_mode="Markdown",
-                reply_markup=main_keyboard_for_city(user_id)  # ← ИЗМЕНЕНИЕ: динамическое меню
+                reply_markup=main_keyboard_for_city(user_id)
             )
         else:
             bot.send_message(user_id, "❌ Ошибка загрузки профиля")
@@ -3964,7 +3963,7 @@ def handle(message):
             return
         
         data = get_business_data(business['business_name'])
-        if not 
+        if not data:
             bot.send_message(user_id, "❌ Ошибка загрузки данных бизнеса")
             return
         
@@ -4019,7 +4018,8 @@ def handle(message):
             return
         
         data = get_business_data(business['business_name'])
-        if not 
+        # ИСПРАВЛЕНО: строка 2253
+        if not data:
             bot.send_message(user_id, "❌ Ошибка загрузки данных бизнеса")
             return
         
@@ -4079,7 +4079,7 @@ def handle(message):
             return
         
         data = get_business_data(business['business_name'])
-        if not 
+        if not data:
             bot.send_message(user_id, "❌ Ошибка")
             return
         
@@ -4285,7 +4285,7 @@ def check_travels():
                     bot.send_message(
                         t['user_id'],
                         f"✅ Вы прибыли в {t['to_city']}!\nТранспорт: {t['transport']}",
-                        reply_markup=main_keyboard_for_city(t['user_id'])  # ← ИЗМЕНЕНИЕ
+                        reply_markup=main_keyboard_for_city(t['user_id'])
                     )
                 except:
                     pass
@@ -4308,7 +4308,8 @@ def process_raw_material():
             for b in businesses:
                 if b['raw_material'] > 0:
                     data = get_business_data(b['business_name'])
-                    if 
+                    # ИСПРАВЛЕНО: строка 2243
+                    if data:
                         speed_multiplier = {1: 1.0, 2: 1.2, 3: 2.0}
                         current_speed = speed_multiplier.get(b['level'], 1.0)
                         time_per_raw = data['base_time'] / current_speed
