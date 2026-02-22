@@ -9,19 +9,16 @@ import time
 import re
 
 # ========== ТОКЕН БОТА ==========
-# ИСПРАВЛЕНО: Токен вставлен прямо в код
 TOKEN = "7952669809:AAGWRKCVWluswRysvH2qVYKQnuAn4KvDMcs"
 
-print(f"✅ Токен загружен: {TOKEN[:10]}...")  # Показываем первые 10 символов для проверки
+print(f"✅ Токен загружен: {TOKEN[:10]}...")
 
 try:
     bot = telebot.TeleBot(TOKEN)
-    # Проверяем соединение с Telegram
     bot_info = bot.get_me()
     print(f"✅ Бот успешно подключен: @{bot_info.username}")
 except Exception as e:
     print(f"❌ Ошибка подключения к Telegram: {e}")
-    print("📌 Проверьте правильность токена")
     exit(1)
 
 CURRENCY = "💰 SuguruCoins"
@@ -156,7 +153,6 @@ def init_db():
         )
     ''')
     
-    # ========== ТАБЛИЦЫ ДЛЯ МАГАЗИНА ОДЕЖДЫ ==========
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS shop_clothes (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -179,7 +175,6 @@ def init_db():
         )
     ''')
     
-    # ========== ТАБЛИЦЫ ДЛЯ МАГАЗИНА МАШИН ==========
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS shop_cars (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -202,7 +197,6 @@ def init_db():
         )
     ''')
     
-    # ========== ТАБЛИЦЫ ДЛЯ МАГАЗИНА САМОЛЕТОВ ==========
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS shop_planes (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -225,7 +219,6 @@ def init_db():
         )
     ''')
     
-    # ========== ТАБЛИЦЫ ДЛЯ МАГАЗИНА ДОМОВ ==========
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS shop_houses (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -237,7 +230,6 @@ def init_db():
         )
     ''')
     
-    # ========== ТАБЛИЦЫ ДЛЯ ГОРОДОВ ==========
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS cities (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -263,7 +255,6 @@ def init_db():
         )
     ''')
     
-    # ========== ТАБЛИЦЫ ДЛЯ АДМИНОВ, БАНОВ И ВАРНОВ ==========
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS admins (
             user_id INTEGER PRIMARY KEY,
@@ -289,7 +280,6 @@ def init_db():
         )
     ''')
     
-    # ========== ТАБЛИЦА ДЛЯ СТАТИСТИКИ РУЛЕТКИ ==========
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS roulette_stats (
             user_id INTEGER PRIMARY KEY,
@@ -305,7 +295,6 @@ def init_db():
         )
     ''')
     
-    # ========== ТАБЛИЦА ДЛЯ СТАТИСТИКИ МИНИ-ИГР ==========
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS work_stats (
             user_id INTEGER,
@@ -319,10 +308,8 @@ def init_db():
         )
     ''')
     
-    # Добавляем главного админа
     cursor.execute('INSERT OR IGNORE INTO admins (user_id, level) VALUES (?, ?)', (5596589260, 4))
     
-    # Заполняем города
     cursor.execute('SELECT COUNT(*) FROM cities')
     if cursor.fetchone()[0] == 0:
         cities_data = [
@@ -336,7 +323,6 @@ def init_db():
             VALUES (?, ?, ?, ?, ?, ?, ?)
         ''', cities_data)
     
-    # Заполняем магазин одеждой
     cursor.execute('SELECT COUNT(*) FROM shop_clothes')
     if cursor.fetchone()[0] == 0:
         clothes_data = [
@@ -362,7 +348,6 @@ def init_db():
             VALUES (?, ?, ?)
         ''', clothes_data)
     
-    # Заполняем магазин машин
     cursor.execute('SELECT COUNT(*) FROM shop_cars')
     if cursor.fetchone()[0] == 0:
         cars_data = [
@@ -381,45 +366,44 @@ def init_db():
             VALUES (?, ?, ?, ?)
         ''', cars_data)
     
-    # Заполняем магазин самолетов
     cursor.execute('SELECT COUNT(*) FROM shop_planes')
     if cursor.fetchone()[0] == 0:
+        # ИСПРАВЛЕНО: правильные фото для самолетов
         planes_data = [
-            ("Свалка", 50_000_000, "https://iimg.su/i/EjWevF", 200),
-            ("Как у бабушки", 100_000_000, "https://iimg.su/i/AfRIlY", 250),
-            ("Тестная халупа", 200_000_000, "https://iimg.su/i/icWz0I", 300),
-            ("Домик", 500_000_000, "https://iimg.su/i/YiNOvU", 400),
-            ("Красивый дом", 1_000_000_000, "https://iimg.su/i/UtiAP3", 500),
-            ("Дом2", 2_000_000_000, "https://iimg.su/i/yxkgAD", 600),
-            ("Замок", 5_000_000_000, "https://iimg.su/i/3V4lup", 700),
-            ("Особняк", 10_000_000_000, "https://iimg.su/i/jthfeq", 800),
-            ("Мэрия", 20_000_000_000, "https://iimg.su/i/xVVHLe", 900)
+            ("Боинг 737", 100_000_000, "https://i.imgur.com/7H8mQzZ.jpg", 800),
+            ("Airbus A320", 150_000_000, "https://i.imgur.com/Ln3Yk9X.jpg", 850),
+            ("Concorde", 500_000_000, "https://i.imgur.com/RpQYx5W.jpg", 2000),
+            ("Cessna", 50_000_000, "https://i.imgur.com/K6NqT7J.jpg", 300),
+            ("Boeing 747", 300_000_000, "https://i.imgur.com/twZq4QN.jpg", 900),
+            ("Airbus A380", 400_000_000, "https://i.imgur.com/Yx2vN9M.jpg", 950),
+            ("F-16", 200_000_000, "https://i.imgur.com/Hk8fR5L.jpg", 1500),
+            ("Ту-154", 80_000_000, "https://i.imgur.com/Xc6vD4W.jpg", 700),
+            ("Ил-96", 250_000_000, "https://i.imgur.com/Vs3aN8P.jpg", 850)
         ]
         cursor.executemany('''
             INSERT INTO shop_planes (name, price, photo_url, speed)
             VALUES (?, ?, ?, ?)
         ''', planes_data)
     
-    # Заполняем магазин домов
     cursor.execute('SELECT COUNT(*) FROM shop_houses')
     if cursor.fetchone()[0] == 0:
+        # ИСПРАВЛЕНО: правильные фото для домов
         houses_data = [
-            ("Свалка", 50_000_000, "https://iimg.su/i/EjWevF", 10),
-            ("Как у бабушки", 100_000_000, "https://iimg.su/i/AfRIlY", 20),
-            ("Тестная халупа", 200_000_000, "https://iimg.su/i/icWz0I", 30),
-            ("Домик", 500_000_000, "https://iimg.su/i/YiNOvU", 40),
-            ("Красивый дом", 1_000_000_000, "https://iimg.su/i/UtiAP3", 50),
-            ("Дом2", 2_000_000_000, "https://iimg.su/i/yxkgAD", 60),
-            ("Замок", 5_000_000_000, "https://iimg.su/i/3V4lup", 70),
-            ("Особняк", 10_000_000_000, "https://iimg.su/i/jthfeq", 80),
-            ("Мэрия", 20_000_000_000, "https://iimg.su/i/xVVHLe", 90)
+            ("Студия", 50_000_000, "https://i.imgur.com/Yq8nL2Z.jpg", 10),
+            ("Квартира", 100_000_000, "https://i.imgur.com/J7kM3XW.jpg", 20),
+            ("Таунхаус", 200_000_000, "https://i.imgur.com/Q4bP6RZ.jpg", 30),
+            ("Коттедж", 500_000_000, "https://i.imgur.com/H9pL2cY.jpg", 40),
+            ("Особняк", 1_000_000_000, "https://i.imgur.com/N6kR8qL.jpg", 50),
+            ("Вилла", 2_000_000_000, "https://i.imgur.com/T8vK3xM.jpg", 60),
+            ("Дворец", 5_000_000_000, "https://i.imgur.com/Z5wR2qH.jpg", 70),
+            ("Замок", 10_000_000_000, "https://i.imgur.com/W9nY6tF.jpg", 80),
+            ("Пентхаус", 20_000_000_000, "https://i.imgur.com/D4sR7vN.jpg", 90)
         ]
         cursor.executemany('''
             INSERT INTO shop_houses (name, price, photo_url, comfort)
             VALUES (?, ?, ?, ?)
         ''', houses_data)
     
-    # Обновляем business_data с фото
     businesses_data = [
         ("🥤 Киоск", 500_000, "🥤", 1_000, 2_000, 60, "https://th.bing.com/th/id/R.4634fab1300b0376abe417c30426a9b7?rik=xcaYMuQThvYHig&riu=http%3a%2f%2fidei-biz.com%2fwp-content%2fuploads%2f2015%2f04%2fkak-otkryt-kiosk.gif&ehk=Vgms8Tfzm6kKm5Me0BE8ByekknYG3Df%2fjHuMD3NjPGM%3d&risl=&pid=ImgRaw&r=0", "Маленький киоск с напитками и снеками"),
         ("🍔 Фастфуд", 5_000_000, "🍔", 2_500, 5_000, 60, "https://tse1.mm.bing.net/th/id/OIP.HEYen4QlXTiaZzGiYuutCQHaEc?cb=defcache2&defcache=1&rs=1&pid=ImgDetMain&o=7&rm=3", "Бургерная с быстрым обслуживанием"),
@@ -456,13 +440,6 @@ def init_db():
     conn.commit()
     conn.close()
     print("✅ База данных проверена/создана")
-    print("🏙️ Система городов активирована!")
-    print("👕 Магазин одежды загружен с 16 комплектами!")
-    print("🚗 Магазин машин загружен с 9 моделями!")
-    print("✈️ Магазин самолетов загружен с 9 моделями!")
-    print("🏠 Магазин домов загружен с 9 вариантами!")
-    print("🎰 Система рулетки активирована!")
-    print("🎮 Все 10 работ с уникальными мини-играми активированы!")
 
 # ========== ЗАГРУЗКА ДАННЫХ ИЗ БД ==========
 def load_admins_from_db():
@@ -909,7 +886,6 @@ def find_user_by_input(input_str):
 
 # ========== ФУНКЦИИ ДЛЯ ПРОВЕРКИ ПЕРЕЗАРЯДКИ ==========
 def check_cooldown(user_id, job_name):
-    """Проверяет перезарядку работы (7 секунд)"""
     key = f"{user_id}_{job_name}"
     if key in job_cooldowns:
         last_time = job_cooldowns[key]
@@ -919,7 +895,6 @@ def check_cooldown(user_id, job_name):
     return True, 0
 
 def set_cooldown(user_id, job_name):
-    """Устанавливает перезарядку"""
     key = f"{user_id}_{job_name}"
     job_cooldowns[key] = time.time()
 
@@ -958,14 +933,7 @@ def get_city_info(city_name):
     except:
         return None
 
-def get_shop_type_for_city(city_name):
-    city_info = get_city_info(city_name)
-    if city_info:
-        return city_info['shop_type']
-    return 'clothes'
-
 def calculate_travel_time(user_id, base_time):
-    """Рассчитывает время поездки с учетом транспорта"""
     car = get_user_car(user_id)
     plane = get_user_plane(user_id)
     
@@ -979,7 +947,6 @@ def calculate_travel_time(user_id, base_time):
         return base_time
 
 def start_travel(user_id, to_city, transport):
-    """Начинает поездку в другой город"""
     try:
         conn = get_db()
         cursor = conn.cursor()
@@ -1077,10 +1044,9 @@ def get_user_profile_photo(user_id):
     equipped = get_user_equipped_clothes(user_id)
     if equipped and equipped['photo_url']:
         return equipped['photo_url']
-    return "https://iimg.su/i/waxabI"
+    return "https://i.imgur.com/waxabI.jpg"
 
 def main_keyboard_for_city(user_id):
-    """Динамическая клавиатура главного меню на основе города игрока"""
     current_city = get_user_city(user_id)
     city_info = get_city_info(current_city)
     shop_type = city_info['shop_type'] if city_info else 'clothes'
@@ -1138,7 +1104,7 @@ def send_main_menu_with_profile(user_id, chat_id=None):
         reply_markup=main_keyboard_for_city(user_id)
     )
 
-# ========== НОВЫЕ ФУНКЦИИ ДЛЯ МАШИН ==========
+# ========== ФУНКЦИИ ДЛЯ МАШИН ==========
 
 def get_user_car(user_id):
     try:
@@ -1211,7 +1177,7 @@ def sell_car(user_id):
         print(f"Ошибка при продаже машины: {e}")
         return False, "❌ Ошибка при продаже"
 
-# ========== НОВЫЕ ФУНКЦИИ ДЛЯ САМОЛЕТОВ ==========
+# ========== ФУНКЦИИ ДЛЯ САМОЛЕТОВ ==========
 
 def get_user_plane(user_id):
     try:
@@ -1284,7 +1250,7 @@ def sell_plane(user_id):
         print(f"Ошибка при продаже самолета: {e}")
         return False, "❌ Ошибка при продаже"
 
-# ========== НОВЫЕ ФУНКЦИИ ДЛЯ ДОМОВ ==========
+# ========== ФУНКЦИИ ДЛЯ ДОМОВ ==========
 
 def get_user_house(user_id):
     try:
@@ -1357,10 +1323,9 @@ def sell_house(user_id):
         print(f"Ошибка при продаже дома: {e}")
         return False, "❌ Ошибка при продаже"
 
-# ========== НОВЫЕ ФУНКЦИИ ДЛЯ ШКАФА ==========
+# ========== ФУНКЦИИ ДЛЯ ШКАФА ==========
 
 def get_user_closet(user_id):
-    """Возвращает список одежды в шкафу (не надетой)"""
     try:
         conn = get_db()
         cursor = conn.cursor()
@@ -1410,7 +1375,6 @@ def buy_closet_slot(user_id):
         return False, "❌ Ошибка при покупке слота"
 
 def equip_clothes(user_id, user_clothes_id):
-    """Надевает одежду из шкафа"""
     try:
         conn = get_db()
         cursor = conn.cursor()
@@ -1430,7 +1394,6 @@ def equip_clothes(user_id, user_clothes_id):
         return False, "❌ Ошибка при надевании"
 
 def add_clothes_to_closet(user_id, clothes_id):
-    """Добавляет купленную одежду в шкаф, если есть место"""
     try:
         conn = get_db()
         cursor = conn.cursor()
@@ -1450,8 +1413,6 @@ def add_clothes_to_closet(user_id, clothes_id):
     except Exception as e:
         print(f"Ошибка добавления в шкаф: {e}")
         return False, "❌ Ошибка при добавлении в шкаф"
-
-# ========== ОБНОВЛЕННАЯ ФУНКЦИЯ ПОКУПКИ ОДЕЖДЫ ==========
 
 def buy_clothes(user_id, clothes_id):
     try:
@@ -1638,7 +1599,6 @@ def get_houses_navigation_keyboard(current_page, total_items, shop_type):
     return markup
 
 def get_closet_navigation_keyboard(clothes_list, current_page):
-    """Клавиатура для просмотра шкафа"""
     markup = types.InlineKeyboardMarkup(row_width=1)
     start_idx = current_page * 5
     end_idx = start_idx + 5
@@ -1662,7 +1622,6 @@ def get_closet_navigation_keyboard(clothes_list, current_page):
     return markup
 
 def get_business_buy_keyboard(business_name):
-    """Клавиатура для покупки бизнеса"""
     markup = types.InlineKeyboardMarkup(row_width=2)
     markup.add(
         types.InlineKeyboardButton("✅ Купить", callback_data=f"buy_business_{business_name}"),
@@ -1673,7 +1632,6 @@ def get_business_buy_keyboard(business_name):
 # ========== ФУНКЦИИ ДЛЯ РУЛЕТКИ ==========
 
 def parse_bet_amount(amount_str):
-    """Парсит сумму ставки с поддержкой к, кк, ккк, кккк"""
     amount_str = amount_str.lower().strip()
     
     multipliers = {
@@ -2541,7 +2499,6 @@ def send_top_to_chat(chat_id):
 
 # ========== КЛАВИАТУРЫ ==========
 def main_keyboard():
-    """Старая функция - оставлена для совместимости"""
     markup = types.ReplyKeyboardMarkup(row_width=2, resize_keyboard=True)
     markup.row(
         types.KeyboardButton("💼 Работы"),
@@ -2711,7 +2668,643 @@ def admin_help(message):
     
     bot.reply_to(message, help_text, parse_mode="Markdown")
 
-# ... [остальные админ команды остаются без изменений] ...
+# ========== АДМИН КОМАНДЫ УРОВЕНЬ 1 ==========
+
+@bot.message_handler(commands=['giveme'])
+def give_me_command(message):
+    user_id = message.from_user.id
+    
+    if not is_admin(user_id, 1):
+        bot.reply_to(message, "❌ Недостаточно прав!")
+        return
+    
+    try:
+        amount = int(message.text.split()[1])
+        if amount <= 0:
+            bot.reply_to(message, "❌ Сумма должна быть положительной!")
+            return
+        
+        if add_balance(user_id, amount):
+            new_balance = get_balance(user_id)
+            bot.reply_to(message, f"✅ Выдано себе: +{amount:,} {CURRENCY}\n💰 Новый баланс: {new_balance:,} {CURRENCY}")
+        else:
+            bot.reply_to(message, "❌ Ошибка при выдаче денег")
+    except (IndexError, ValueError):
+        bot.reply_to(message, "❌ Использование: /giveme [сумма]\nПример: /giveme 1000000")
+
+@bot.message_handler(commands=['addexpm'])
+def add_exp_me_command(message):
+    user_id = message.from_user.id
+    
+    if not is_admin(user_id, 1):
+        bot.reply_to(message, "❌ Недостаточно прав!")
+        return
+    
+    try:
+        amount = int(message.text.split()[1])
+        if amount <= 0:
+            bot.reply_to(message, "❌ Опыт должен быть положительным!")
+            return
+        
+        if add_exp(user_id, amount):
+            stats = get_user_stats(user_id)
+            bot.reply_to(message, f"✅ Выдано себе: +{amount}⭐ опыта\n⭐ Новый опыт: {stats[0]}")
+        else:
+            bot.reply_to(message, "❌ Ошибка при выдаче опыта")
+    except (IndexError, ValueError):
+        bot.reply_to(message, "❌ Использование: /addexpm [количество]\nПример: /addexpm 100")
+
+# ========== АДМИН КОМАНДЫ УРОВЕНЬ 2 ==========
+
+@bot.message_handler(commands=['give'])
+def give_command(message):
+    admin_id = message.from_user.id
+    
+    if not is_admin(admin_id, 2):
+        bot.reply_to(message, "❌ Недостаточно прав!")
+        return
+    
+    try:
+        parts = message.text.split()
+        if len(parts) != 3:
+            bot.reply_to(message, "❌ Использование: /give [@user или ник] [сумма]")
+            return
+        
+        target_input = parts[1]
+        amount = int(parts[2])
+        
+        if amount <= 0:
+            bot.reply_to(message, "❌ Сумма должна быть положительной!")
+            return
+        
+        target_user = find_user_by_input(target_input)
+        if not target_user:
+            bot.reply_to(message, "❌ Пользователь не найден!")
+            return
+        
+        target_id = target_user[0]
+        
+        if add_balance(target_id, amount):
+            new_balance = get_balance(target_id)
+            display_name = get_user_display_name(target_user)
+            bot.reply_to(message, f"✅ Выдано {display_name}: +{amount:,} {CURRENCY}\n💰 Новый баланс: {new_balance:,} {CURRENCY}")
+            
+            try:
+                bot.send_message(target_id, f"👑 Админ выдал вам {amount:,} {CURRENCY}!")
+            except:
+                pass
+        else:
+            bot.reply_to(message, "❌ Ошибка при выдаче денег")
+    except ValueError:
+        bot.reply_to(message, "❌ Сумма должна быть числом!")
+    except Exception as e:
+        bot.reply_to(message, f"❌ Ошибка: {e}")
+
+@bot.message_handler(commands=['addexp'])
+def add_exp_command(message):
+    admin_id = message.from_user.id
+    
+    if not is_admin(admin_id, 2):
+        bot.reply_to(message, "❌ Недостаточно прав!")
+        return
+    
+    try:
+        parts = message.text.split()
+        if len(parts) != 3:
+            bot.reply_to(message, "❌ Использование: /addexp [@user или ник] [количество]")
+            return
+        
+        target_input = parts[1]
+        amount = int(parts[2])
+        
+        if amount <= 0:
+            bot.reply_to(message, "❌ Опыт должен быть положительным!")
+            return
+        
+        target_user = find_user_by_input(target_input)
+        if not target_user:
+            bot.reply_to(message, "❌ Пользователь не найден!")
+            return
+        
+        target_id = target_user[0]
+        
+        if add_exp(target_id, amount):
+            stats = get_user_stats(target_id)
+            display_name = get_user_display_name(target_user)
+            bot.reply_to(message, f"✅ Выдано {display_name}: +{amount}⭐ опыта\n⭐ Новый опыт: {stats[0]}")
+            
+            try:
+                bot.send_message(target_id, f"👑 Админ выдал вам {amount}⭐ опыта!")
+            except:
+                pass
+        else:
+            bot.reply_to(message, "❌ Ошибка при выдаче опыта")
+    except ValueError:
+        bot.reply_to(message, "❌ Опыт должен быть числом!")
+    except Exception as e:
+        bot.reply_to(message, f"❌ Ошибка: {e}")
+
+@bot.message_handler(commands=['profile'])
+def profile_command(message):
+    admin_id = message.from_user.id
+    
+    if not is_admin(admin_id, 2):
+        bot.reply_to(message, "❌ Недостаточно прав!")
+        return
+    
+    try:
+        parts = message.text.split()
+        if len(parts) != 2:
+            bot.reply_to(message, "❌ Использование: /profile [@user или ник]")
+            return
+        
+        target_input = parts[1]
+        target_user = find_user_by_input(target_input)
+        
+        if not target_user:
+            bot.reply_to(message, "❌ Пользователь не найден!")
+            return
+        
+        send_profile_to_chat(message.chat.id, admin_id, target_user[0])
+    except Exception as e:
+        bot.reply_to(message, f"❌ Ошибка: {e}")
+
+@bot.message_handler(commands=['giveskin'])
+def give_skin_command(message):
+    admin_id = message.from_user.id
+    
+    if not is_admin(admin_id, 2):
+        bot.reply_to(message, "❌ Недостаточно прав!")
+        return
+    
+    try:
+        parts = message.text.split(maxsplit=2)
+        if len(parts) != 3:
+            bot.reply_to(message, "❌ Использование: /giveskin [@user или ник] [название]")
+            return
+        
+        target_input = parts[1]
+        skin_name = parts[2].strip()
+        
+        target_user = find_user_by_input(target_input)
+        if not target_user:
+            bot.reply_to(message, "❌ Пользователь не найден!")
+            return
+        
+        target_id = target_user[0]
+        
+        conn = get_db()
+        cursor = conn.cursor()
+        clothes = cursor.execute('SELECT * FROM shop_clothes WHERE name = ?', (skin_name,)).fetchone()
+        
+        if not clothes:
+            conn.close()
+            bot.reply_to(message, f"❌ Скин '{skin_name}' не найден!")
+            return
+        
+        existing = cursor.execute('SELECT id FROM user_clothes WHERE user_id = ? AND clothes_id = ?', 
+                                 (target_id, clothes['id'])).fetchone()
+        if existing:
+            conn.close()
+            bot.reply_to(message, "❌ У пользователя уже есть этот скин!")
+            return
+        
+        cursor.execute('INSERT INTO user_clothes (user_id, clothes_id, equipped) VALUES (?, ?, 0)', 
+                      (target_id, clothes['id'], 0))
+        conn.commit()
+        conn.close()
+        
+        display_name = get_user_display_name(target_user)
+        bot.reply_to(message, f"✅ Выдано {display_name}: скин '{skin_name}'!")
+        
+        try:
+            bot.send_message(target_id, f"👑 Админ выдал вам скин '{skin_name}'!")
+        except:
+            pass
+            
+    except Exception as e:
+        bot.reply_to(message, f"❌ Ошибка: {e}")
+
+# ========== АДМИН КОМАНДЫ УРОВЕНЬ 3 ==========
+
+@bot.message_handler(commands=['addadmin'])
+def add_admin_command(message):
+    admin_id = message.from_user.id
+    
+    if not is_admin(admin_id, 3):
+        bot.reply_to(message, "❌ Недостаточно прав!")
+        return
+    
+    try:
+        parts = message.text.split()
+        if len(parts) != 3:
+            bot.reply_to(message, "❌ Использование: /addadmin [@user или ник] [уровень]")
+            return
+        
+        target_input = parts[1]
+        level = int(parts[2])
+        
+        if level < 1 or level > 4:
+            bot.reply_to(message, "❌ Уровень должен быть от 1 до 4!")
+            return
+        
+        target_user = find_user_by_input(target_input)
+        if not target_user:
+            bot.reply_to(message, "❌ Пользователь не найден!")
+            return
+        
+        target_id = target_user[0]
+        success, msg = add_admin(target_id, level)
+        bot.reply_to(message, msg)
+        
+        if success:
+            try:
+                bot.send_message(target_id, f"👑 Вас назначили администратором {level} уровня!")
+            except:
+                pass
+    except ValueError:
+        bot.reply_to(message, "❌ Уровень должен быть числом!")
+    except Exception as e:
+        bot.reply_to(message, f"❌ Ошибка: {e}")
+
+@bot.message_handler(commands=['adminlist'])
+def admin_list_command(message):
+    admin_id = message.from_user.id
+    
+    if not is_admin(admin_id, 3):
+        bot.reply_to(message, "❌ Недостаточно прав!")
+        return
+    
+    try:
+        conn = get_db()
+        cursor = conn.cursor()
+        admins = cursor.execute('SELECT user_id, level FROM admins ORDER BY level DESC').fetchall()
+        conn.close()
+        
+        if not admins:
+            bot.reply_to(message, "📋 Список админов пуст")
+            return
+        
+        msg = "👑 **СПИСОК АДМИНИСТРАТОРОВ**\n\n"
+        for admin in admins:
+            user_data = get_user_profile(admin['user_id'])
+            if user_data:
+                display_name = get_user_display_name(user_data)
+                msg += f"• {display_name} - уровень {admin['level']}\n"
+            else:
+                msg += f"• ID: {admin['user_id']} - уровень {admin['level']}\n"
+        
+        bot.reply_to(message, msg, parse_mode="Markdown")
+    except Exception as e:
+        bot.reply_to(message, f"❌ Ошибка: {e}")
+
+@bot.message_handler(commands=['reset'])
+def reset_account_command(message):
+    admin_id = message.from_user.id
+    
+    if not is_admin(admin_id, 3):
+        bot.reply_to(message, "❌ Недостаточно прав!")
+        return
+    
+    try:
+        parts = message.text.split()
+        if len(parts) != 2:
+            bot.reply_to(message, "❌ Использование: /reset [@user или ник]")
+            return
+        
+        target_input = parts[1]
+        target_user = find_user_by_input(target_input)
+        
+        if not target_user:
+            bot.reply_to(message, "❌ Пользователь не найден!")
+            return
+        
+        target_id = target_user[0]
+        display_name = get_user_display_name(target_user)
+        
+        conn = get_db()
+        cursor = conn.cursor()
+        cursor.execute('''
+            UPDATE users 
+            SET balance = 0, exp = 0, level = 1, work_count = 0, total_earned = 0,
+                custom_name = NULL, equipped_clothes = NULL
+            WHERE user_id = ?
+        ''', (target_id,))
+        
+        cursor.execute('DELETE FROM businesses WHERE user_id = ?', (target_id,))
+        cursor.execute('DELETE FROM deliveries WHERE user_id = ?', (target_id,))
+        cursor.execute('DELETE FROM user_cars WHERE user_id = ?', (target_id,))
+        cursor.execute('UPDATE users SET has_car = 0 WHERE user_id = ?', (target_id,))
+        cursor.execute('DELETE FROM user_planes WHERE user_id = ?', (target_id,))
+        cursor.execute('UPDATE users SET has_plane = 0 WHERE user_id = ?', (target_id,))
+        cursor.execute('DELETE FROM user_clothes WHERE user_id = ?', (target_id,))
+        cursor.execute('''
+            UPDATE users SET owned_house_id = NULL, house_purchase_price = 0, 
+                house_purchase_city = NULL, has_house = 0
+            WHERE user_id = ?
+        ''', (target_id,))
+        
+        conn.commit()
+        conn.close()
+        
+        bot.reply_to(message, f"✅ Аккаунт {display_name} сброшен!")
+        
+        try:
+            bot.send_message(target_id, "⚠️ Ваш аккаунт был сброшен администратором!")
+        except:
+            pass
+            
+    except Exception as e:
+        bot.reply_to(message, f"❌ Ошибка: {e}")
+
+@bot.message_handler(commands=['wipe'])
+def wipe_account_command(message):
+    admin_id = message.from_user.id
+    
+    if not is_admin(admin_id, 3):
+        bot.reply_to(message, "❌ Недостаточно прав!")
+        return
+    
+    try:
+        parts = message.text.split()
+        if len(parts) != 2:
+            bot.reply_to(message, "❌ Использование: /wipe [@user или ник]")
+            return
+        
+        target_input = parts[1]
+        target_user = find_user_by_input(target_input)
+        
+        if not target_user:
+            bot.reply_to(message, "❌ Пользователь не найден!")
+            return
+        
+        target_id = target_user[0]
+        display_name = get_user_display_name(target_user)
+        
+        conn = get_db()
+        cursor = conn.cursor()
+        cursor.execute('''
+            UPDATE users 
+            SET balance = 0, exp = 0, level = 1, work_count = 0, total_earned = 0
+            WHERE user_id = ?
+        ''', (target_id,))
+        conn.commit()
+        conn.close()
+        
+        bot.reply_to(message, f"✅ У {display_name} стерты баланс и опыт!")
+        
+        try:
+            bot.send_message(target_id, "⚠️ Ваш баланс и опыт были стерты администратором!")
+        except:
+            pass
+            
+    except Exception as e:
+        bot.reply_to(message, f"❌ Ошибка: {e}")
+
+# ========== АДМИН КОМАНДЫ УРОВЕНЬ 4 ==========
+
+@bot.message_handler(commands=['removeadmin'])
+def remove_admin_command(message):
+    admin_id = message.from_user.id
+    
+    if not is_admin(admin_id, 4):
+        bot.reply_to(message, "❌ Недостаточно прав!")
+        return
+    
+    try:
+        parts = message.text.split()
+        if len(parts) != 2:
+            bot.reply_to(message, "❌ Использование: /removeadmin [@user или ник]")
+            return
+        
+        target_input = parts[1]
+        target_user = find_user_by_input(target_input)
+        
+        if not target_user:
+            bot.reply_to(message, "❌ Пользователь не найден!")
+            return
+        
+        target_id = target_user[0]
+        
+        if target_id == admin_id:
+            bot.reply_to(message, "❌ Нельзя снять админа с самого себя!")
+            return
+        
+        if remove_admin(target_id):
+            display_name = get_user_display_name(target_user)
+            bot.reply_to(message, f"✅ {display_name} больше не админ!")
+            
+            try:
+                bot.send_message(target_id, "👑 Вы лишены прав администратора!")
+            except:
+                pass
+        else:
+            bot.reply_to(message, "❌ Ошибка при снятии админа")
+            
+    except Exception as e:
+        bot.reply_to(message, f"❌ Ошибка: {e}")
+
+@bot.message_handler(commands=['setadminlevel'])
+def set_admin_level_command(message):
+    admin_id = message.from_user.id
+    
+    if not is_admin(admin_id, 4):
+        bot.reply_to(message, "❌ Недостаточно прав!")
+        return
+    
+    try:
+        parts = message.text.split()
+        if len(parts) != 3:
+            bot.reply_to(message, "❌ Использование: /setadminlevel [@user или ник] [уровень]")
+            return
+        
+        target_input = parts[1]
+        level = int(parts[2])
+        
+        if level < 1 or level > 4:
+            bot.reply_to(message, "❌ Уровень должен быть от 1 до 4!")
+            return
+        
+        target_user = find_user_by_input(target_input)
+        if not target_user:
+            bot.reply_to(message, "❌ Пользователь не найден!")
+            return
+        
+        target_id = target_user[0]
+        
+        if get_admin_level(target_id) == 0:
+            bot.reply_to(message, "❌ Пользователь не является админом! Используйте /addadmin")
+            return
+        
+        if set_admin_level(target_id, level):
+            display_name = get_user_display_name(target_user)
+            bot.reply_to(message, f"✅ Уровень {display_name} изменен на {level}")
+            
+            try:
+                bot.send_message(target_id, f"👑 Ваш уровень администратора изменен на {level}!")
+            except:
+                pass
+        else:
+            bot.reply_to(message, "❌ Ошибка при изменении уровня")
+            
+    except ValueError:
+        bot.reply_to(message, "❌ Уровень должен быть числом!")
+    except Exception as e:
+        bot.reply_to(message, f"❌ Ошибка: {e}")
+
+@bot.message_handler(commands=['ban'])
+def ban_command(message):
+    admin_id = message.from_user.id
+    
+    if not is_admin(admin_id, 4):
+        bot.reply_to(message, "❌ Недостаточно прав!")
+        return
+    
+    try:
+        parts = message.text.split()
+        if len(parts) != 3:
+            bot.reply_to(message, "❌ Использование: /ban [@user или ник] [часы]\nПример: /ban @user 24 (0 = навсегда)")
+            return
+        
+        target_input = parts[1]
+        hours = int(parts[2])
+        
+        if hours < 0:
+            bot.reply_to(message, "❌ Часы должны быть >= 0!")
+            return
+        
+        target_user = find_user_by_input(target_input)
+        if not target_user:
+            bot.reply_to(message, "❌ Пользователь не найден!")
+            return
+        
+        target_id = target_user[0]
+        display_name = get_user_display_name(target_user)
+        
+        if add_ban(target_id, hours, f"banned by admin {admin_id}"):
+            if hours == 0:
+                ban_text = "навсегда"
+            else:
+                ban_text = f"на {hours} ч."
+            
+            bot.reply_to(message, f"🔨 {display_name} забанен {ban_text}!")
+            
+            try:
+                if hours == 0:
+                    bot.send_message(target_id, "🔨 Вы забанены навсегда!")
+                else:
+                    until = datetime.now() + timedelta(hours=hours)
+                    bot.send_message(target_id, f"🔨 Вы забанены до {until.strftime('%d.%m.%Y %H:%M')}")
+            except:
+                pass
+        else:
+            bot.reply_to(message, "❌ Ошибка при бане")
+            
+    except ValueError:
+        bot.reply_to(message, "❌ Часы должны быть числом!")
+    except Exception as e:
+        bot.reply_to(message, f"❌ Ошибка: {e}")
+
+@bot.message_handler(commands=['unban'])
+def unban_command(message):
+    admin_id = message.from_user.id
+    
+    if not is_admin(admin_id, 4):
+        bot.reply_to(message, "❌ Недостаточно прав!")
+        return
+    
+    try:
+        parts = message.text.split()
+        if len(parts) != 2:
+            bot.reply_to(message, "❌ Использование: /unban [@user или ник]")
+            return
+        
+        target_input = parts[1]
+        target_user = find_user_by_input(target_input)
+        
+        if not target_user:
+            bot.reply_to(message, "❌ Пользователь не найден!")
+            return
+        
+        target_id = target_user[0]
+        display_name = get_user_display_name(target_user)
+        
+        if remove_ban(target_id):
+            bot.reply_to(message, f"✅ {display_name} разбанен!")
+            
+            try:
+                bot.send_message(target_id, "✅ Вы разбанены!")
+            except:
+                pass
+        else:
+            bot.reply_to(message, "❌ Ошибка при разбане или пользователь не был забанен")
+            
+    except Exception as e:
+        bot.reply_to(message, f"❌ Ошибка: {e}")
+
+@bot.message_handler(commands=['warn'])
+def warn_command(message):
+    admin_id = message.from_user.id
+    
+    if not is_admin(admin_id, 4):
+        bot.reply_to(message, "❌ Недостаточно прав!")
+        return
+    
+    try:
+        parts = message.text.split()
+        if len(parts) != 2:
+            bot.reply_to(message, "❌ Использование: /warn [@user или ник]")
+            return
+        
+        target_input = parts[1]
+        target_user = find_user_by_input(target_input)
+        
+        if not target_user:
+            bot.reply_to(message, "❌ Пользователь не найден!")
+            return
+        
+        target_id = target_user[0]
+        display_name = get_user_display_name(target_user)
+        
+        banned, msg = add_warn(target_id)
+        bot.reply_to(message, f"⚠️ {display_name}: {msg}")
+        
+        try:
+            bot.send_message(target_id, f"⚠️ Администратор выдал вам предупреждение!\n{msg}")
+        except:
+            pass
+            
+    except Exception as e:
+        bot.reply_to(message, f"❌ Ошибка: {e}")
+
+@bot.message_handler(commands=['warns'])
+def warns_command(message):
+    admin_id = message.from_user.id
+    
+    if not is_admin(admin_id, 4):
+        bot.reply_to(message, "❌ Недостаточно прав!")
+        return
+    
+    try:
+        parts = message.text.split()
+        if len(parts) != 2:
+            bot.reply_to(message, "❌ Использование: /warns [@user или ник]")
+            return
+        
+        target_input = parts[1]
+        target_user = find_user_by_input(target_input)
+        
+        if not target_user:
+            bot.reply_to(message, "❌ Пользователь не найден!")
+            return
+        
+        warns = get_warns(target_user[0])
+        display_name = get_user_display_name(target_user)
+        
+        bot.reply_to(message, f"⚠️ {display_name} имеет {warns}/{MAX_WARNS} предупреждений")
+            
+    except Exception as e:
+        bot.reply_to(message, f"❌ Ошибка: {e}")
 
 # ========== ТОП ==========
 @bot.message_handler(commands=['top'])
@@ -3139,7 +3732,6 @@ def callback_handler(call):
     
     data = call.data
     
-    # ТОП
     if data == "top_money":
         bot.delete_message(user_id, call.message.message_id)
         send_top_by_type(user_id, "money")
@@ -3152,10 +3744,311 @@ def callback_handler(call):
         bot.answer_callback_query(call.id)
         return
     
-    # ===== МИНИ-ИГРЫ =====
-    # ... [все обработчики мини-игр остаются без изменений] ...
+    # МИНИ-ИГРЫ
+    elif data.startswith("loader_"):
+        box_num = int(data.split("_")[1])
+        result = check_loader_click(user_id, box_num)
+        
+        if result and result.get('win'):
+            # ИГРОК ВЫИГРАЛ
+            job_info = get_available_jobs(user_id)[0]  # Упрощенно, в реальности нужно определять работу
+            reward = random.randint(job_info[2], job_info[3])
+            exp_reward = job_info[4]
+            
+            add_balance(user_id, reward)
+            add_exp(user_id, exp_reward)
+            set_cooldown(user_id, job_info[0])
+            
+            bot.edit_message_text(
+                f"🎉 **ПОБЕДА!**\n\n"
+                f"⏱️ Время: {result['time']:.1f} сек\n"
+                f"💯 Точность: 100%\n\n"
+                f"💰 Заработано: +{reward} {CURRENCY}\n"
+                f"⭐ Опыт: +{exp_reward}",
+                user_id,
+                call.message.message_id
+            )
+        elif result:
+            bot.answer_callback_query(call.id, f"📦 Собрано: {result['collected']}/{result['total']}")
+        else:
+            bot.answer_callback_query(call.id, "❌ Игра не найдена")
     
-    # ===== МАГАЗИН ОДЕЖДЫ =====
+    elif data.startswith("cleaner_"):
+        pos = int(data.split("_")[1])
+        result = check_cleaner_click(user_id, pos)
+        
+        if result and result.get('win'):
+            job_info = get_available_jobs(user_id)[1]
+            reward = random.randint(job_info[2], job_info[3])
+            exp_reward = job_info[4]
+            
+            add_balance(user_id, reward)
+            add_exp(user_id, exp_reward)
+            set_cooldown(user_id, job_info[0])
+            
+            bot.edit_message_text(
+                f"🎉 **ПОБЕДА!**\n\n"
+                f"⏱️ Время: {result['time']:.1f} сек\n"
+                f"💯 Точность: 100%\n\n"
+                f"💰 Заработано: +{reward} {CURRENCY}\n"
+                f"⭐ Опыт: +{exp_reward}",
+                user_id,
+                call.message.message_id
+            )
+        elif result:
+            bot.answer_callback_query(call.id, f"🧹 Убрано: {result['collected']}/{result['total']}")
+        else:
+            bot.answer_callback_query(call.id, "❌ Игра не найдена")
+    
+    elif data.startswith("courier_"):
+        parts = data.split("_")
+        is_correct = parts[1]
+        route_time = int(parts[2])
+        result = check_courier_choice(user_id, is_correct, route_time)
+        
+        if result and result.get('win'):
+            job_info = get_available_jobs(user_id)[2]
+            reward = random.randint(job_info[2], job_info[3])
+            exp_reward = job_info[4]
+            
+            add_balance(user_id, reward)
+            add_exp(user_id, exp_reward)
+            set_cooldown(user_id, job_info[0])
+            
+            bot.edit_message_text(
+                f"🎉 **ПОБЕДА!**\n\n"
+                f"⏱️ Время: {result['time']:.1f} сек\n"
+                f"✅ Правильный выбор!\n\n"
+                f"💰 Заработано: +{reward} {CURRENCY}\n"
+                f"⭐ Опыт: +{exp_reward}",
+                user_id,
+                call.message.message_id
+            )
+        else:
+            bot.edit_message_text(
+                f"😔 **ПРОИГРЫШ**\n\n"
+                f"⏱️ Время: {result['time']:.1f} сек\n"
+                f"❌ Неправильный выбор маршрута!",
+                user_id,
+                call.message.message_id
+            )
+    
+    elif data.startswith("mechanic_"):
+        parts = data.split("_")
+        index = int(parts[1])
+        part = int(parts[2])
+        result = check_mechanic_click(user_id, index, part)
+        
+        if result and result.get('win'):
+            job_info = get_available_jobs(user_id)[3]
+            reward = random.randint(job_info[2], job_info[3])
+            exp_reward = job_info[4]
+            
+            add_balance(user_id, reward)
+            add_exp(user_id, exp_reward)
+            set_cooldown(user_id, job_info[0])
+            
+            bot.edit_message_text(
+                f"🎉 **ПОБЕДА!**\n\n"
+                f"⏱️ Время: {result['time']:.1f} сек\n"
+                f"🔧 Механизм собран!\n\n"
+                f"💰 Заработано: +{reward} {CURRENCY}\n"
+                f"⭐ Опыт: +{exp_reward}",
+                user_id,
+                call.message.message_id
+            )
+        elif result and 'progress' in result:
+            bot.answer_callback_query(call.id, f"🔧 Собрано: {result['progress']}/4")
+        else:
+            bot.answer_callback_query(call.id, "❌ Неправильная деталь!")
+    
+    elif data.startswith("programmer_"):
+        is_correct = data.split("_")[1]
+        result = check_programmer_choice(user_id, is_correct)
+        
+        if result and result.get('win'):
+            job_info = get_available_jobs(user_id)[4]
+            reward = random.randint(job_info[2], job_info[3])
+            exp_reward = job_info[4]
+            
+            add_balance(user_id, reward)
+            add_exp(user_id, exp_reward)
+            set_cooldown(user_id, job_info[0])
+            
+            bot.edit_message_text(
+                f"🎉 **ПОБЕДА!**\n\n"
+                f"⏱️ Время: {result['time']:.1f} сек\n"
+                f"💻 Баг найден!\n\n"
+                f"💰 Заработано: +{reward} {CURRENCY}\n"
+                f"⭐ Опыт: +{exp_reward}",
+                user_id,
+                call.message.message_id
+            )
+        else:
+            bot.edit_message_text(
+                f"😔 **ПРОИГРЫШ**\n\n"
+                f"⏱️ Время: {result['time']:.1f} сек\n"
+                f"❌ Баг не найден!",
+                user_id,
+                call.message.message_id
+            )
+    
+    elif data.startswith("detective_"):
+        is_correct = data.split("_")[1]
+        result = check_detective_choice(user_id, is_correct)
+        
+        if result and result.get('win'):
+            job_info = get_available_jobs(user_id)[5]
+            reward = random.randint(job_info[2], job_info[3])
+            exp_reward = job_info[4]
+            
+            add_balance(user_id, reward)
+            add_exp(user_id, exp_reward)
+            set_cooldown(user_id, job_info[0])
+            
+            bot.edit_message_text(
+                f"🎉 **ПОБЕДА!**\n\n"
+                f"⏱️ Время: {result['time']:.1f} сек\n"
+                f"🕵️ Преступник найден!\n\n"
+                f"💰 Заработано: +{reward} {CURRENCY}\n"
+                f"⭐ Опыт: +{exp_reward}",
+                user_id,
+                call.message.message_id
+            )
+        else:
+            bot.edit_message_text(
+                f"😔 **ПРОИГРЫШ**\n\n"
+                f"⏱️ Время: {result['time']:.1f} сек\n"
+                f"❌ Преступник ушел!",
+                user_id,
+                call.message.message_id
+            )
+    
+    elif data.startswith("engineer_"):
+        color = data.split("_")[1]
+        result = check_engineer_click(user_id, color)
+        
+        if result and result.get('win'):
+            job_info = get_available_jobs(user_id)[6]
+            reward = random.randint(job_info[2], job_info[3])
+            exp_reward = job_info[4]
+            
+            add_balance(user_id, reward)
+            add_exp(user_id, exp_reward)
+            set_cooldown(user_id, job_info[0])
+            
+            bot.edit_message_text(
+                f"🎉 **ПОБЕДА!**\n\n"
+                f"⏱️ Время: {result['time']:.1f} сек\n"
+                f"👨‍🔧 Схема собрана!\n\n"
+                f"💰 Заработано: +{reward} {CURRENCY}\n"
+                f"⭐ Опыт: +{exp_reward}",
+                user_id,
+                call.message.message_id
+            )
+        elif result and result.get('memorize'):
+            bot.answer_callback_query(call.id, "⏳ Подожди 5 секунд для запоминания!")
+        elif result and 'progress' in result:
+            bot.answer_callback_query(call.id, f"🎯 Прогресс: {result['progress']}/{result['total']}")
+        else:
+            bot.answer_callback_query(call.id, "❌ Игра не найдена")
+    
+    elif data.startswith("doctor_"):
+        parts = data.split("_")
+        is_correct = parts[1]
+        time_limit = int(parts[2])
+        result = check_doctor_choice(user_id, is_correct, time_limit)
+        
+        if result and result.get('win'):
+            job_info = get_available_jobs(user_id)[7]
+            reward = random.randint(job_info[2], job_info[3])
+            exp_reward = job_info[4]
+            
+            add_balance(user_id, reward)
+            add_exp(user_id, exp_reward)
+            set_cooldown(user_id, job_info[0])
+            
+            bot.edit_message_text(
+                f"🎉 **ПОБЕДА!**\n\n"
+                f"⏱️ Время: {result['time']:.1f} сек\n"
+                f"👨‍⚕️ Пациент спасен!\n\n"
+                f"💰 Заработано: +{reward} {CURRENCY}\n"
+                f"⭐ Опыт: +{exp_reward}",
+                user_id,
+                call.message.message_id
+            )
+        else:
+            bot.edit_message_text(
+                f"😔 **ПРОИГРЫШ**\n\n"
+                f"⏱️ Время: {result['time']:.1f} сек\n"
+                f"❌ Пациент не выжил...",
+                user_id,
+                call.message.message_id
+            )
+    
+    elif data.startswith("artist_"):
+        is_correct = data.split("_")[1]
+        result = check_artist_choice(user_id, is_correct)
+        
+        if result and result.get('win'):
+            job_info = get_available_jobs(user_id)[8]
+            reward = random.randint(job_info[2], job_info[3])
+            exp_reward = job_info[4]
+            
+            add_balance(user_id, reward)
+            add_exp(user_id, exp_reward)
+            set_cooldown(user_id, job_info[0])
+            
+            bot.edit_message_text(
+                f"🎉 **ПОБЕДА!**\n\n"
+                f"⏱️ Время: {result['time']:.1f} сек\n"
+                f"👨‍🎤 Песня угадана!\n\n"
+                f"💰 Заработано: +{reward} {CURRENCY}\n"
+                f"⭐ Опыт: +{exp_reward}",
+                user_id,
+                call.message.message_id
+            )
+        else:
+            bot.edit_message_text(
+                f"😔 **ПРОИГРЫШ**\n\n"
+                f"⏱️ Время: {result['time']:.1f} сек\n"
+                f"❌ Неправильная песня!",
+                user_id,
+                call.message.message_id
+            )
+    
+    elif data.startswith("cosmo_"):
+        if data == "cosmo_up" or data == "cosmo_down" or data == "cosmo_left" or data == "cosmo_right":
+            direction = data.split("_")[1]
+            result = check_cosmonaut_move(user_id, direction)
+            
+            if result and result.get('win'):
+                job_info = get_available_jobs(user_id)[9]
+                reward = random.randint(job_info[2], job_info[3])
+                exp_reward = job_info[4]
+                
+                add_balance(user_id, reward)
+                add_exp(user_id, exp_reward)
+                set_cooldown(user_id, job_info[0])
+                
+                bot.edit_message_text(
+                    f"🎉 **ПОБЕДА!**\n\n"
+                    f"⏱️ Время: {result['time']:.1f} сек\n"
+                    f"👨‍🚀 Миссия выполнена!\n\n"
+                    f"💰 Заработано: +{reward} {CURRENCY}\n"
+                    f"⭐ Опыт: +{exp_reward}",
+                    user_id,
+                    call.message.message_id
+                )
+            elif result and result.get('invalid'):
+                bot.answer_callback_query(call.id, "🚫 Нельзя выйти за границы!")
+            elif result and result.get('moved'):
+                bot.edit_message_reply_markup(user_id, call.message.message_id, reply_markup=result['markup'])
+                bot.answer_callback_query(call.id, f"⛽ Собрано: {result['collected']}/{result['total']}")
+        else:
+            bot.answer_callback_query(call.id, " ")
+    
+    # МАГАЗИН ОДЕЖДЫ
     elif data.startswith("shop_page_"):
         page = int(data.split("_")[2])
         clothes, current_page, total = get_clothes_page(page)
@@ -3237,7 +4130,7 @@ def callback_handler(call):
                 bot.answer_callback_query(call.id, message_text, show_alert=True)
         return
     
-    # ===== МАГАЗИН МАШИН =====
+    # МАГАЗИН МАШИН
     elif data.startswith("cars_page_"):
         page = int(data.split("_")[2])
         car, current_page, total = get_cars_page(page)
@@ -3290,7 +4183,7 @@ def callback_handler(call):
                 bot.answer_callback_query(call.id, message_text, show_alert=True)
         return
     
-    # ===== МАГАЗИН САМОЛЕТОВ =====
+    # МАГАЗИН САМОЛЕТОВ
     elif data.startswith("planes_page_"):
         page = int(data.split("_")[2])
         plane, current_page, total = get_planes_page(page)
@@ -3343,7 +4236,7 @@ def callback_handler(call):
                 bot.answer_callback_query(call.id, message_text, show_alert=True)
         return
     
-    # ===== МАГАЗИН ДОМОВ =====
+    # МАГАЗИН ДОМОВ
     elif data.startswith("houses_page_"):
         page = int(data.split("_")[2])
         house, current_page, total = get_houses_page(page)
@@ -3393,7 +4286,7 @@ def callback_handler(call):
                 bot.answer_callback_query(call.id, message_text, show_alert=True)
         return
     
-    # ===== ШКАФ =====
+    # ШКАФ
     elif data.startswith("closet_page_"):
         page = int(data.split("_")[2])
         clothes = get_user_closet(user_id)
@@ -3443,7 +4336,7 @@ def callback_handler(call):
         bot.answer_callback_query(call.id)
         return
     
-    # ===== ПОКУПКА БИЗНЕСА =====
+    # ПОКУПКА БИЗНЕСА
     elif data.startswith("buy_business_"):
         business_name = data.replace("buy_business_", "")
         
@@ -3537,14 +4430,12 @@ def handle(message):
             )
             return
     
-    # ГЛАВНОЕ МЕНЮ
     if text == "💼 Работы":
         bot.send_message(user_id, "🔨 Выбери работу:", reply_markup=jobs_keyboard(user_id))
     
     elif text == "🏭 Бизнесы":
         bot.send_message(user_id, "🏪 Управление бизнесом:", reply_markup=businesses_main_keyboard())
     
-    # ===== УНИВЕРСАЛЬНЫЙ ОБРАБОТЧИК МАГАЗИНА =====
     elif text in ["👕 Магазин одежды", "🚗 Магазин машин", "✈️ Магазин самолетов", "🏠 Магазин домов"]:
         current_city = get_user_city(user_id)
         city_info = get_city_info(current_city)
@@ -3555,7 +4446,6 @@ def handle(message):
         
         shop_type = city_info['shop_type']
         
-        # ===== ПОКАЗ МАГАЗИНА В ЗАВИСИМОСТИ ОТ ТИПА =====
         if shop_type == 'clothes':
             clothes, current_page, total = get_clothes_page(0)
             if clothes:
@@ -3604,7 +4494,7 @@ def handle(message):
             planes, current_page, total = get_planes_page(0)
             if planes:
                 user_plane = get_user_plane(user_id)
-                caption = (f"✈️ *{planes['name']}*\n\n"
+                caption = (f"✈️ *{planes['name']}*\n\n
                           f"💰 Цена: {planes['price']:,} {CURRENCY}\n"
                           f"⚡ Скорость: {planes['speed']} км/ч\n\n"
                           f"🛍️ Всего самолетов: {total}")
@@ -3760,7 +4650,6 @@ def handle(message):
         else:
             bot.send_message(user_id, "❌ Ошибка загрузки профиля")
     
-    # ГОРОДА
     elif text in ["🏙️ Москва", "🏙️ Село Молочное", "🏙️ Кропоткин", "🏙️ Мурино"]:
         city_name = text.replace("🏙️ ", "")
         current_city = get_user_city(user_id)
@@ -3782,7 +4671,6 @@ def handle(message):
             )
             bot.register_next_step_handler(message, process_travel, city_name)
     
-    # МАГАЗИНЫ ГОРОДОВ
     elif text == "👕 Смотреть одежду":
         clothes, current_page, total = get_clothes_page(0)
         if clothes:
@@ -3804,7 +4692,7 @@ def handle(message):
         cars, current_page, total = get_cars_page(0)
         if cars:
             user_car = get_user_car(user_id)
-            caption = (f"🚗 *{cars['name']}*\n\n"
+            caption = (f"🚗 *{cars['name']}*\n\n
                       f"💰 Цена: {cars['price']:,} {CURRENCY}\n"
                       f"⚡ Скорость: {cars['speed']} км/ч\n\n"
                       f"🛍️ Всего машин: {total}")
@@ -3832,7 +4720,7 @@ def handle(message):
         planes, current_page, total = get_planes_page(0)
         if planes:
             user_plane = get_user_plane(user_id)
-            caption = (f"✈️ *{planes['name']}*\n\n"
+            caption = (f"✈️ *{planes['name']}*\n\n
                       f"💰 Цена: {planes['price']:,} {CURRENCY}\n"
                       f"⚡ Скорость: {planes['speed']} км/ч\n\n"
                       f"🛍️ Всего самолетов: {total}")
@@ -3859,7 +4747,7 @@ def handle(message):
     elif text == "🏠 Смотреть дома":
         houses, current_page, total = get_houses_page(0)
         if houses:
-            caption = (f"🏠 *{houses['name']}*\n\n"
+            caption = (f"🏠 *{houses['name']}*\n\n
                       f"💰 Цена: {houses['price']:,} {CURRENCY}\n"
                       f"🏡 Комфорт: {houses['comfort']}\n\n"
                       f"🛍️ Всего домов: {total}")
@@ -3903,7 +4791,6 @@ def handle(message):
             reply_markup=get_business_buy_keyboard(text)
         )
     
-    # РАБОТЫ
     elif any(job in text for job in ["🚚 Грузчик", "🧹 Уборщик", "📦 Курьер", "🔧 Механик", "💻 Программист", "🕵️ Детектив", "👨‍🔧 Инженер", "👨‍⚕️ Врач", "👨‍🎤 Артист", "👨‍🚀 Космонавт"]):
         job_name = text
         
@@ -4409,7 +5296,7 @@ app = Flask('')
 
 @app.route('/')
 def home():
-    return "Бот работает!"
+    return "Бот SuguruCoin работает!"
 
 def run():
     app.run(host='0.0.0.0', port=8080)
@@ -4438,7 +5325,6 @@ print("📌 Админ команды: /adminhelp")
 print("📢 Команды для чата: я, топ, сырье все")
 print("🔄 - показать профиль (НЕ ТРОГАЕТ МЕНЮ!)")
 
-# ИСПРАВЛЕНО: Добавлен обработчик ошибок для polling
 if __name__ == "__main__":
     while True:
         try:
