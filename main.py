@@ -4494,7 +4494,7 @@ def handle(message):
             planes, current_page, total = get_planes_page(0)
             if planes:
                 user_plane = get_user_plane(user_id)
-                caption = (f"✈️ *{planes['name']}*\n\n
+                caption = ("✈️ *{planes['name']}*\n\n
                           f"💰 Цена: {planes['price']:,} {CURRENCY}\n"
                           f"⚡ Скорость: {planes['speed']} км/ч\n\n"
                           f"🛍️ Всего самолетов: {total}")
