@@ -272,7 +272,7 @@ def init_db():
         )
     ''')
     
-    cursor.execute('''
+    cursor.execute(''`
         CREATE TABLE IF NOT EXISTS warns (
             user_id INTEGER PRIMARY KEY,
             count INTEGER DEFAULT 0,
@@ -368,7 +368,6 @@ def init_db():
     
     cursor.execute('SELECT COUNT(*) FROM shop_planes')
     if cursor.fetchone()[0] == 0:
-        # ИСПРАВЛЕНО: правильные фото для самолетов
         planes_data = [
             ("Боинг 737", 100_000_000, "https://i.imgur.com/7H8mQzZ.jpg", 800),
             ("Airbus A320", 150_000_000, "https://i.imgur.com/Ln3Yk9X.jpg", 850),
@@ -387,7 +386,6 @@ def init_db():
     
     cursor.execute('SELECT COUNT(*) FROM shop_houses')
     if cursor.fetchone()[0] == 0:
-        # ИСПРАВЛЕНО: правильные фото для домов
         houses_data = [
             ("Студия", 50_000_000, "https://i.imgur.com/Yq8nL2Z.jpg", 10),
             ("Квартира", 100_000_000, "https://i.imgur.com/J7kM3XW.jpg", 20),
@@ -932,6 +930,12 @@ def get_city_info(city_name):
         return city
     except:
         return None
+
+def get_shop_type_for_city(city_name):
+    city_info = get_city_info(city_name)
+    if city_info:
+        return city_info['shop_type']
+    return 'clothes'
 
 def calculate_travel_time(user_id, base_time):
     car = get_user_car(user_id)
@@ -3750,8 +3754,7 @@ def callback_handler(call):
         result = check_loader_click(user_id, box_num)
         
         if result and result.get('win'):
-            # ИГРОК ВЫИГРАЛ
-            job_info = get_available_jobs(user_id)[0]  # Упрощенно, в реальности нужно определять работу
+            job_info = get_available_jobs(user_id)[0]
             reward = random.randint(job_info[2], job_info[3])
             exp_reward = job_info[4]
             
@@ -4494,7 +4497,7 @@ def handle(message):
             planes, current_page, total = get_planes_page(0)
             if planes:
                 user_plane = get_user_plane(user_id)
-                caption = ("✈️ *{planes['name']}*\n\n
+                caption = (f"✈️ *{planes['name']}*\n\n"
                           f"💰 Цена: {planes['price']:,} {CURRENCY}\n"
                           f"⚡ Скорость: {planes['speed']} км/ч\n\n"
                           f"🛍️ Всего самолетов: {total}")
@@ -4692,7 +4695,7 @@ def handle(message):
         cars, current_page, total = get_cars_page(0)
         if cars:
             user_car = get_user_car(user_id)
-            caption = (f"🚗 *{cars['name']}*\n\n
+            caption = (f"🚗 *{cars['name']}*\n\n"
                       f"💰 Цена: {cars['price']:,} {CURRENCY}\n"
                       f"⚡ Скорость: {cars['speed']} км/ч\n\n"
                       f"🛍️ Всего машин: {total}")
@@ -4720,7 +4723,7 @@ def handle(message):
         planes, current_page, total = get_planes_page(0)
         if planes:
             user_plane = get_user_plane(user_id)
-            caption = (f"✈️ *{planes['name']}*\n\n
+            caption = (f"✈️ *{planes['name']}*\n\n"
                       f"💰 Цена: {planes['price']:,} {CURRENCY}\n"
                       f"⚡ Скорость: {planes['speed']} км/ч\n\n"
                       f"🛍️ Всего самолетов: {total}")
