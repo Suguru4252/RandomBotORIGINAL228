@@ -8,8 +8,22 @@ import threading
 import time
 import re
 
-TOKEN = os.environ['TOKEN']
-bot = telebot.TeleBot(TOKEN)
+# ========== ТОКЕН БОТА ==========
+# ИСПРАВЛЕНО: Токен вставлен прямо в код
+TOKEN = "7952669809:AAGWRKCVWluswRysvH2qVYKQnuAn4KvDMcs"
+
+print(f"✅ Токен загружен: {TOKEN[:10]}...")  # Показываем первые 10 символов для проверки
+
+try:
+    bot = telebot.TeleBot(TOKEN)
+    # Проверяем соединение с Telegram
+    bot_info = bot.get_me()
+    print(f"✅ Бот успешно подключен: @{bot_info.username}")
+except Exception as e:
+    print(f"❌ Ошибка подключения к Telegram: {e}")
+    print("📌 Проверьте правильность токена")
+    exit(1)
+
 CURRENCY = "💰 SuguruCoins"
 
 # ========== ПУТЬ К БАЗЕ ДАННЫХ ==========
@@ -348,7 +362,7 @@ def init_db():
             VALUES (?, ?, ?)
         ''', clothes_data)
     
-    # Заполняем магазин машин (НОВЫЕ ССЫЛКИ)
+    # Заполняем магазин машин
     cursor.execute('SELECT COUNT(*) FROM shop_cars')
     if cursor.fetchone()[0] == 0:
         cars_data = [
@@ -367,7 +381,7 @@ def init_db():
             VALUES (?, ?, ?, ?)
         ''', cars_data)
     
-    # Заполняем магазин самолетов (НОВЫЕ ССЫЛКИ)
+    # Заполняем магазин самолетов
     cursor.execute('SELECT COUNT(*) FROM shop_planes')
     if cursor.fetchone()[0] == 0:
         planes_data = [
@@ -386,7 +400,7 @@ def init_db():
             VALUES (?, ?, ?, ?)
         ''', planes_data)
     
-    # Заполняем магазин домов (НОВЫЕ ССЫЛКИ)
+    # Заполняем магазин домов
     cursor.execute('SELECT COUNT(*) FROM shop_houses')
     if cursor.fetchone()[0] == 0:
         houses_data = [
@@ -802,7 +816,6 @@ def get_user_by_custom_name(custom_name):
     except:
         return None
 
-# ИСПРАВЛЕНО: строка 1035
 def get_user_display_name(user_data):
     if not user_data:
         return "Игрок"
@@ -1066,14 +1079,12 @@ def get_user_profile_photo(user_id):
         return equipped['photo_url']
     return "https://iimg.su/i/waxabI"
 
-# ========== НОВАЯ ФУНКЦИЯ: ДИНАМИЧЕСКОЕ МЕНЮ ПО ГОРОДУ ==========
 def main_keyboard_for_city(user_id):
     """Динамическая клавиатура главного меню на основе города игрока"""
     current_city = get_user_city(user_id)
     city_info = get_city_info(current_city)
     shop_type = city_info['shop_type'] if city_info else 'clothes'
     
-    # Определяем текст кнопки магазина в зависимости от типа
     shop_buttons = {
         'clothes': "👕 Магазин одежды",
         'cars': "🚗 Магазин машин", 
@@ -1101,7 +1112,6 @@ def main_keyboard_for_city(user_id):
     )
     return markup
 
-# ИСПРАВЛЕНО: строка 2451
 def send_main_menu_with_profile(user_id, chat_id=None):
     if not chat_id:
         chat_id = user_id
@@ -3262,7 +3272,6 @@ def callback_handler(call):
         bot.answer_callback_query(call.id)
         return
     
-    # ИСПРАВЛЕНО: строка 2161
     elif data.startswith("cars_buy_"):
         page = int(data.split("_")[2])
         car, current_page, total = get_cars_page(page)
@@ -3316,7 +3325,6 @@ def callback_handler(call):
         bot.answer_callback_query(call.id)
         return
     
-    # ИСПРАВЛЕНО: строка 2175
     elif data.startswith("planes_buy_"):
         page = int(data.split("_")[2])
         plane, current_page, total = get_planes_page(page)
@@ -3366,7 +3374,6 @@ def callback_handler(call):
         bot.answer_callback_query(call.id)
         return
     
-    # ИСПРАВЛЕНО: строка 2245
     elif data.startswith("houses_buy_"):
         page = int(data.split("_")[2])
         house, current_page, total = get_houses_page(page)
@@ -3417,7 +3424,6 @@ def callback_handler(call):
         bot.answer_callback_query(call.id, msg, show_alert=True)
         return
     
-    # ИСПРАВЛЕНО: строка 2431
     elif data == "closet_back":
         house_data = get_user_house(user_id)
         if house_data:
@@ -3446,7 +3452,6 @@ def callback_handler(call):
             return
         
         data = get_business_data(business_name)
-        # ИСПРАВЛЕНО: строка 2147
         if not data:
             bot.answer_callback_query(call.id, "❌ Ошибка загрузки данных", show_alert=True)
             return
@@ -4018,7 +4023,6 @@ def handle(message):
             return
         
         data = get_business_data(business['business_name'])
-        # ИСПРАВЛЕНО: строка 2253
         if not data:
             bot.send_message(user_id, "❌ Ошибка загрузки данных бизнеса")
             return
@@ -4308,7 +4312,6 @@ def process_raw_material():
             for b in businesses:
                 if b['raw_material'] > 0:
                     data = get_business_data(b['business_name'])
-                    # ИСПРАВЛЕНО: строка 2243
                     if data:
                         speed_multiplier = {1: 1.0, 2: 1.2, 3: 2.0}
                         current_speed = speed_multiplier.get(b['level'], 1.0)
@@ -4434,4 +4437,12 @@ print("🚕 Во время поездки кнопки пропадают!")
 print("📌 Админ команды: /adminhelp")
 print("📢 Команды для чата: я, топ, сырье все")
 print("🔄 - показать профиль (НЕ ТРОГАЕТ МЕНЮ!)")
-bot.infinity_polling()
+
+# ИСПРАВЛЕНО: Добавлен обработчик ошибок для polling
+if __name__ == "__main__":
+    while True:
+        try:
+            bot.infinity_polling(timeout=60, long_polling_timeout=60)
+        except Exception as e:
+            print(f"❌ Ошибка polling: {e}")
+            time.sleep(5)
