@@ -9,7 +9,6 @@ import time
 import re
 
 # ========== ТОКЕН БОТА ==========
-# Для BotHost просто вставь токен сюда
 TOKEN = "7952669809:AAGWRKCVWluswRysvH2qVYKQnuAn4KvDMcs"
 
 print(f"✅ Токен загружен: {TOKEN[:10]}...")
@@ -20,13 +19,12 @@ try:
     print(f"✅ Бот успешно подключен: @{bot_info.username}")
 except Exception as e:
     print(f"❌ Ошибка подключения к Telegram: {e}")
-    # Не выходим, а просто пишем ошибку
+    # Не выходим, чтобы бот пытался работать дальше
     print("⚠️ Продолжаем работу...")
 
 CURRENCY = "💰 SuguruCoins"
 
 # ========== ПУТЬ К БАЗЕ ДАННЫХ ==========
-# Для BotHost используем локальную папку
 DB_PATH = './bot.db'
 print(f"✅ База данных: {DB_PATH}")
 
@@ -170,7 +168,7 @@ def init_db():
         )
     ''')
     
-    cursor.execute(''`
+    cursor.execute('''
         CREATE TABLE IF NOT EXISTS user_cars (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             user_id INTEGER UNIQUE,
@@ -192,7 +190,7 @@ def init_db():
         )
     ''')
     
-    cursor.execute(''`
+    cursor.execute('''
         CREATE TABLE IF NOT EXISTS user_planes (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             user_id INTEGER UNIQUE,
@@ -239,7 +237,7 @@ def init_db():
         )
     ''')
     
-    cursor.execute('''
+    cursor.execute(''`
         CREATE TABLE IF NOT EXISTS admins (
             user_id INTEGER PRIMARY KEY,
             level INTEGER DEFAULT 1,
@@ -4571,10 +4569,10 @@ def handle(message):
         else:
             house = house_data['house']
             stats = get_user_wardrobe_stats(user_id)
-            msg = (f"🏠 **{house['name']}**\n\n
+            msg = (f"🏠 **{house['name']}**\n\n"
                    f"💰 Куплен за: {house_data['price']:,} {CURRENCY}\n"
                    f"📍 Город: {house_data['city']}\n"
-                   f"🏡 Комфорт: {house['comfort']}\n\n
+                   f"🏡 Комфорт: {house['comfort']}\n\n"
                    f"👕 Слотов в шкафу: {stats['closet_slots']}\n"
                    f"💎 Цена нового слота: {stats['next_slot_price']:,}💰")
             bot.send_photo(
@@ -4603,7 +4601,7 @@ def handle(message):
                 reply_markup=get_closet_navigation_keyboard(clothes, 0)
             )
         else:
-            msg = (f"👕 **ТВОЙ ШКАФ**\n\n
+            msg = (f"👕 **ТВОЙ ШКАФ**\n\n"
                    f"Всего вещей: {len(clothes)}/{stats['closet_slots']}\n"
                    f"Цена нового слота: {stats['next_slot_price']:,}💰")
             bot.send_message(user_id, msg, reply_markup=get_closet_navigation_keyboard(clothes, 0))
@@ -4661,8 +4659,8 @@ def handle(message):
     elif text == "👕 Смотреть одежду":
         clothes, current_page, total = get_clothes_page(0)
         if clothes:
-            caption = (f"👕 *{clothes['name']}*\n\n
-                      f"💰 Цена: {clothes['price']:,} {CURRENCY}\n\n
+            caption = (f"👕 *{clothes['name']}*\n\n"
+                      f"💰 Цена: {clothes['price']:,} {CURRENCY}\n\n"
                       f"🛍️ Всего комплектов: {total}")
             
             bot.send_photo(
@@ -4679,9 +4677,9 @@ def handle(message):
         cars, current_page, total = get_cars_page(0)
         if cars:
             user_car = get_user_car(user_id)
-            caption = (f"🚗 *{cars['name']}*\n\n
+            caption = (f"🚗 *{cars['name']}*\n\n"
                       f"💰 Цена: {cars['price']:,} {CURRENCY}\n"
-                      f"⚡ Скорость: {cars['speed']} км/ч\n\n
+                      f"⚡ Скорость: {cars['speed']} км/ч\n\n"
                       f"🛍️ Всего машин: {total}")
             
             if user_car:
@@ -4707,9 +4705,9 @@ def handle(message):
         planes, current_page, total = get_planes_page(0)
         if planes:
             user_plane = get_user_plane(user_id)
-            caption = (f"✈️ *{planes['name']}*\n\n
+            caption = (f"✈️ *{planes['name']}*\n\n"
                       f"💰 Цена: {planes['price']:,} {CURRENCY}\n"
-                      f"⚡ Скорость: {planes['speed']} км/ч\n\n
+                      f"⚡ Скорость: {planes['speed']} км/ч\n\n"
                       f"🛍️ Всего самолетов: {total}")
             
             if user_plane:
@@ -4734,9 +4732,9 @@ def handle(message):
     elif text == "🏠 Смотреть дома":
         houses, current_page, total = get_houses_page(0)
         if houses:
-            caption = (f"🏠 *{houses['name']}*\n\n
+            caption = (f"🏠 *{houses['name']}*\n\n"
                       f"💰 Цена: {houses['price']:,} {CURRENCY}\n"
-                      f"🏡 Комфорт: {houses['comfort']}\n\n
+                      f"🏡 Комфорт: {houses['comfort']}\n\n"
                       f"🛍️ Всего домов: {total}")
             
             bot.send_photo(
@@ -5276,7 +5274,6 @@ threading.Thread(target=check_deliveries, daemon=True).start()
 threading.Thread(target=check_travels, daemon=True).start()
 
 # ========== ЗАПУСК ==========
-# BotHost не требует Flask для поддержания работы
 print("✅ Бот запущен!")
 print(f"👑 Загружено админов: {len(ADMINS)}")
 print(f"🔨 Загружено банов: {len(BANS)}")
