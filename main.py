@@ -272,7 +272,7 @@ def init_db():
         )
     ''')
     
-    cursor.execute(''`
+    cursor.execute('''
         CREATE TABLE IF NOT EXISTS warns (
             user_id INTEGER PRIMARY KEY,
             count INTEGER DEFAULT 0,
@@ -4750,7 +4750,7 @@ def handle(message):
     elif text == "🏠 Смотреть дома":
         houses, current_page, total = get_houses_page(0)
         if houses:
-            caption = (f"🏠 *{houses['name']}*\n\n
+            caption = (f"🏠 *{houses['name']}*\n\n"
                       f"💰 Цена: {houses['price']:,} {CURRENCY}\n"
                       f"🏡 Комфорт: {houses['comfort']}\n\n"
                       f"🛍️ Всего домов: {total}")
