@@ -583,3 +583,20 @@ def main():
 
 if __name__ == '__main__':
     main()
+# Добавь ЭТОТ код в main.py
+import threading
+from flask import Flask
+
+# Flask сервер для BotHost
+app = Flask(__name__)
+
+@app.route('/')
+def home():
+    return "Monopoly Bot работает!"
+
+def run_flask():
+    app.run(host='0.0.0.0', port=8080)
+
+# Запускаем Flask в отдельном потоке
+threading.Thread(target=run_flask, daemon=True).start()
+print("✅ Веб-сервер запущен на порту 8080")
