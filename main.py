@@ -2050,7 +2050,7 @@ async def explore(update: Update, context: ContextTypes.DEFAULT_TYPE, player):
     result_text = (
         f"🗺️ *Исследование {location.name}*\n\n"
         f"{location.description}\n\n"
-        f"*Найдено:*\n" + ("\n".join(found_items) if found_items else "Ничего не найдено")
+        f"*Найдено:*\n{''.join(found_items) if found_items else 'Ничего не найдено'}"
         f"{encounter_text}"
     )
     
