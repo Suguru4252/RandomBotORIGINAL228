@@ -16,7 +16,7 @@ from telegram.ext import (
     ContextTypes
 )
 
-# Flask для BotHost (обязательно!)
+# Flask для BotHost
 from flask import Flask
 
 # Настройка логирования
@@ -26,11 +26,10 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-# Токен из переменных окружения (как требует BotHost)
+# Токен из переменных окружения
 TOKEN = os.environ.get('BOT_TOKEN')
 if not TOKEN:
-    logger.error("❌ ТОКЕН НЕ НАЙДЕН! Добавьте BOT_TOKEN в переменные окружения BotHost")
-    print("❌ ОШИБКА: Токен не найден! Бот не может запуститься.")
+    logger.error("❌ ТОКЕН НЕ НАЙДЕН! Добавьте BOT_TOKEN в переменные окружения")
     exit(1)
 
 # Типы клеток
@@ -61,10 +60,12 @@ class Player:
 
 # Класс игры
 class Game:
-    def __init__(self, chat_id: int, creator_id: int):
+    def __init__(self, chat_id: int, creator_id: int, creator_name: str):
         self.chat_id = chat_id
         self.creator_id = creator_id
+        self.creator_name = creator_name
         self.players: Dict[int, Player] = {}
+        self.pending_requests: Dict[int, str] = {}  # user_id: username для запросов на вступление
         self.current_turn = 0
         self.started = False
         self.max_players = 4
@@ -159,15 +160,295 @@ def run_flask():
     """Запуск Flask сервера в отдельном потоке"""
     app.run(host='0.0.0.0', port=8080, debug=False, use_reloader=False)
 
+# Функция для создания главного меню
+def get_main_menu():
+    """Создает инлайн клавиатуру главного меню"""
+    keyboard = [
+        [InlineKeyboardButton("🎮 Создать игру", callback_data="menu_create")],
+        [InlineKeyboardButton("📋 Список игр", callback_data="menu_list")],
+        [InlineKeyboardButton("❓ Помощь", callback_data="menu_help")],
+        [InlineKeyboardButton("ℹ️ О боте", callback_data="menu_info")]
+    ]
+    return InlineKeyboardMarkup(keyboard)
+
 # Команда /start
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text(
-        "🎲 Добро пожаловать в Monopoly Bot!\n\n"
-        "Команды:\n"
-        "/create - Создать новую игру\n"
-        "/join [код] - Присоединиться к игре\n"
-        "/help - Показать помощь"
+    """Обработчик команды start с главным меню"""
+    welcome_text = (
+        "🎲 **Добро пожаловать в Monopoly Bot!**\n\n"
+        "Здесь вы можете сыграть в классическую монополию с друзьями.\n\n"
+        "**Что умеет бот:**\n"
+        "• Создание игровых комнат\n"
+        "• До 4 игроков в одной игре\n"
+        "• Покупка недвижимости\n"
+        "• Случайные события\n"
+        "• Полное игровое поле\n\n"
+        "Выберите действие в меню ниже:"
     )
+    await update.message.reply_text(
+        welcome_text,
+        reply_markup=get_main_menu()
+    )
+
+# Обработка меню
+async def menu_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Обработчик нажатий на кнопки главного меню"""
+    query = update.callback_query
+    await query.answer()
+    
+    if query.data == "menu_create":
+        # Создание игры
+        await create_game_from_menu(update, context)
+    
+    elif query.data == "menu_list":
+        # Показать список активных игр
+        await show_games_list(update, context)
+    
+    elif query.data == "menu_help":
+        help_text = (
+            "❓ **Помощь по боту**\n\n"
+            "**Как играть:**\n"
+            "1. Создайте игру или присоединитесь к существующей\n"
+            "2. Дождитесь пока наберется минимум 2 игрока\n"
+            "3. Создатель игры нажимает 'Начать игру'\n"
+            "4. Игроки по очереди бросают кости\n"
+            "5. Покупайте собственность и собирайте аренду\n"
+            "6. Последний выживший побеждает!\n\n"
+            "**Команды:**\n"
+            "/start - Главное меню\n"
+            "/create - Создать игру\n"
+            "/join [код] - Присоединиться по коду\n"
+            "/games - Список игр\n"
+            "/help - Помощь"
+        )
+        await query.edit_message_text(help_text, reply_markup=get_main_menu())
+    
+    elif query.data == "menu_info":
+        info_text = (
+            "ℹ️ **О боте**\n\n"
+            "Версия: 2.0\n"
+            "Разработчик: Monopoly Team\n"
+            "Особенности:\n"
+            "• Полное поле Monopoly\n"
+            "• 4 игрока максимум\n"
+            "• Система запросов на вступление\n"
+            "• Работает 24/7\n\n"
+            "Приятной игры! 🎲"
+        )
+        await query.edit_message_text(info_text, reply_markup=get_main_menu())
+
+# Создание игры через меню
+async def create_game_from_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Создание игры из меню"""
+    query = update.callback_query
+    chat_id = update.effective_chat.id
+    user_id = update.effective_user.id
+    username = update.effective_user.username or f"Player_{user_id}"
+    
+    if chat_id in games:
+        await query.edit_message_text(
+            "❌ В этом чате уже есть активная игра!\n\n"
+            "Используйте /games чтобы посмотреть другие игры.",
+            reply_markup=get_main_menu()
+        )
+        return
+    
+    game = Game(chat_id, user_id, username)
+    game.add_player(user_id, username)
+    games[chat_id] = game
+    
+    success_text = (
+        f"✅ **Игра успешно создана!**\n\n"
+        f"📋 **Код игры:** `{chat_id}`\n"
+        f"👑 **Создатель:** @{username}\n"
+        f"👥 **Игроки:** 1/{game.max_players}\n\n"
+        f"Теперь другие игроки могут присоединиться:\n"
+        f"• Через меню 'Список игр'\n"
+        f"• По команде `/join {chat_id}`\n\n"
+        f"Ожидаем игроков..."
+    )
+    
+    await query.edit_message_text(
+        success_text,
+        reply_markup=get_main_menu()
+    )
+
+# Показать список активных игр
+async def show_games_list(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Показывает список всех активных игр"""
+    query = update.callback_query
+    
+    if not games:
+        await query.edit_message_text(
+            "📋 **Список активных игр**\n\n"
+            "😴 Нет активных игр.\n\n"
+            "Создайте свою игру через меню!",
+            reply_markup=get_main_menu()
+        )
+        return
+    
+    text = "📋 **Доступные игры:**\n\n"
+    keyboard = []
+    
+    for game_id, game in games.items():
+        if not game.started and len(game.players) < game.max_players:
+            text += f"🎮 **Игра #{game_id}**\n"
+            text += f"👑 Создатель: @{game.creator_name}\n"
+            text += f"👥 Игроки: {len(game.players)}/{game.max_players}\n"
+            text += f"➖➖➖➖➖➖➖➖➖\n"
+            
+            # Кнопка для присоединения
+            keyboard.append([InlineKeyboardButton(
+                f"📌 Присоединиться к игре #{game_id}",
+                callback_data=f"join_request_{game_id}"
+            )])
+    
+    if not keyboard:
+        text += "Нет доступных игр для присоединения.\n"
+        text += "Создайте свою игру через меню!"
+    
+    keyboard.append([InlineKeyboardButton("◀️ Назад в меню", callback_data="back_to_menu")])
+    
+    await query.edit_message_text(
+        text,
+        reply_markup=InlineKeyboardMarkup(keyboard)
+    )
+
+# Запрос на присоединение к игре
+async def join_request(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Обработчик запроса на присоединение к игре"""
+    query = update.callback_query
+    await query.answer()
+    
+    data = query.data.split('_')
+    game_id = int(data[2])
+    
+    if game_id not in games:
+        await query.edit_message_text(
+            "❌ Игра больше не существует!",
+            reply_markup=get_main_menu()
+        )
+        return
+    
+    game = games[game_id]
+    user_id = update.effective_user.id
+    username = update.effective_user.username or f"Player_{user_id}"
+    
+    # Проверки
+    if game.started:
+        await query.edit_message_text(
+            "❌ Игра уже началась!",
+            reply_markup=get_main_menu()
+        )
+        return
+    
+    if len(game.players) >= game.max_players:
+        await query.edit_message_text(
+            "❌ В игре уже максимальное количество игроков!",
+            reply_markup=get_main_menu()
+        )
+        return
+    
+    if user_id in game.players:
+        await query.edit_message_text(
+            "❌ Вы уже в этой игре!",
+            reply_markup=get_main_menu()
+        )
+        return
+    
+    # Отправляем запрос создателю
+    game.pending_requests[user_id] = username
+    
+    # Кнопки для создателя
+    keyboard = [
+        [
+            InlineKeyboardButton("✅ Принять", callback_data=f"accept_{game_id}_{user_id}"),
+            InlineKeyboardButton("❌ Отклонить", callback_data=f"reject_{game_id}_{user_id}")
+        ]
+    ]
+    
+    try:
+        await context.bot.send_message(
+            chat_id=game.creator_id,
+            text=f"👋 @{username} хочет присоединиться к вашей игре!\n\n"
+                 f"Игрок: @{username}\n"
+                 f"ID: {user_id}\n\n"
+                 f"Принять запрос?",
+            reply_markup=InlineKeyboardMarkup(keyboard)
+        )
+        
+        await query.edit_message_text(
+            f"✅ Запрос отправлен создателю игры @{game.creator_name}!\n"
+            f"Ожидайте ответа...",
+            reply_markup=get_main_menu()
+        )
+    except:
+        await query.edit_message_text(
+            "❌ Не удалось отправить запрос создателю игры.",
+            reply_markup=get_main_menu()
+        )
+
+# Обработка принятия/отклонения запроса
+async def handle_join_request(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Обработчик принятия или отклонения запроса на вступление"""
+    query = update.callback_query
+    await query.answer()
+    
+    data = query.data.split('_')
+    action = data[0]
+    game_id = int(data[1])
+    requester_id = int(data[2])
+    
+    if game_id not in games:
+        await query.edit_message_text("❌ Игра больше не существует!")
+        return
+    
+    game = games[game_id]
+    
+    if action == "accept":
+        # Принимаем игрока
+        username = game.pending_requests.get(requester_id, f"Player_{requester_id}")
+        
+        if game.add_player(requester_id, username):
+            await query.edit_message_text(
+                f"✅ Игрок @{username} принят в игру!"
+            )
+            
+            # Уведомляем игрока
+            try:
+                await context.bot.send_message(
+                    chat_id=requester_id,
+                    text=f"✅ Ваш запрос на вступление в игру #{game_id} принят!\n"
+                         f"Создатель: @{game.creator_name}\n\n"
+                         f"Ожидайте начала игры."
+                )
+            except:
+                pass
+        else:
+            await query.edit_message_text(
+                "❌ Не удалось добавить игрока. Возможно, игра уже заполнена."
+            )
+    
+    elif action == "reject":
+        # Отклоняем игрока
+        username = game.pending_requests.get(requester_id, f"Player_{requester_id}")
+        
+        await query.edit_message_text(
+            f"❌ Запрос от @{username} отклонен."
+        )
+        
+        # Уведомляем игрока
+        try:
+            await context.bot.send_message(
+                chat_id=requester_id,
+                text=f"❌ Ваш запрос на вступление в игру #{game_id} был отклонен создателем."
+            )
+        except:
+            pass
+    
+    # Удаляем из pending
+    if requester_id in game.pending_requests:
+        del game.pending_requests[requester_id]
 
 # Команда /create
 async def create_game(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -176,25 +457,24 @@ async def create_game(update: Update, context: ContextTypes.DEFAULT_TYPE):
     username = update.effective_user.username or f"Player_{user_id}"
     
     if chat_id in games:
-        await update.message.reply_text("❌ В этом чате уже есть активная игра!")
+        await update.message.reply_text(
+            "❌ В этом чате уже есть активная игра!",
+            reply_markup=get_main_menu()
+        )
         return
     
-    game = Game(chat_id, user_id)
+    game = Game(chat_id, user_id, username)
     game.add_player(user_id, username)
     games[chat_id] = game
     
-    keyboard = [
-        [InlineKeyboardButton("✅ Присоединиться", callback_data=f"join_{chat_id}")],
-        [InlineKeyboardButton("▶️ Начать игру", callback_data=f"start_{chat_id}")]
-    ]
-    reply_markup = InlineKeyboardMarkup(keyboard)
-    
     await update.message.reply_text(
-        f"🎮 Игра создана! Код игры: `{chat_id}`\n"
-        f"Игроки: 1/{game.max_players}\n"
-        f"Создатель: @{username}\n\n"
-        f"Ожидаем игроков...",
-        reply_markup=reply_markup
+        f"✅ **Игра создана!**\n\n"
+        f"📋 **Код игры:** `{chat_id}`\n"
+        f"👥 **Игроки:** 1/{game.max_players}\n\n"
+        f"Другие игроки могут присоединиться:\n"
+        f"• По команде `/join {chat_id}`\n"
+        f"• Через меню 'Список игр'",
+        reply_markup=get_main_menu()
     )
 
 # Команда /join
@@ -203,134 +483,153 @@ async def join_game(update: Update, context: ContextTypes.DEFAULT_TYPE):
     username = update.effective_user.username or f"Player_{user_id}"
     
     if not context.args:
-        await update.message.reply_text("❌ Использование: /join [код игры]")
+        await update.message.reply_text(
+            "❌ Использование: /join [код игры]\n"
+            "Например: `/join 123456789`",
+            reply_markup=get_main_menu()
+        )
         return
     
     try:
         game_id = int(context.args[0])
     except ValueError:
-        await update.message.reply_text("❌ Неверный код игры!")
+        await update.message.reply_text(
+            "❌ Неверный код игры! Код должен быть числом.",
+            reply_markup=get_main_menu()
+        )
         return
     
     if game_id not in games:
-        await update.message.reply_text("❌ Игра не найдена!")
+        await update.message.reply_text(
+            "❌ Игра с таким кодом не найдена!\n"
+            "Проверьте код или посмотрите список доступных игр через меню.",
+            reply_markup=get_main_menu()
+        )
         return
     
     game = games[game_id]
     
     if game.started:
-        await update.message.reply_text("❌ Игра уже началась!")
-        return
-    
-    if game.add_player(user_id, username):
-        keyboard = [
-            [InlineKeyboardButton("✅ Присоединиться", callback_data=f"join_{game_id}")],
-            [InlineKeyboardButton("▶️ Начать игру", callback_data=f"start_{game_id}")]
-        ]
-        reply_markup = InlineKeyboardMarkup(keyboard)
-        
-        await context.bot.send_message(
-            chat_id=game_id,
-            text=f"✅ @{username} присоединился к игре!\n"
-                 f"Игроки: {len(game.players)}/{game.max_players}",
-            reply_markup=reply_markup
+        await update.message.reply_text(
+            "❌ Игра уже началась!",
+            reply_markup=get_main_menu()
         )
-    else:
-        await update.message.reply_text("❌ Не удалось присоединиться к игре!")
-
-# Команда /help
-async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    help_text = """
-🎲 **Monopoly Bot - Помощь**
-
-**Команды:**
-/create - Создать новую игру
-/join [код] - Присоединиться к игре
-/status - Показать статус текущей игры
-/leave - Покинуть игру (до начала)
-/help - Показать это сообщение
-
-**Правила:**
-• В игре участвуют 2-4 игрока
-• Каждый получает 1500 в начале
-• Цель - стать последним выжившим игроком
-• Проходя Старт, получаете 200
-"""
-    await update.message.reply_text(help_text)
-
-# Команда /status
-async def game_status(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    chat_id = update.effective_chat.id
-    
-    if chat_id not in games:
-        await update.message.reply_text("❌ В этом чате нет активной игры!")
         return
     
-    game = games[chat_id]
-    await show_game_board(chat_id, context)
-
-# Команда /leave
-async def leave_game(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    chat_id = update.effective_chat.id
-    user_id = update.effective_user.id
-    
-    if chat_id not in games:
-        await update.message.reply_text("❌ В этом чате нет активной игры!")
-        return
-    
-    game = games[chat_id]
-    
-    if game.started:
-        await update.message.reply_text("❌ Нельзя покинуть игру после начала!")
+    if len(game.players) >= game.max_players:
+        await update.message.reply_text(
+            "❌ В игре уже максимальное количество игроков!",
+            reply_markup=get_main_menu()
+        )
         return
     
     if user_id in game.players:
-        del game.players[user_id]
-        await update.message.reply_text(f"✅ Вы покинули игру. Осталось игроков: {len(game.players)}")
+        await update.message.reply_text(
+            "❌ Вы уже в этой игре!",
+            reply_markup=get_main_menu()
+        )
+        return
+    
+    # Отправляем запрос создателю
+    game.pending_requests[user_id] = username
+    
+    keyboard = [
+        [
+            InlineKeyboardButton("✅ Принять", callback_data=f"accept_{game_id}_{user_id}"),
+            InlineKeyboardButton("❌ Отклонить", callback_data=f"reject_{game_id}_{user_id}")
+        ]
+    ]
+    
+    try:
+        await context.bot.send_message(
+            chat_id=game.creator_id,
+            text=f"👋 @{username} хочет присоединиться к вашей игре!\n\n"
+                 f"Игрок: @{username}\n"
+                 f"ID: {user_id}\n\n"
+                 f"Принять запрос?",
+            reply_markup=InlineKeyboardMarkup(keyboard)
+        )
         
-        if len(game.players) == 0:
-            del games[chat_id]
+        await update.message.reply_text(
+            f"✅ Запрос отправлен создателю игры @{game.creator_name}!\n"
+            f"Ожидайте ответа...",
+            reply_markup=get_main_menu()
+        )
+    except:
+        await update.message.reply_text(
+            "❌ Не удалось отправить запрос создателю игры.",
+            reply_markup=get_main_menu()
+        )
 
-# Команда для теста
-async def test(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("✅ Бот работает исправно!")
+# Команда /games
+async def list_games_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Команда для показа списка игр"""
+    if not games:
+        await update.message.reply_text(
+            "📋 **Список активных игр**\n\n"
+            "😴 Нет активных игр.\n\n"
+            "Создайте свою игру через /create или меню!",
+            reply_markup=get_main_menu()
+        )
+        return
+    
+    text = "📋 **Доступные игры:**\n\n"
+    
+    for game_id, game in games.items():
+        if not game.started and len(game.players) < game.max_players:
+            text += f"🎮 **Игра #{game_id}**\n"
+            text += f"👑 Создатель: @{game.creator_name}\n"
+            text += f"👥 Игроки: {len(game.players)}/{game.max_players}\n"
+            text += f"➖➖➖➖➖➖➖➖➖\n"
+    
+    text += "\nЧтобы присоединиться, используйте:\n"
+    text += "`/join [код игры]`"
+    
+    await update.message.reply_text(text, reply_markup=get_main_menu())
 
-# Обработка нажатий на кнопки
-async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+# Обработка нажатий на кнопки игры
+async def game_button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Обработчик игровых кнопок"""
     query = update.callback_query
     await query.answer()
     
     data = query.data.split('_')
     action = data[0]
+    
+    if action == "back":
+        await query.edit_message_text(
+            "🎲 **Главное меню**\n\nВыберите действие:",
+            reply_markup=get_main_menu()
+        )
+        return
+    
+    if action in ["accept", "reject"]:
+        await handle_join_request(update, context)
+        return
+    
+    if action in ["join", "request"]:
+        if action == "join_request":
+            await join_request(update, context)
+        return
+    
+    if action == "menu":
+        await menu_callback(update, context)
+        return
+    
+    # Игровые действия (start, roll, end и т.д.)
     game_id = int(data[1])
     
     if game_id not in games:
-        await query.edit_message_text("❌ Игра больше не существует!")
+        await query.edit_message_text(
+            "❌ Игра больше не существует!",
+            reply_markup=get_main_menu()
+        )
         return
     
     game = games[game_id]
     user_id = update.effective_user.id
     
-    if action == "join":
-        if game.started:
-            await query.edit_message_text("❌ Игра уже началась!")
-            return
-        
-        username = update.effective_user.username or f"Player_{user_id}"
-        if game.add_player(user_id, username):
-            keyboard = [
-                [InlineKeyboardButton("✅ Присоединиться", callback_data=f"join_{game_id}")],
-                [InlineKeyboardButton("▶️ Начать игру", callback_data=f"start_{game_id}")]
-            ]
-            reply_markup = InlineKeyboardMarkup(keyboard)
-            
-            await query.edit_message_text(
-                f"✅ @{username} присоединился к игре!\n"
-                f"Игроки: {len(game.players)}/{game.max_players}",
-                reply_markup=reply_markup
-            )
-    
-    elif action == "start":
+    if action == "start":
         if user_id != game.creator_id:
             await query.edit_message_text("❌ Только создатель игры может начать!")
             return
@@ -341,12 +640,18 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         
         game.start_game()
         
-        board_text = "🏁 ИГРА НАЧАЛАСЬ!\n\n"
-        for player in game.players.values():
-            board_text += f"👤 @{player.username}: 💰{player.money}\n"
+        # Уведомляем всех игроков о начале
+        for player_id in game.players.keys():
+            try:
+                await context.bot.send_message(
+                    chat_id=player_id,
+                    text=f"🎮 **Игра #{game_id} началась!**\n\n"
+                         f"Первый ход: @{game.players[game.current_turn].username}"
+                )
+            except:
+                pass
         
-        await query.edit_message_text(board_text)
-        await show_game_board(game_id, context)
+        await show_game_board(game_id, context, query.message.chat_id)
     
     elif action == "roll":
         if user_id != game.current_turn:
@@ -367,30 +672,58 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 text=f"💰 @{player.username} прошел Старт и получил 200"
             )
         
-        result_text = (
-            f"🎲 @{player.username} бросил кости:\n"
-            f"{dice1} + {dice2} = {total}\n"
-            f"Новая позиция: {player.position}"
-        )
-        
-        await context.bot.send_message(chat_id=game_id, text=result_text)
+        # Уведомляем всех о результате хода
+        for player_id in game.players.keys():
+            try:
+                await context.bot.send_message(
+                    chat_id=player_id,
+                    text=f"🎲 @{player.username} бросил кости:\n"
+                         f"{dice1} + {dice2} = {total}\n"
+                         f"Новая позиция: {player.position}"
+                )
+            except:
+                pass
         
         game.next_turn()
-        await show_game_board(game_id, context)
+        
+        # Уведомляем следующего игрока о его ходе
+        next_player = game.players[game.current_turn]
+        await context.bot.send_message(
+            chat_id=next_player.user_id,
+            text=f"🎯 **Ваш ход!**\n\n"
+                 f"Игра #{game_id}\n"
+                 f"Баланс: {next_player.money}\n\n"
+                 f"Нажмите кнопку 'Бросить кости' в игре!"
+        )
+        
+        await show_game_board(game_id, context, query.message.chat_id)
     
     elif action == "end":
         if user_id == game.creator_id:
+            # Уведомляем всех о завершении
+            for player_id in game.players.keys():
+                try:
+                    await context.bot.send_message(
+                        chat_id=player_id,
+                        text=f"🛑 Игра #{game_id} завершена создателем."
+                    )
+                except:
+                    pass
+            
             del games[game_id]
-            await query.edit_message_text("🛑 Игра завершена")
+            await query.edit_message_text(
+                "🛑 Игра завершена",
+                reply_markup=get_main_menu()
+            )
 
-async def show_game_board(game_id: int, context: ContextTypes.DEFAULT_TYPE):
+async def show_game_board(game_id: int, context: ContextTypes.DEFAULT_TYPE, chat_id: int = None):
     """Показать игровое поле"""
     game = games[game_id]
     
     board_text = "🎮 **ТЕКУЩАЯ ИГРА** 🎮\n\n"
     
     for player in game.players.values():
-        turn = "🎯" if player.user_id == game.current_turn else ""
+        turn = "🎯" if player.user_id == game.current_turn else "⏳"
         board_text += f"{turn} @{player.username}: 💰{player.money}\n"
     
     # Кнопки управления
@@ -403,17 +736,51 @@ async def show_game_board(game_id: int, context: ContextTypes.DEFAULT_TYPE):
     
     reply_markup = InlineKeyboardMarkup(keyboard)
     
-    await context.bot.send_message(
-        chat_id=game_id,
-        text=board_text,
-        reply_markup=reply_markup
+    # Отправляем всем игрокам
+    for player_id in game.players.keys():
+        try:
+            await context.bot.send_message(
+                chat_id=player_id,
+                text=board_text,
+                reply_markup=reply_markup
+            )
+        except:
+            pass
+
+# Команда /help
+async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text(
+        "❓ **Помощь по боту**\n\n"
+        "**Основные команды:**\n"
+        "/start - Главное меню\n"
+        "/create - Создать новую игру\n"
+        "/join [код] - Присоединиться к игре\n"
+        "/games - Список активных игр\n"
+        "/help - Показать помощь\n\n"
+        "**Как играть:**\n"
+        "1. Создайте игру или присоединитесь к существующей\n"
+        "2. Дождитесь пока создатель начнет игру\n"
+        "3. Когда ваш ход - нажимайте 'Бросить кости'\n"
+        "4. Покупайте собственность и богатейте!\n\n"
+        "Приятной игры! 🎲",
+        reply_markup=get_main_menu()
+    )
+
+# Команда для теста
+async def test(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text(
+        "✅ Бот работает исправно!",
+        reply_markup=get_main_menu()
     )
 
 # Обработчик ошибок
 async def error_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     logger.error(f"Ошибка: {context.error}")
     if update and update.effective_message:
-        await update.effective_message.reply_text("❌ Произошла внутренняя ошибка. Попробуйте позже.")
+        await update.effective_message.reply_text(
+            "❌ Произошла внутренняя ошибка. Попробуйте позже.",
+            reply_markup=get_main_menu()
+        )
 
 def main():
     """Запуск бота"""
@@ -433,12 +800,12 @@ def main():
     application.add_handler(CommandHandler("help", help_command))
     application.add_handler(CommandHandler("create", create_game))
     application.add_handler(CommandHandler("join", join_game))
-    application.add_handler(CommandHandler("status", game_status))
-    application.add_handler(CommandHandler("leave", leave_game))
+    application.add_handler(CommandHandler("games", list_games_command))
     application.add_handler(CommandHandler("test", test))
     
-    # Обработчик callback-запросов
-    application.add_handler(CallbackQueryHandler(button_callback))
+    # Обработчики callback-запросов
+    application.add_handler(CallbackQueryHandler(game_button_callback, pattern="^(start|roll|end|accept|reject|join_request|back|menu)_"))
+    application.add_handler(CallbackQueryHandler(menu_callback, pattern="^menu_"))
     
     # Обработчик ошибок
     application.add_error_handler(error_handler)
