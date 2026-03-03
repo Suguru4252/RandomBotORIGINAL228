@@ -6,6 +6,7 @@ import threading
 import asyncio
 from typing import Dict, List, Optional
 from enum import Enum
+from datetime import datetime, timedelta
 
 # Правильные импорты для python-telegram-bot
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, ReplyKeyboardMarkup, KeyboardButton
@@ -60,6 +61,7 @@ class Trade:
         self.target_money = 0
         self.active = True
         self.message_id = None
+        self.step = "select_players"  # Этап трейда
 
 # Класс карты (собственности)
 class Property:
@@ -86,6 +88,19 @@ class Property:
             return False
         if self.houses >= 4:
             return False
+        # Проверка на наличие всей цветовой группы
+        if self.owner:
+            same_color = [p for p in self.owner.properties if p.color == self.color and p.name != self.name]
+            # Для цветных групп нужно все той же группы
+            if self.color not in ["railroad", "utility", "special"]:
+                # Проверяем что есть все свойства этой группы
+                all_props = [p for p in self.owner.properties if p.color == self.color]
+                # В стандартной монополии по 2-3 свойства в группе
+                group_sizes = {"коричневый": 2, "голубой": 3, "розовый": 3, "оранжевый": 3, 
+                               "красный": 3, "желтый": 3, "зеленый": 3, "синий": 2}
+                needed = group_sizes.get(self.color, 2)
+                if len(all_props) < needed:
+                    return False
         return True
     
     def can_buy_hotel(self):
@@ -119,6 +134,10 @@ class Player:
         self.double_count = 0
         self.consecutive_doubles = 0
         self.trade_offers = []
+        self.last_action_time = datetime.now()  # Для таймера
+        
+    def update_action_time(self):
+        self.last_action_time = datetime.now()
         
     def buy_property(self, property: Property) -> bool:
         if self.money >= property.price:
@@ -175,6 +194,7 @@ class Game:
         self.trades: Dict[int, Trade] = {}
         self.next_trade_id = 1
         self.chat_messages = []
+        self.turn_timer_task = None  # Для таймера
         
     def create_board(self):
         board = []
@@ -238,6 +258,8 @@ class Game:
     
     def get_railroad_rent(self, owner: Player) -> int:
         railroads = [p for p in owner.properties if p.name == "Вокзал"]
+        if not railroads:
+            return 0
         rent_table = [25, 50, 100, 200]
         return rent_table[len(railroads) - 1]
     
@@ -256,6 +278,7 @@ class Game:
         self.dice_rolled = False
         for player in self.players.values():
             player.in_game = True
+            player.update_action_time()
         logger.info(f"Игра началась. Первый ход у игрока {self.current_turn}")
     
     def next_turn(self):
@@ -277,6 +300,10 @@ class Game:
         
         # ВАЖНО: Сбрасываем флаг броска для нового игрока
         self.dice_rolled = False
+        
+        # Обновляем время действия для нового игрока
+        if self.current_turn in self.players:
+            self.players[self.current_turn].update_action_time()
         
         logger.info(f"Следующий ход: игрок {self.current_turn}")
         
@@ -493,6 +520,7 @@ class Auction:
 
 games: Dict[int, Game] = {}
 
+# Flask для BotHost
 app = Flask(__name__)
 
 @app.route('/')
@@ -506,6 +534,7 @@ def health():
 def run_flask():
     app.run(host='0.0.0.0', port=8080, debug=False, use_reloader=False)
 
+# Функции для создания клавиатур
 def get_main_keyboard():
     keyboard = [
         ["🎮 Создать игру", "📋 Список игр"],
@@ -518,13 +547,6 @@ def get_game_keyboard():
     keyboard = [
         ["🎲 Бросить кости", "🏠 Мои карты"],
         ["💬 Чат", "🚪 Покинуть игру"]
-    ]
-    return ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
-
-def get_property_keyboard():
-    keyboard = [
-        ["🏠 Купить дом", "🏨 Купить отель"],
-        ["🔄 Предложить трейд", "◀️ Назад"]
     ]
     return ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
 
@@ -544,6 +566,70 @@ def get_player_game(user_id: int) -> Optional[Game]:
             return game
     return None
 
+# Функция для проверки таймера хода
+async def check_turn_timer(game: Game, context: ContextTypes.DEFAULT_TYPE):
+    """Проверка таймера хода каждую минуту"""
+    while game.started:
+        await asyncio.sleep(60)  # Проверяем каждую минуту
+        
+        if not game.started:
+            break
+            
+        current_player = game.players.get(game.current_turn)
+        if not current_player:
+            continue
+            
+        time_since_action = datetime.now() - current_player.last_action_time
+        minutes_passed = time_since_action.total_seconds() / 60
+        
+        if minutes_passed >= 4 and minutes_passed < 5:
+            # Предупреждение за 1 минуту до кика
+            await context.bot.send_message(
+                chat_id=current_player.user_id,
+                text="⚠️ *Внимание!* У вас осталась 1 минута, чтобы сделать ход, иначе вы будете исключены из игры!",
+                parse_mode=ParseMode.MARKDOWN
+            )
+        elif minutes_passed >= 5:
+            # Кикаем игрока
+            await context.bot.send_message(
+                chat_id=game.chat_id,
+                text=f"❌ *@{current_player.username}* исключен из игры за бездействие (5 минут без хода)!",
+                parse_mode=ParseMode.MARKDOWN
+            )
+            
+            # Удаляем игрока
+            current_player.alive = False
+            
+            # Проверяем победителя
+            alive_players = [p for p in game.players.values() if p.alive]
+            if len(alive_players) == 1:
+                winner = alive_players[0]
+                for pid in game.players.keys():
+                    try:
+                        await context.bot.send_message(
+                            chat_id=pid,
+                            text=f"🏆 *@{winner.username}* победил в игре!",
+                            reply_markup=get_main_keyboard(),
+                            parse_mode=ParseMode.MARKDOWN
+                        )
+                    except:
+                        pass
+                del games[game.chat_id]
+                break
+            else:
+                # Переходим к следующему игроку
+                game.next_turn()
+                next_player = game.players.get(game.current_turn)
+                if next_player:
+                    await context.bot.send_message(
+                        chat_id=next_player.user_id,
+                        text=f"🎯 *Ваш ход!*\n"
+                             f"💰 Баланс: *{next_player.money}*\n"
+                             f"🏠 Собственность: *{len(next_player.properties)}*",
+                        reply_markup=get_game_keyboard(),
+                        parse_mode=ParseMode.MARKDOWN
+                    )
+
 async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = update.message.text
     user_id = update.effective_user.id
@@ -553,6 +639,10 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
     game = get_player_game(user_id)
     
     if game:
+        # Обновляем время действия
+        if user_id in game.players:
+            game.players[user_id].update_action_time()
+        
         if game.auction and game.auction.active:
             if text.isdigit():
                 bid = int(text)
@@ -586,14 +676,6 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await show_chat(update, context, game)
         elif text == "🚪 Покинуть игру":
             await leave_game(update, context, game, user_id)
-        elif text == "🏠 Купить дом":
-            await handle_buy_house(update, context, game, user_id)
-        elif text == "🏨 Купить отель":
-            await handle_buy_hotel(update, context, game, user_id)
-        elif text == "🔄 Предложить трейд":
-            await start_trade(update, context, game, user_id)
-        elif text == "◀️ Назад":
-            await show_my_cards(update, context, game, user_id)
         elif text.startswith('/'):
             pass
         else:
@@ -643,96 +725,6 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     reply_markup=get_main_keyboard()
                 )
 
-async def handle_buy_house(update: Update, context: ContextTypes.DEFAULT_TYPE, game: Game, user_id: int):
-    player = game.players[user_id]
-    
-    buyable = []
-    for prop in player.properties:
-        if prop.can_buy_house() and prop.color != "railroad" and prop.color != "utility":
-            buyable.append(prop)
-    
-    if not buyable:
-        await update.message.reply_text(
-            "❌ Нет свойств для постройки дома!\n"
-            "Нужно иметь всю цветовую группу и не более 4 домов.",
-            reply_markup=get_game_keyboard()
-        )
-        return
-    
-    text = "🏠 *Выберите свойство для постройки дома:*\n\n"
-    keyboard = []
-    
-    for prop in buyable:
-        text += f"• *{prop.name}* - {prop.houses}/4 домов, цена: {prop.house_price}💰\n"
-        keyboard.append([InlineKeyboardButton(prop.name, callback_data=f"house_{game.chat_id}_{prop.position}")])
-    
-    keyboard.append([InlineKeyboardButton("◀️ Отмена", callback_data=f"cancel_{game.chat_id}")])
-    
-    await update.message.reply_text(
-        text,
-        reply_markup=InlineKeyboardMarkup(keyboard),
-        parse_mode=ParseMode.MARKDOWN
-    )
-
-async def handle_buy_hotel(update: Update, context: ContextTypes.DEFAULT_TYPE, game: Game, user_id: int):
-    player = game.players[user_id]
-    
-    buyable = []
-    for prop in player.properties:
-        if prop.can_buy_hotel():
-            buyable.append(prop)
-    
-    if not buyable:
-        await update.message.reply_text(
-            "❌ Нет свойств для постройки отеля!\n"
-            "Нужно иметь 4 дома на свойстве.",
-            reply_markup=get_game_keyboard()
-        )
-        return
-    
-    text = "🏨 *Выберите свойство для постройки отеля:*\n\n"
-    keyboard = []
-    
-    for prop in buyable:
-        text += f"• *{prop.name}* - цена: {prop.house_price}💰\n"
-        keyboard.append([InlineKeyboardButton(prop.name, callback_data=f"hotel_{game.chat_id}_{prop.position}")])
-    
-    keyboard.append([InlineKeyboardButton("◀️ Отмена", callback_data=f"cancel_{game.chat_id}")])
-    
-    await update.message.reply_text(
-        text,
-        reply_markup=InlineKeyboardMarkup(keyboard),
-        parse_mode=ParseMode.MARKDOWN
-    )
-
-async def start_trade(update: Update, context: ContextTypes.DEFAULT_TYPE, game: Game, user_id: int):
-    player = game.players[user_id]
-    
-    others = [pid for pid in game.players.keys() if pid != user_id and game.players[pid].alive]
-    
-    if not others:
-        await update.message.reply_text(
-            "❌ Нет других игроков для обмена!",
-            reply_markup=get_game_keyboard()
-        )
-        return
-    
-    text = "🔄 *Выберите игрока для обмена:*\n\n"
-    keyboard = []
-    
-    for pid in others:
-        p = game.players[pid]
-        text += f"• @{p.username}\n"
-        keyboard.append([InlineKeyboardButton(f"@{p.username}", callback_data=f"trade_select_{game.chat_id}_{pid}")])
-    
-    keyboard.append([InlineKeyboardButton("◀️ Отмена", callback_data=f"cancel_{game.chat_id}")])
-    
-    await update.message.reply_text(
-        text,
-        reply_markup=InlineKeyboardMarkup(keyboard),
-        parse_mode=ParseMode.MARKDOWN
-    )
-
 async def show_chat(update: Update, context: ContextTypes.DEFAULT_TYPE, game: Game):
     chat_history = game.get_chat_history()
     await update.message.reply_text(
@@ -747,7 +739,6 @@ async def handle_dice_roll(update: Update, context: ContextTypes.DEFAULT_TYPE, g
     
     # Проверка что сейчас ход этого игрока
     if user_id != game.current_turn:
-        # Находим имя текущего игрока
         current_player = game.players.get(game.current_turn)
         current_name = current_player.username if current_player else "неизвестно"
         
@@ -767,7 +758,8 @@ async def handle_dice_roll(update: Update, context: ContextTypes.DEFAULT_TYPE, g
     
     # Бросок костей
     dice1, dice2, total, is_double = game.roll_dice()
-    game.dice_rolled = True  # Помечаем что бросил
+    game.dice_rolled = True
+    player.update_action_time()  # Обновляем время
     
     logger.info(f"Игрок {player.username} бросил кости: {dice1}+{dice2}={total}, дубль: {is_double}")
     
@@ -937,6 +929,7 @@ async def handle_dice_roll(update: Update, context: ContextTypes.DEFAULT_TYPE, g
         )
 
 async def show_my_cards(update: Update, context: ContextTypes.DEFAULT_TYPE, game: Game, user_id: int):
+    """Показать карты игрока с инлайн кнопками"""
     player = game.players[user_id]
     
     if not player.properties:
@@ -946,6 +939,7 @@ async def show_my_cards(update: Update, context: ContextTypes.DEFAULT_TYPE, game
         )
         return
     
+    # Группировка по цветам
     by_color = {}
     for prop in player.properties:
         if prop.color not in by_color:
@@ -954,6 +948,9 @@ async def show_my_cards(update: Update, context: ContextTypes.DEFAULT_TYPE, game
     
     text = f"🏠 *Карты @{player.username}*\n\n"
     text += f"💰 Баланс: *{player.money}*\n\n"
+    
+    # Создаем инлайн кнопки для каждого свойства
+    property_buttons = []
     
     for color, props in by_color.items():
         if color not in ["railroad", "utility", "special"]:
@@ -965,18 +962,26 @@ async def show_my_cards(update: Update, context: ContextTypes.DEFAULT_TYPE, game
                 if prop.hotel:
                     text += f" [🏨]"
                 text += f"\n"
+                # Добавляем кнопку для этого свойства
+                property_buttons.append([InlineKeyboardButton(f"🏠 {prop.name}", callback_data=f"manage_prop_{game.chat_id}_{prop.position}")])
         else:
             for prop in props:
                 if color == "railroad":
                     text += f"*🚂 {prop.name}*\n"
                 elif color == "utility":
                     text += f"*⚡ {prop.name}*\n"
+                property_buttons.append([InlineKeyboardButton(f"⚡ {prop.name}", callback_data=f"manage_prop_{game.chat_id}_{prop.position}")])
     
-    keyboard = [
+    # Кнопки действий
+    action_buttons = [
         [InlineKeyboardButton("🔄 Предложить обмен", callback_data=f"trade_start_{game.chat_id}")],
-        [InlineKeyboardButton("🏠 Купить дом", callback_data=f"show_houses_{game.chat_id}")],
-        [InlineKeyboardButton("🏨 Купить отель", callback_data=f"show_hotels_{game.chat_id}")]
+        [InlineKeyboardButton("🏠 Построить дом", callback_data=f"show_houses_{game.chat_id}")],
+        [InlineKeyboardButton("🏨 Построить отель", callback_data=f"show_hotels_{game.chat_id}")],
+        [InlineKeyboardButton("◀️ Назад", callback_data=f"back_to_game_{game.chat_id}")]
     ]
+    
+    # Объединяем все кнопки
+    keyboard = property_buttons + action_buttons
     
     await update.message.reply_text(
         text,
@@ -984,7 +989,108 @@ async def show_my_cards(update: Update, context: ContextTypes.DEFAULT_TYPE, game
         parse_mode=ParseMode.MARKDOWN
     )
 
+async def handle_buy_house(update: Update, context: ContextTypes.DEFAULT_TYPE, game: Game, user_id: int):
+    """Покупка дома"""
+    player = game.players[user_id]
+    
+    buyable = []
+    for prop in player.properties:
+        if prop.can_buy_house() and prop.color not in ["railroad", "utility", "special"]:
+            buyable.append(prop)
+    
+    if not buyable:
+        await update.message.reply_text(
+            "❌ Нет свойств для постройки дома!\n"
+            "Нужно иметь всю цветовую группу и не более 4 домов.",
+            reply_markup=get_game_keyboard()
+        )
+        return
+    
+    text = "🏠 *Выберите свойство для постройки дома:*\n\n"
+    keyboard = []
+    
+    for prop in buyable:
+        text += f"• *{prop.name}* - {prop.houses}/4 домов, цена: {prop.house_price}💰\n"
+        keyboard.append([InlineKeyboardButton(prop.name, callback_data=f"house_{game.chat_id}_{prop.position}")])
+    
+    keyboard.append([InlineKeyboardButton("◀️ Отмена", callback_data=f"cancel_{game.chat_id}")])
+    
+    sent_message = await update.message.reply_text(
+        text,
+        reply_markup=InlineKeyboardMarkup(keyboard),
+        parse_mode=ParseMode.MARKDOWN
+    )
+    
+    # Сохраняем ID сообщения для последующего редактирования
+    context.user_data['last_message_id'] = sent_message.message_id
+
+async def handle_buy_hotel(update: Update, context: ContextTypes.DEFAULT_TYPE, game: Game, user_id: int):
+    """Покупка отеля"""
+    player = game.players[user_id]
+    
+    buyable = []
+    for prop in player.properties:
+        if prop.can_buy_hotel():
+            buyable.append(prop)
+    
+    if not buyable:
+        await update.message.reply_text(
+            "❌ Нет свойств для постройки отеля!\n"
+            "Нужно иметь 4 дома на свойстве.",
+            reply_markup=get_game_keyboard()
+        )
+        return
+    
+    text = "🏨 *Выберите свойство для постройки отеля:*\n\n"
+    keyboard = []
+    
+    for prop in buyable:
+        text += f"• *{prop.name}* - цена: {prop.house_price}💰\n"
+        keyboard.append([InlineKeyboardButton(prop.name, callback_data=f"hotel_{game.chat_id}_{prop.position}")])
+    
+    keyboard.append([InlineKeyboardButton("◀️ Отмена", callback_data=f"cancel_{game.chat_id}")])
+    
+    sent_message = await update.message.reply_text(
+        text,
+        reply_markup=InlineKeyboardMarkup(keyboard),
+        parse_mode=ParseMode.MARKDOWN
+    )
+    
+    context.user_data['last_message_id'] = sent_message.message_id
+
+async def start_trade(update: Update, context: ContextTypes.DEFAULT_TYPE, game: Game, user_id: int):
+    """Начало трейда"""
+    player = game.players[user_id]
+    
+    others = [pid for pid in game.players.keys() if pid != user_id and game.players[pid].alive]
+    
+    if not others:
+        await update.message.reply_text(
+            "❌ Нет других игроков для обмена!",
+            reply_markup=get_game_keyboard()
+        )
+        return
+    
+    text = "🔄 *Выберите игрока для обмена:*\n\n"
+    keyboard = []
+    
+    for pid in others:
+        p = game.players[pid]
+        text += f"• @{p.username}\n"
+        keyboard.append([InlineKeyboardButton(f"@{p.username}", callback_data=f"trade_select_{game.chat_id}_{pid}")])
+    
+    keyboard.append([InlineKeyboardButton("◀️ Отмена", callback_data=f"cancel_{game.chat_id}")])
+    
+    sent_message = await update.message.reply_text(
+        text,
+        reply_markup=InlineKeyboardMarkup(keyboard),
+        parse_mode=ParseMode.MARKDOWN
+    )
+    
+    context.user_data['last_message_id'] = sent_message.message_id
+
 async def leave_game(update: Update, context: ContextTypes.DEFAULT_TYPE, game: Game, user_id: int):
+    """Покинуть игру"""
     if user_id == game.creator_id:
         for pid in game.players.keys():
             try:
@@ -995,7 +1101,8 @@ async def leave_game(update: Update, context: ContextTypes.DEFAULT_TYPE, game: G
                 )
             except:
                 pass
-        del games[game.chat_id]
+        if game.chat_id in games:
+            del games[game.chat_id]
     else:
         player = game.players[user_id]
         player.alive = False
@@ -1029,9 +1136,11 @@ async def leave_game(update: Update, context: ContextTypes.DEFAULT_TYPE, game: G
                     )
                 except:
                     pass
-            del games[game.chat_id]
+            if game.chat_id in games:
+                del games[game.chat_id]
 
 async def handle_bankruptcy(game: Game, context: ContextTypes.DEFAULT_TYPE):
+    """Обработка банкротства"""
     alive_players = [p for p in game.players.values() if p.alive]
     
     if len(alive_players) == 1:
@@ -1046,10 +1155,12 @@ async def handle_bankruptcy(game: Game, context: ContextTypes.DEFAULT_TYPE):
                 )
             except:
                 pass
-        del games[game.chat_id]
+        if game.chat_id in games:
+            del games[game.chat_id]
         return
 
 async def start_auction(game: Game, property_name: str, property_price: int, position: int, context: ContextTypes.DEFAULT_TYPE):
+    """Начать аукцион"""
     game.auction = Auction(property_name, property_price, game.chat_id, position)
     
     for player_id in game.players.keys():
@@ -1082,6 +1193,7 @@ async def start_auction(game: Game, property_name: str, property_price: int, pos
     game.auction.message_id = message.message_id
 
 async def auction_countdown(game: Game, context: ContextTypes.DEFAULT_TYPE):
+    """Обратный отсчет для аукциона"""
     while game.auction and game.auction.active and game.auction.countdown > 0:
         await asyncio.sleep(1)
         game.auction.countdown -= 1
@@ -1089,7 +1201,11 @@ async def auction_countdown(game: Game, context: ContextTypes.DEFAULT_TYPE):
         if game.auction and game.auction.message_id:
             try:
                 countdown_text = f"{game.auction.countdown}..."
-                current_bidder_text = f"@{game.players[game.auction.current_bidder].username}"
+                if game.auction.current_bidder:
+                    current_bidder_text = f"@{game.players[game.auction.current_bidder].username}"
+                else:
+                    current_bidder_text = "никто"
+                    
                 await context.bot.edit_message_text(
                     chat_id=game.chat_id,
                     message_id=game.auction.message_id,
@@ -1167,6 +1283,7 @@ async def auction_countdown(game: Game, context: ContextTypes.DEFAULT_TYPE):
         
         game.auction = None
 
+# Команда /start
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     chat_id = update.effective_chat.id
@@ -1192,7 +1309,8 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "• 🏠 Дома и отели - увеличивают ренту\n"
         "• 🔄 Обмен карточками между игроками\n"
         "• ⚡ Коммуналки (электростанция/водопровод)\n"
-        "• 🚂 Вокзалы с прогрессивной рентой\n\n"
+        "• 🚂 Вокзалы с прогрессивной рентой\n"
+        "• ⏱️ Таймер хода - 5 минут на ход\n\n"
         "*Используйте кнопки ниже для навигации:*"
     )
     await update.message.reply_text(
@@ -1201,6 +1319,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         parse_mode=ParseMode.MARKDOWN
     )
 
+# Начать игру из кнопки
 async def start_game_from_button(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     
@@ -1222,7 +1341,8 @@ async def start_game_from_button(update: Update, context: ContextTypes.DEFAULT_T
             start_msg = (
                 f"🎮 *Игра #{game_id} началась!*\n\n"
                 f"Первый ход: *@{game.players[game.current_turn].username}*\n\n"
-                f"💰 У всех игроков по *1500*"
+                f"💰 У всех игроков по *1500*\n"
+                f"⏱️ На ход дается 5 минут"
             )
             
             for player_id in game.players.keys():
@@ -1236,6 +1356,9 @@ async def start_game_from_button(update: Update, context: ContextTypes.DEFAULT_T
                 except:
                     pass
             
+            # Запускаем таймер
+            asyncio.create_task(check_turn_timer(game, context))
+            
             await update.message.reply_text(
                 "✅ Игра началась!",
                 reply_markup=get_game_keyboard()
@@ -1248,6 +1371,7 @@ async def start_game_from_button(update: Update, context: ContextTypes.DEFAULT_T
         reply_markup=get_main_keyboard()
     )
 
+# Создание игры
 async def create_game(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_id = update.effective_chat.id
     user_id = update.effective_user.id
@@ -1294,6 +1418,7 @@ async def create_game(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     game.message_id = message.message_id
 
+# Команда /join
 async def join_game(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     username = update.effective_user.username or f"Player_{user_id}"
@@ -1394,6 +1519,7 @@ async def join_game(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "❌ Не удалось отправить запрос создателю игры."
         )
 
+# Список игр
 async def list_games_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     
@@ -1433,6 +1559,7 @@ async def list_games_command(update: Update, context: ContextTypes.DEFAULT_TYPE)
         parse_mode=ParseMode.MARKDOWN
     )
 
+# Обработка инлайн кнопок
 async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
@@ -1444,11 +1571,17 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         game_id = int(data[1])
         if game_id in games:
             game = games[game_id]
-            if query.message.chat.id == game.creator_id:
-                del games[game_id]
-                await query.edit_message_text("🛑 Игра отменена.")
+            await query.edit_message_text("✅ Действие отменено")
+    
+    elif action == "back":
+        game_id = int(data[2]) if len(data) > 2 else None
+        if game_id and game_id in games:
+            game = games[game_id]
+            user_id = update.effective_user.id
+            if user_id in game.players:
+                await show_my_cards(update, context, game, user_id)
             else:
-                await query.edit_message_text("✅ Действие отменено")
+                await query.edit_message_text("🎮 Возврат в меню")
     
     elif action == "accept" or action == "reject":
         game_id = int(data[1])
@@ -1531,7 +1664,8 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         
         start_msg = (
             f"🎮 *Игра #{game_id} началась!*\n\n"
-            f"Первый ход: *@{game.players[game.current_turn].username}*"
+            f"Первый ход: *@{game.players[game.current_turn].username}*\n\n"
+            f"⏱️ На ход дается 5 минут"
         )
         
         for player_id in game.players.keys():
@@ -1544,6 +1678,9 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 )
             except:
                 pass
+        
+        # Запускаем таймер
+        asyncio.create_task(check_turn_timer(game, context))
         
         await query.edit_message_text("✅ Игра началась!")
     
@@ -1565,6 +1702,7 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 f"✅ Вы купили *{prop.name}* за *{prop.price}*💰",
                 parse_mode=ParseMode.MARKDOWN
             )
+            player.update_action_time()
             
             for pid in game.players.keys():
                 if pid != user_id:
@@ -1624,6 +1762,7 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 f"💰 Новая аренда: *{prop.get_rent()}*",
                 parse_mode=ParseMode.MARKDOWN
             )
+            player.update_action_time()
             
             for pid in game.players.keys():
                 if pid != user_id:
@@ -1637,7 +1776,8 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
                         pass
         else:
             await query.edit_message_text(
-                f"❌ Недостаточно денег! Нужно: *{prop.house_price}*💰",
+                f"❌ Недостаточно денег! Нужно: *{prop.house_price}*💰\n"
+                f"Убедитесь что у вас вся цветовая группа",
                 parse_mode=ParseMode.MARKDOWN
             )
     
@@ -1665,6 +1805,7 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 f"💰 Новая аренда: *{prop.get_rent()}*",
                 parse_mode=ParseMode.MARKDOWN
             )
+            player.update_action_time()
             
             for pid in game.players.keys():
                 if pid != user_id:
@@ -1678,9 +1819,48 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
                         pass
         else:
             await query.edit_message_text(
-                f"❌ Недостаточно денег! Нужно: *{prop.house_price}*💰",
+                f"❌ Недостаточно денег! Нужно: *{prop.house_price}*💰\n"
+                f"Нужно 4 дома на свойстве",
                 parse_mode=ParseMode.MARKDOWN
             )
+    
+    elif action == "manage_prop":
+        game_id = int(data[1])
+        position = int(data[2])
+        
+        if game_id not in games:
+            await query.edit_message_text("❌ Игра больше не существует!")
+            return
+        
+        game = games[game_id]
+        user_id = update.effective_user.id
+        player = game.players[user_id]
+        prop = game.board[position]
+        
+        if prop.owner != player:
+            await query.edit_message_text("❌ Это не ваша собственность!")
+            return
+        
+        text = f"🏠 *Управление {prop.name}*\n\n"
+        text += f"💰 Цена покупки: {prop.price}\n"
+        text += f"🏠 Домов: {prop.houses}/4\n"
+        text += f"🏨 Отель: {'Да' if prop.hotel else 'Нет'}\n"
+        text += f"💰 Текущая аренда: {prop.get_rent()}\n"
+        text += f"🏠 Цена дома: {prop.house_price}\n\n"
+        
+        keyboard = []
+        if prop.can_buy_house():
+            keyboard.append([InlineKeyboardButton(f"🏠 Купить дом ({prop.house_price}💰)", callback_data=f"house_{game_id}_{position}")])
+        if prop.can_buy_hotel():
+            keyboard.append([InlineKeyboardButton(f"🏨 Купить отель ({prop.house_price}💰)", callback_data=f"hotel_{game_id}_{position}")])
+        
+        keyboard.append([InlineKeyboardButton("◀️ Назад", callback_data=f"back_to_cards_{game_id}")])
+        
+        await query.edit_message_text(
+            text,
+            reply_markup=InlineKeyboardMarkup(keyboard),
+            parse_mode=ParseMode.MARKDOWN
+        )
     
     elif action == "show_houses":
         game_id = int(data[1])
@@ -1696,7 +1876,14 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
             user_id = update.effective_user.id
             await handle_buy_hotel(update, context, game, user_id)
     
-    elif action == "trade_start":
+    elif action == "back_to_cards":
+        game_id = int(data[1])
+        if game_id in games:
+            game = games[game_id]
+            user_id = update.effective_user.id
+            await show_my_cards(update, context, game, user_id)
+    
+    elif action == "trade":
         game_id = int(data[1])
         if game_id in games:
             game = games[game_id]
@@ -1751,9 +1938,10 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         game = games[game_id]
         trade = game.trades[trade_id]
         
+        # Здесь будет логика трейда
         await query.edit_message_text(
             "🔄 *Функция трейда в разработке*\n\n"
-            "В следующем обновлении: выбор карточек и денег для обмена!",
+            "Выберите карточки для обмена...",
             parse_mode=ParseMode.MARKDOWN
         )
     
@@ -1767,6 +1955,7 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await query.edit_message_text("❌ Трейд отклонен")
 
 async def update_game_message(game: Game, context: ContextTypes.DEFAULT_TYPE):
+    """Обновляет сообщение с игрой"""
     if not game.message_id:
         return
     
@@ -1795,6 +1984,7 @@ async def update_game_message(game: Game, context: ContextTypes.DEFAULT_TYPE):
     except:
         pass
 
+# Помощь
 async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     
@@ -1803,11 +1993,15 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "🎮 *Игровые кнопки:*\n"
             "• 🎲 Бросить кости - сделать ход\n"
             "• 🏠 Мои карты - посмотреть собственность\n"
+            "  → Нажмите на карточку для управления\n"
             "  → 🏠 Купить дом (после всей группы)\n"
             "  → 🏨 Купить отель (после 4 домов)\n"
-            "  → 🔄 Предложить обмен\n"
             "• 💬 Чат - написать в игровой чат\n"
-            "• 🚪 Покинуть игру - выйти из игры",
+            "• 🚪 Покинуть игру - выйти из игры\n\n"
+            "⏱️ *Таймер:*\n"
+            "• На ход дается 5 минут\n"
+            "• За 1 минуту до конца придет предупреждение\n"
+            "• Если не сделать ход - исключение из игры",
             reply_markup=get_game_keyboard()
         )
         return
@@ -1828,14 +2022,17 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "• Рента увеличивается с каждым домом\n\n"
         "🔄 *Обмен карточками*\n"
         "• В меню 'Мои карты' нажмите 'Предложить обмен'\n"
-        "• Выберите игрока и предложите карты/деньги\n"
-        "• В разработке: полноценный интерфейс обмена\n\n"
+        "• Выберите игрока и предложите карты/деньги\n\n"
         "⚡ *Коммуналки*\n"
         "• Электростанция и Водопровод\n"
         "• Рента = сумма кубиков × 4 (1 коммуналка)\n"
         "• Рента = сумма кубиков × 10 (2 коммуналки)\n\n"
         "🚂 *Вокзалы*\n"
         "• Рента: 25, 50, 100, 200 (за 1-4 вокзала)\n\n"
+        "⏱️ *Таймер хода:*\n"
+        "• 5 минут на ход\n"
+        "• Предупреждение за 1 минуту\n"
+        "• Исключение при бездействии\n\n"
         "*Правила:*\n"
         "• В игре участвуют 2-6 игроков\n"
         "• Каждый получает 1500 в начале\n"
@@ -1849,6 +2046,7 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         parse_mode=ParseMode.MARKDOWN
     )
 
+# Информация о боте
 async def info_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     
@@ -1857,7 +2055,7 @@ async def info_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     info_text = (
         "ℹ️ *О боте*\n\n"
-        "*Monopoly Bot v4.0*\n\n"
+        "*Monopoly Bot v5.0*\n\n"
         "*Особенности:*\n"
         "• Полное поле Monopoly (40 клеток)\n"
         "• До *6 игроков* в одной игре\n"
@@ -1868,6 +2066,7 @@ async def info_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "• *Аукционы* с шагом 1💰\n"
         "• *Коммуналки* ⚡ (электро/вода)\n"
         "• *Вокзалы* 🚂 с прогрессивной рентой\n"
+        "• *Таймер хода* ⏱️ (5 минут)\n"
         "• Случайные события (Шанс/Казна)\n"
         "• Тюрьма и налоги\n"
         "• Джекпот на бесплатной парковке\n"
@@ -1882,6 +2081,7 @@ async def info_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         parse_mode=ParseMode.MARKDOWN
     )
 
+# Обработчик ошибок
 async def error_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     logger.error(f"Ошибка: {context.error}")
     if update and update.effective_message:
@@ -1891,7 +2091,8 @@ async def error_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
 
 def main():
-    print("🚀 Запуск Monopoly Bot v4.0...")
+    """Запуск бота"""
+    print("🚀 Запуск Monopoly Bot v5.0...")
     print(f"✅ Токен загружен")
     
     flask_thread = threading.Thread(target=run_flask, daemon=True)
