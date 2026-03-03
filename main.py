@@ -267,14 +267,18 @@ class Game:
             player.in_game = True
     
     def next_turn(self):
+        """Переход к следующему игроку"""
         alive_players = [p for p in self.players.values() if p.alive]
         if len(alive_players) == 1:
             return alive_players[0]
         
+        # Список живых игроков
         players_list = [pid for pid, p in self.players.items() if p.alive]
         current_index = players_list.index(self.current_turn)
         next_index = (current_index + 1) % len(players_list)
         self.current_turn = players_list[next_index]
+        
+        # ВАЖНО: Сбрасываем флаг броска для нового игрока
         self.dice_rolled = False
         
         # Проверка на тюрьму
@@ -288,9 +292,11 @@ class Game:
         return None
     
     def roll_dice(self):
+        """Бросок костей"""
         dice1 = random.randint(1, 6)
         dice2 = random.randint(1, 6)
         is_double = (dice1 == dice2)
+        logger.info(f"Бросок: {dice1}+{dice2}={dice1+dice2}, дубль: {is_double}")
         return dice1, dice2, dice1 + dice2, is_double
     
     def get_property_at(self, position: int) -> Property:
@@ -777,13 +783,15 @@ async def handle_dice_roll(update: Update, context: ContextTypes.DEFAULT_TYPE, g
     """Обработка броска костей"""
     player = game.players[user_id]
     
+    # Проверка что сейчас ход этого игрока
     if user_id != game.current_turn:
         await update.message.reply_text(
-            "❌ Сейчас не ваш ход!",
+            f"❌ Сейчас не ваш ход! Сейчас ходит @{game.players[game.current_turn].username}",
             reply_markup=get_game_keyboard()
         )
         return
     
+    # Проверка что уже бросил
     if game.dice_rolled:
         await update.message.reply_text(
             "❌ Вы уже бросили кости в этом ходу!",
@@ -793,7 +801,10 @@ async def handle_dice_roll(update: Update, context: ContextTypes.DEFAULT_TYPE, g
     
     # Бросок костей
     dice1, dice2, total, is_double = game.roll_dice()
-    game.dice_rolled = True
+    game.dice_rolled = True  # Помечаем что бросил
+    
+    # Логируем для отладки
+    logger.info(f"Игрок {player.username} бросил кости: {dice1}+{dice2}={total}, дубль: {is_double}")
     
     # Проверка на 3 дубля подряд (в тюрьму)
     if is_double:
@@ -802,11 +813,33 @@ async def handle_dice_roll(update: Update, context: ContextTypes.DEFAULT_TYPE, g
             player.in_jail = True
             player.position = 10
             player.consecutive_doubles = 0
-            await update.message.reply_text(
-                f"🚓 *@{player.username}* выбросил 3 дубля подряд и отправился в тюрьму!",
+            game.dice_rolled = False  # Сбрасываем для следующего
+            
+            await context.bot.send_message(
+                chat_id=game.chat_id,
+                text=f"🚓 *@{player.username}* выбросил 3 дубля подряд и отправился в тюрьму!",
                 parse_mode=ParseMode.MARKDOWN
             )
-            game.next_turn()
+            
+            # Переходим к следующему игроку
+            next_result = game.next_turn()
+            if next_result:
+                await context.bot.send_message(
+                    chat_id=game.chat_id,
+                    text=next_result,
+                    parse_mode=ParseMode.MARKDOWN
+                )
+            
+            # Уведомляем следующего игрока
+            next_player = game.players[game.current_turn]
+            await context.bot.send_message(
+                chat_id=next_player.user_id,
+                text=f"🎯 *Ваш ход!*\n"
+                     f"💰 Баланс: *{next_player.money}*\n"
+                     f"🏠 Собственность: *{len(next_player.properties)}*",
+                reply_markup=get_game_keyboard(),
+                parse_mode=ParseMode.MARKDOWN
+            )
             return
     else:
         player.consecutive_doubles = 0
@@ -822,6 +855,7 @@ async def handle_dice_roll(update: Update, context: ContextTypes.DEFAULT_TYPE, g
                 f"🎲 {dice1} + {dice2} = {total}",
                 parse_mode=ParseMode.MARKDOWN
             )
+            # Продолжаем ход (выход из тюрьмы)
         else:
             player.jail_turns += 1
             if player.jail_turns >= 3:
@@ -832,6 +866,7 @@ async def handle_dice_roll(update: Update, context: ContextTypes.DEFAULT_TYPE, g
                     f"🚓 *@{player.username}* отсидел 3 хода и вышел из тюрьмы за 50💰",
                     parse_mode=ParseMode.MARKDOWN
                 )
+                # Продолжаем ход (выход по сроку)
             else:
                 await update.message.reply_text(
                     f"🚓 *@{player.username}* в тюрьме. Осталось ходов: {3 - player.jail_turns}\n"
@@ -839,10 +874,28 @@ async def handle_dice_roll(update: Update, context: ContextTypes.DEFAULT_TYPE, g
                     reply_markup=get_game_keyboard(),
                     parse_mode=ParseMode.MARKDOWN
                 )
-                game.next_turn()
+                
+                # Переходим к следующему игроку
+                next_result = game.next_turn()
+                if next_result:
+                    await context.bot.send_message(
+                        chat_id=game.chat_id,
+                        text=next_result,
+                        parse_mode=ParseMode.MARKDOWN
+                    )
+                
+                next_player = game.players[game.current_turn]
+                await context.bot.send_message(
+                    chat_id=next_player.user_id,
+                    text=f"🎯 *Ваш ход!*\n"
+                         f"💰 Баланс: *{next_player.money}*\n"
+                         f"🏠 Собственность: *{len(next_player.properties)}*",
+                    reply_markup=get_game_keyboard(),
+                    parse_mode=ParseMode.MARKDOWN
+                )
                 return
     
-    # Движение
+    # Движение (если не в тюрьме или только что вышел)
     old_position = player.position
     player.position = (player.position + total) % 40
     
@@ -852,7 +905,7 @@ async def handle_dice_roll(update: Update, context: ContextTypes.DEFAULT_TYPE, g
         player.money += 200
         passed_start = True
     
-    # Обработка клетки
+    # Обработка клетки на которую попал
     landing_result = game.handle_landing(player, player.position, total)
     
     result_text = (
@@ -898,7 +951,7 @@ async def handle_dice_roll(update: Update, context: ContextTypes.DEFAULT_TYPE, g
             parse_mode=ParseMode.MARKDOWN
         )
         
-        # Не переходим к следующему игроку пока не решат
+        # НЕ переходим к следующему игроку - ждем решение
         return
     
     # Проверка на банкротство
@@ -906,9 +959,9 @@ async def handle_dice_roll(update: Update, context: ContextTypes.DEFAULT_TYPE, g
         await handle_bankruptcy(game, context)
         return
     
-    # Если дубль - еще один ход
+    # Если дубль - еще один ход (НЕ переходим к следующему)
     if is_double and not player.in_jail:
-        game.dice_rolled = False
+        game.dice_rolled = False  # Сбрасываем флаг для повторного хода
         await context.bot.send_message(
             chat_id=game.chat_id,
             text=f"🎯 *@{player.username}* выбрасывает дубль и ходит еще раз!",
@@ -916,7 +969,7 @@ async def handle_dice_roll(update: Update, context: ContextTypes.DEFAULT_TYPE, g
         )
         return
     
-    # Следующий ход
+    # Обычный случай - переходим к следующему игроку
     next_result = game.next_turn()
     if next_result:
         await context.bot.send_message(
@@ -925,6 +978,7 @@ async def handle_dice_roll(update: Update, context: ContextTypes.DEFAULT_TYPE, g
             parse_mode=ParseMode.MARKDOWN
         )
     
+    # Уведомляем следующего игрока
     next_player = game.players[game.current_turn]
     await context.bot.send_message(
         chat_id=next_player.user_id,
