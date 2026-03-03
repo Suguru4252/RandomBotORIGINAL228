@@ -54,8 +54,8 @@ class Trade:
         self.proposer_id = proposer_id
         self.target_id = target_id
         self.game_id = game_id
-        self.proposer_properties = []  # ID позиций
-        self.target_properties = []    # ID позиций
+        self.proposer_properties = []
+        self.target_properties = []
         self.proposer_money = 0
         self.target_money = 0
         self.active = True
@@ -67,23 +67,21 @@ class Property:
         self.name = name
         self.price = price
         self.color = color
-        self.rent = rent  # [0 домов, 1 дом, 2 дома, 3 дома, 4 дома, отель]
-        self.house_price = house_price  # Цена дома
+        self.rent = rent
+        self.house_price = house_price
         self.owner = None
-        self.houses = 0  # 0-4 дома
-        self.hotel = False  # True если есть отель
+        self.houses = 0
+        self.hotel = False
         self.mortgaged = False
-        self.position = 0  # Будет установлено при создании
+        self.position = 0
         
     def get_rent(self):
-        """Получить текущую ренту с учетом домов/отелей"""
         if self.hotel:
-            return self.rent[5]  # Рента с отелем
+            return self.rent[5]
         else:
-            return self.rent[self.houses]  # Рента с текущим количеством домов
+            return self.rent[self.houses]
     
     def can_buy_house(self):
-        """Можно ли купить дом"""
         if self.hotel:
             return False
         if self.houses >= 4:
@@ -91,18 +89,15 @@ class Property:
         return True
     
     def can_buy_hotel(self):
-        """Можно ли купить отель"""
         return self.houses == 4 and not self.hotel
     
     def buy_house(self):
-        """Купить дом"""
         if self.can_buy_house():
             self.houses += 1
             return True
         return False
     
     def buy_hotel(self):
-        """Купить отель"""
         if self.can_buy_hotel():
             self.hotel = True
             return True
@@ -122,8 +117,8 @@ class Player:
         self.alive = True
         self.in_game = False
         self.double_count = 0
-        self.consecutive_doubles = 0  # Счетчик дублей подряд
-        self.trade_offers = []  # Предложения трейда
+        self.consecutive_doubles = 0
+        self.trade_offers = []
         
     def buy_property(self, property: Property) -> bool:
         if self.money >= property.price:
@@ -153,7 +148,6 @@ class Player:
             owner.money += amount
             return True
         else:
-            # Банкротство - все имущество переходит кредитору
             self.alive = False
             for prop in self.properties:
                 prop.owner = owner
@@ -178,15 +172,13 @@ class Game:
         self.message_id = None
         self.jackpot = 0
         self.auction: Optional[Auction] = None
-        self.trades: Dict[int, Trade] = {}  # trade_id: Trade
+        self.trades: Dict[int, Trade] = {}
         self.next_trade_id = 1
         self.chat_messages = []
         
     def create_board(self):
-        """Создание игрового поля с ценами домов"""
         board = []
         properties = [
-            # name, price, color, rent, house_price
             ("Старт", 0, "special", [0], 0),
             ("Улица Победы", 60, "коричневый", [2, 10, 30, 90, 160, 250], 50),
             ("Казна", 0, "special", [0], 0),
@@ -199,7 +191,7 @@ class Game:
             ("Улица Чехова", 120, "голубой", [8, 40, 100, 300, 450, 600], 50),
             ("Тюрьма", 0, "jail", [0], 0),
             ("Пушкинская улица", 140, "розовый", [10, 50, 150, 450, 625, 750], 100),
-            ("Электростанция", 150, "utility", [0], 0),  # Коммуналка
+            ("Электростанция", 150, "utility", [0], 0),
             ("Улица Лермонтова", 140, "розовый", [10, 50, 150, 450, 625, 750], 100),
             ("Улица Толстого", 160, "розовый", [12, 60, 180, 500, 700, 900], 100),
             ("Вокзал", 200, "railroad", [25, 50, 100, 200], 0),
@@ -215,7 +207,7 @@ class Game:
             ("Вокзал", 200, "railroad", [25, 50, 100, 200], 0),
             ("Проспект Вернадского", 260, "желтый", [22, 110, 330, 800, 975, 1150], 150),
             ("Проспект Ленина", 260, "желтый", [22, 110, 330, 800, 975, 1150], 150),
-            ("Водопровод", 150, "utility", [0], 0),  # Коммуналка
+            ("Водопровод", 150, "utility", [0], 0),
             ("Университетская", 280, "желтый", [24, 120, 360, 850, 1025, 1200], 150),
             ("Отправляйтесь в тюрьму", 0, "jail", [0], 0),
             ("Невский проспект", 300, "зеленый", [26, 130, 390, 900, 1100, 1275], 200),
@@ -238,16 +230,13 @@ class Game:
         return board
     
     def get_utility_rent(self, player: Player, owner: Player, dice_total: int) -> int:
-        """Расчет ренты для коммуналок (электростанция/водопровод)"""
-        # Считаем сколько коммуналок у владельца
         utilities = [p for p in owner.properties if p.name in ["Электростанция", "Водопровод"]]
         if len(utilities) == 1:
             return dice_total * 4
-        else:  # 2 коммуналки
+        else:
             return dice_total * 10
     
     def get_railroad_rent(self, owner: Player) -> int:
-        """Расчет ренты для вокзалов"""
         railroads = [p for p in owner.properties if p.name == "Вокзал"]
         rent_table = [25, 50, 100, 200]
         return rent_table[len(railroads) - 1]
@@ -262,24 +251,34 @@ class Game:
     
     def start_game(self):
         self.started = True
+        # Устанавливаем первого игрока
         self.current_turn = list(self.players.keys())[0]
+        self.dice_rolled = False
         for player in self.players.values():
             player.in_game = True
+        logger.info(f"Игра началась. Первый ход у игрока {self.current_turn}")
     
     def next_turn(self):
         """Переход к следующему игроку"""
-        alive_players = [p for p in self.players.values() if p.alive]
-        if len(alive_players) == 1:
-            return alive_players[0]
+        # Получаем список живых игроков
+        alive_players = [pid for pid, p in self.players.items() if p.alive]
         
-        # Список живых игроков
-        players_list = [pid for pid, p in self.players.items() if p.alive]
-        current_index = players_list.index(self.current_turn)
-        next_index = (current_index + 1) % len(players_list)
-        self.current_turn = players_list[next_index]
+        if len(alive_players) == 1:
+            return alive_players[0]  # Победитель
+        
+        # Находим индекс текущего игрока
+        if self.current_turn not in alive_players:
+            # Если текущий игрок мертв, берем первого живого
+            self.current_turn = alive_players[0]
+        else:
+            current_index = alive_players.index(self.current_turn)
+            next_index = (current_index + 1) % len(alive_players)
+            self.current_turn = alive_players[next_index]
         
         # ВАЖНО: Сбрасываем флаг броска для нового игрока
         self.dice_rolled = False
+        
+        logger.info(f"Следующий ход: игрок {self.current_turn}")
         
         # Проверка на тюрьму
         current_player = self.players[self.current_turn]
@@ -292,7 +291,6 @@ class Game:
         return None
     
     def roll_dice(self):
-        """Бросок костей"""
         dice1 = random.randint(1, 6)
         dice2 = random.randint(1, 6)
         is_double = (dice1 == dice2)
@@ -323,7 +321,6 @@ class Game:
         return result
     
     def handle_landing(self, player: Player, position: int, dice_total: int = 0) -> dict:
-        """Обработка попадания на клетку"""
         prop = self.board[position]
         result = {
             "text": f"*{prop.name}*\n",
@@ -331,11 +328,9 @@ class Game:
             "data": None
         }
         
-        # Старт
         if position == 0:
             result["text"] += "🌟 Стартовая позиция"
         
-        # Налог
         elif position == 4 or position == 38:
             amount = 200 if position == 4 else 100
             if player.money >= amount:
@@ -346,17 +341,14 @@ class Game:
                 player.alive = False
                 result["text"] += f"💔 У вас недостаточно денег для уплаты налога!"
         
-        # Тюрьма (посещение)
         elif position == 10:
             result["text"] += "🚓 Вы посетили тюрьму (просто отдых)"
         
-        # Отправляйтесь в тюрьму
         elif position == 30:
             player.in_jail = True
             player.position = 10
             result["text"] += "🚓 Вы отправились в тюрьму на 3 хода!"
         
-        # Бесплатная парковка
         elif position == 20:
             if self.jackpot > 0:
                 player.money += self.jackpot
@@ -365,7 +357,6 @@ class Game:
             else:
                 result["text"] += "🅿️ Бесплатная парковка"
         
-        # Шанс
         elif prop.name == "Шанс":
             chance = self.get_chance_card()
             result["text"] += f"🎲 *Шанс:* {chance['text']}"
@@ -379,7 +370,6 @@ class Game:
                 player.position = chance["position"]
                 result["text"] += f" Перемещение на клетку *{chance['position']}*"
         
-        # Казна
         elif prop.name == "Казна":
             chest = self.get_community_chest()
             result["text"] += f"📦 *Казна:* {chest['text']}"
@@ -393,13 +383,11 @@ class Game:
                 player.position = chest["position"]
                 result["text"] += f" Перемещение на клетку *{chest['position']}*"
         
-        # Вокзалы
         elif prop.name == "Вокзал":
             if prop.owner is None:
                 result["action"] = "buy"
                 result["data"] = position
-                result["text"] += f"🏠 *Свободный вокзал*\n"
-                result["text"] += f"💰 Цена: *{prop.price}*"
+                result["text"] += f"🏠 *Свободный вокзал*\n💰 Цена: *{prop.price}*"
             elif prop.owner.user_id != player.user_id:
                 rent = self.get_railroad_rent(prop.owner)
                 if player.money >= rent:
@@ -412,16 +400,13 @@ class Game:
             else:
                 result["text"] += f"🏠 Ваш вокзал"
         
-        # Коммуналки (Электростанция/Водопровод)
         elif prop.name in ["Электростанция", "Водопровод"]:
             if prop.owner is None:
                 result["action"] = "buy"
                 result["data"] = position
-                result["text"] += f"🏠 *Свободная коммуналка*\n"
-                result["text"] += f"💰 Цена: *{prop.price}*"
+                result["text"] += f"🏠 *Свободная коммуналка*\n💰 Цена: *{prop.price}*"
             elif prop.owner.user_id != player.user_id:
                 if dice_total == 0:
-                    # Если это не прямой ход, а посещение (например, карта шанса)
                     dice_total = random.randint(2, 12)
                 rent = self.get_utility_rent(player, prop.owner, dice_total)
                 if player.money >= rent:
@@ -434,15 +419,11 @@ class Game:
             else:
                 result["text"] += f"🏠 Ваша коммуналка"
         
-        # Обычная собственность
         elif prop.price > 0:
             if prop.owner is None:
                 result["action"] = "buy"
                 result["data"] = position
-                result["text"] += f"🏠 *Свободная собственность*\n"
-                result["text"] += f"💰 Цена: *{prop.price}*\n"
-                result["text"] += f"🏷️ Цвет: *{prop.color}*\n"
-                result["text"] += f"💵 Аренда: *{prop.get_rent()}*"
+                result["text"] += f"🏠 *Свободная собственность*\n💰 Цена: *{prop.price}*\n🏷️ Цвет: *{prop.color}*\n💵 Аренда: *{prop.get_rent()}*"
                 if prop.houses > 0:
                     result["text"] += f"\n🏠 Домов: {prop.houses}"
                 if prop.hotel:
@@ -465,10 +446,7 @@ class Game:
                     player.properties = []
                     result["text"] += f"💔 Вы обанкротились! Все имущество переходит @{prop.owner.username}"
             else:
-                result["text"] += f"🏠 Ваша собственность\n"
-                result["text"] += f"🏠 Домов: {prop.houses}\n" if prop.houses > 0 else ""
-                result["text"] += f"🏨 Отель: {'Да' if prop.hotel else 'Нет'}\n"
-                result["text"] += f"💰 Аренда: {prop.get_rent()}"
+                result["text"] += f"🏠 Ваша собственность\n🏠 Домов: {prop.houses}\n🏨 Отель: {'Да' if prop.hotel else 'Нет'}\n💰 Аренда: {prop.get_rent()}"
         
         return result
     
@@ -497,7 +475,6 @@ class Game:
         ]
         return random.choice(cards)
 
-# Класс аукциона
 class Auction:
     def __init__(self, property_name: str, property_price: int, game_id: int, position: int):
         self.property_name = property_name
@@ -514,10 +491,8 @@ class Auction:
         self.message_id = None
         self.has_bids = False
 
-# Хранилище активных игр
 games: Dict[int, Game] = {}
 
-# Flask сервер для BotHost
 app = Flask(__name__)
 
 @app.route('/')
@@ -531,7 +506,6 @@ def health():
 def run_flask():
     app.run(host='0.0.0.0', port=8080, debug=False, use_reloader=False)
 
-# Функции для создания клавиатур
 def get_main_keyboard():
     keyboard = [
         ["🎮 Создать игру", "📋 Список игр"],
@@ -564,14 +538,12 @@ def get_games_keyboard():
 def get_empty_keyboard():
     return ReplyKeyboardMarkup([[]], resize_keyboard=True)
 
-# Проверка, находится ли игрок в игре
 def get_player_game(user_id: int) -> Optional[Game]:
     for game in games.values():
         if user_id in game.players and game.started:
             return game
     return None
 
-# Обработчик текстовых сообщений
 async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = update.message.text
     user_id = update.effective_user.id
@@ -581,7 +553,6 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
     game = get_player_game(user_id)
     
     if game:
-        # Проверка на аукцион
         if game.auction and game.auction.active:
             if text.isdigit():
                 bid = int(text)
@@ -607,7 +578,6 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     )
                 return
         
-        # Обработка игровых кнопок
         if text == "🎲 Бросить кости":
             await handle_dice_roll(update, context, game, user_id)
         elif text == "🏠 Мои карты":
@@ -627,7 +597,6 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
         elif text.startswith('/'):
             pass
         else:
-            # Обычное сообщение - чат
             game.add_chat_message(user_id, username, text)
             for pid in game.players.keys():
                 if pid != user_id:
@@ -645,7 +614,6 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
             )
     
     else:
-        # Меню
         if chat_id == user_id:
             if text == "🎮 Создать игру":
                 await create_game(update, context)
@@ -676,10 +644,8 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 )
 
 async def handle_buy_house(update: Update, context: ContextTypes.DEFAULT_TYPE, game: Game, user_id: int):
-    """Покупка дома"""
     player = game.players[user_id]
     
-    # Показываем список свойств где можно купить дом
     buyable = []
     for prop in player.properties:
         if prop.can_buy_house() and prop.color != "railroad" and prop.color != "utility":
@@ -709,10 +675,8 @@ async def handle_buy_house(update: Update, context: ContextTypes.DEFAULT_TYPE, g
     )
 
 async def handle_buy_hotel(update: Update, context: ContextTypes.DEFAULT_TYPE, game: Game, user_id: int):
-    """Покупка отеля"""
     player = game.players[user_id]
     
-    # Показываем свойства где можно купить отель (4 дома)
     buyable = []
     for prop in player.properties:
         if prop.can_buy_hotel():
@@ -742,10 +706,8 @@ async def handle_buy_hotel(update: Update, context: ContextTypes.DEFAULT_TYPE, g
     )
 
 async def start_trade(update: Update, context: ContextTypes.DEFAULT_TYPE, game: Game, user_id: int):
-    """Начало трейда"""
     player = game.players[user_id]
     
-    # Показываем список других игроков
     others = [pid for pid in game.players.keys() if pid != user_id and game.players[pid].alive]
     
     if not others:
@@ -785,8 +747,12 @@ async def handle_dice_roll(update: Update, context: ContextTypes.DEFAULT_TYPE, g
     
     # Проверка что сейчас ход этого игрока
     if user_id != game.current_turn:
+        # Находим имя текущего игрока
+        current_player = game.players.get(game.current_turn)
+        current_name = current_player.username if current_player else "неизвестно"
+        
         await update.message.reply_text(
-            f"❌ Сейчас не ваш ход! Сейчас ходит @{game.players[game.current_turn].username}",
+            f"❌ Сейчас не ваш ход! Сейчас ходит @{current_name}",
             reply_markup=get_game_keyboard()
         )
         return
@@ -803,7 +769,6 @@ async def handle_dice_roll(update: Update, context: ContextTypes.DEFAULT_TYPE, g
     dice1, dice2, total, is_double = game.roll_dice()
     game.dice_rolled = True  # Помечаем что бросил
     
-    # Логируем для отладки
     logger.info(f"Игрок {player.username} бросил кости: {dice1}+{dice2}={total}, дубль: {is_double}")
     
     # Проверка на 3 дубля подряд (в тюрьму)
@@ -813,7 +778,7 @@ async def handle_dice_roll(update: Update, context: ContextTypes.DEFAULT_TYPE, g
             player.in_jail = True
             player.position = 10
             player.consecutive_doubles = 0
-            game.dice_rolled = False  # Сбрасываем для следующего
+            game.dice_rolled = False
             
             await context.bot.send_message(
                 chat_id=game.chat_id,
@@ -822,24 +787,19 @@ async def handle_dice_roll(update: Update, context: ContextTypes.DEFAULT_TYPE, g
             )
             
             # Переходим к следующему игроку
-            next_result = game.next_turn()
-            if next_result:
-                await context.bot.send_message(
-                    chat_id=game.chat_id,
-                    text=next_result,
-                    parse_mode=ParseMode.MARKDOWN
-                )
+            game.next_turn()
             
             # Уведомляем следующего игрока
-            next_player = game.players[game.current_turn]
-            await context.bot.send_message(
-                chat_id=next_player.user_id,
-                text=f"🎯 *Ваш ход!*\n"
-                     f"💰 Баланс: *{next_player.money}*\n"
-                     f"🏠 Собственность: *{len(next_player.properties)}*",
-                reply_markup=get_game_keyboard(),
-                parse_mode=ParseMode.MARKDOWN
-            )
+            if game.current_turn in game.players:
+                next_player = game.players[game.current_turn]
+                await context.bot.send_message(
+                    chat_id=next_player.user_id,
+                    text=f"🎯 *Ваш ход!*\n"
+                         f"💰 Баланс: *{next_player.money}*\n"
+                         f"🏠 Собственность: *{len(next_player.properties)}*",
+                    reply_markup=get_game_keyboard(),
+                    parse_mode=ParseMode.MARKDOWN
+                )
             return
     else:
         player.consecutive_doubles = 0
@@ -855,18 +815,16 @@ async def handle_dice_roll(update: Update, context: ContextTypes.DEFAULT_TYPE, g
                 f"🎲 {dice1} + {dice2} = {total}",
                 parse_mode=ParseMode.MARKDOWN
             )
-            # Продолжаем ход (выход из тюрьмы)
         else:
             player.jail_turns += 1
             if player.jail_turns >= 3:
                 player.in_jail = False
                 player.jail_turns = 0
-                player.money -= 50  # Штраф за выход
+                player.money -= 50
                 await update.message.reply_text(
                     f"🚓 *@{player.username}* отсидел 3 хода и вышел из тюрьмы за 50💰",
                     parse_mode=ParseMode.MARKDOWN
                 )
-                # Продолжаем ход (выход по сроку)
             else:
                 await update.message.reply_text(
                     f"🚓 *@{player.username}* в тюрьме. Осталось ходов: {3 - player.jail_turns}\n"
@@ -876,26 +834,22 @@ async def handle_dice_roll(update: Update, context: ContextTypes.DEFAULT_TYPE, g
                 )
                 
                 # Переходим к следующему игроку
-                next_result = game.next_turn()
-                if next_result:
+                game.next_turn()
+                
+                # Уведомляем следующего игрока
+                if game.current_turn in game.players:
+                    next_player = game.players[game.current_turn]
                     await context.bot.send_message(
-                        chat_id=game.chat_id,
-                        text=next_result,
+                        chat_id=next_player.user_id,
+                        text=f"🎯 *Ваш ход!*\n"
+                             f"💰 Баланс: *{next_player.money}*\n"
+                             f"🏠 Собственность: *{len(next_player.properties)}*",
+                        reply_markup=get_game_keyboard(),
                         parse_mode=ParseMode.MARKDOWN
                     )
-                
-                next_player = game.players[game.current_turn]
-                await context.bot.send_message(
-                    chat_id=next_player.user_id,
-                    text=f"🎯 *Ваш ход!*\n"
-                         f"💰 Баланс: *{next_player.money}*\n"
-                         f"🏠 Собственность: *{len(next_player.properties)}*",
-                    reply_markup=get_game_keyboard(),
-                    parse_mode=ParseMode.MARKDOWN
-                )
                 return
     
-    # Движение (если не в тюрьме или только что вышел)
+    # Движение
     old_position = player.position
     player.position = (player.position + total) % 40
     
@@ -905,7 +859,7 @@ async def handle_dice_roll(update: Update, context: ContextTypes.DEFAULT_TYPE, g
         player.money += 200
         passed_start = True
     
-    # Обработка клетки на которую попал
+    # Обработка клетки
     landing_result = game.handle_landing(player, player.position, total)
     
     result_text = (
@@ -950,8 +904,6 @@ async def handle_dice_roll(update: Update, context: ContextTypes.DEFAULT_TYPE, g
             reply_markup=InlineKeyboardMarkup(keyboard),
             parse_mode=ParseMode.MARKDOWN
         )
-        
-        # НЕ переходим к следующему игроку - ждем решение
         return
     
     # Проверка на банкротство
@@ -959,9 +911,9 @@ async def handle_dice_roll(update: Update, context: ContextTypes.DEFAULT_TYPE, g
         await handle_bankruptcy(game, context)
         return
     
-    # Если дубль - еще один ход (НЕ переходим к следующему)
+    # Если дубль - еще один ход
     if is_double and not player.in_jail:
-        game.dice_rolled = False  # Сбрасываем флаг для повторного хода
+        game.dice_rolled = False
         await context.bot.send_message(
             chat_id=game.chat_id,
             text=f"🎯 *@{player.username}* выбрасывает дубль и ходит еще раз!",
@@ -969,28 +921,22 @@ async def handle_dice_roll(update: Update, context: ContextTypes.DEFAULT_TYPE, g
         )
         return
     
-    # Обычный случай - переходим к следующему игроку
-    next_result = game.next_turn()
-    if next_result:
-        await context.bot.send_message(
-            chat_id=game.chat_id,
-            text=next_result,
-            parse_mode=ParseMode.MARKDOWN
-        )
+    # Переходим к следующему игроку
+    game.next_turn()
     
     # Уведомляем следующего игрока
-    next_player = game.players[game.current_turn]
-    await context.bot.send_message(
-        chat_id=next_player.user_id,
-        text=f"🎯 *Ваш ход!*\n"
-             f"💰 Баланс: *{next_player.money}*\n"
-             f"🏠 Собственность: *{len(next_player.properties)}*",
-        reply_markup=get_game_keyboard(),
-        parse_mode=ParseMode.MARKDOWN
-    )
+    if game.current_turn in game.players:
+        next_player = game.players[game.current_turn]
+        await context.bot.send_message(
+            chat_id=next_player.user_id,
+            text=f"🎯 *Ваш ход!*\n"
+                 f"💰 Баланс: *{next_player.money}*\n"
+                 f"🏠 Собственность: *{len(next_player.properties)}*",
+            reply_markup=get_game_keyboard(),
+            parse_mode=ParseMode.MARKDOWN
+        )
 
 async def show_my_cards(update: Update, context: ContextTypes.DEFAULT_TYPE, game: Game, user_id: int):
-    """Показать карты игрока"""
     player = game.players[user_id]
     
     if not player.properties:
@@ -1000,7 +946,6 @@ async def show_my_cards(update: Update, context: ContextTypes.DEFAULT_TYPE, game
         )
         return
     
-    # Группировка по цветам
     by_color = {}
     for prop in player.properties:
         if prop.color not in by_color:
@@ -1027,7 +972,6 @@ async def show_my_cards(update: Update, context: ContextTypes.DEFAULT_TYPE, game
                 elif color == "utility":
                     text += f"*⚡ {prop.name}*\n"
     
-    # Добавляем кнопку трейда
     keyboard = [
         [InlineKeyboardButton("🔄 Предложить обмен", callback_data=f"trade_start_{game.chat_id}")],
         [InlineKeyboardButton("🏠 Купить дом", callback_data=f"show_houses_{game.chat_id}")],
@@ -1041,7 +985,6 @@ async def show_my_cards(update: Update, context: ContextTypes.DEFAULT_TYPE, game
     )
 
 async def leave_game(update: Update, context: ContextTypes.DEFAULT_TYPE, game: Game, user_id: int):
-    """Покинуть игру"""
     if user_id == game.creator_id:
         for pid in game.players.keys():
             try:
@@ -1089,7 +1032,6 @@ async def leave_game(update: Update, context: ContextTypes.DEFAULT_TYPE, game: G
             del games[game.chat_id]
 
 async def handle_bankruptcy(game: Game, context: ContextTypes.DEFAULT_TYPE):
-    """Обработка банкротства"""
     alive_players = [p for p in game.players.values() if p.alive]
     
     if len(alive_players) == 1:
@@ -1106,12 +1048,8 @@ async def handle_bankruptcy(game: Game, context: ContextTypes.DEFAULT_TYPE):
                 pass
         del games[game.chat_id]
         return
-    
-    if game.current_turn not in [p.user_id for p in alive_players]:
-        game.current_turn = alive_players[0].user_id
 
 async def start_auction(game: Game, property_name: str, property_price: int, position: int, context: ContextTypes.DEFAULT_TYPE):
-    """Начать аукцион"""
     game.auction = Auction(property_name, property_price, game.chat_id, position)
     
     for player_id in game.players.keys():
@@ -1144,7 +1082,6 @@ async def start_auction(game: Game, property_name: str, property_price: int, pos
     game.auction.message_id = message.message_id
 
 async def auction_countdown(game: Game, context: ContextTypes.DEFAULT_TYPE):
-    """Обратный отсчет для аукциона"""
     while game.auction and game.auction.active and game.auction.countdown > 0:
         await asyncio.sleep(1)
         game.auction.countdown -= 1
@@ -1230,7 +1167,6 @@ async def auction_countdown(game: Game, context: ContextTypes.DEFAULT_TYPE):
         
         game.auction = None
 
-# Команда /start
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     chat_id = update.effective_chat.id
@@ -1265,7 +1201,6 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         parse_mode=ParseMode.MARKDOWN
     )
 
-# Начать игру из кнопки
 async def start_game_from_button(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     
@@ -1313,7 +1248,6 @@ async def start_game_from_button(update: Update, context: ContextTypes.DEFAULT_T
         reply_markup=get_main_keyboard()
     )
 
-# Создание игры
 async def create_game(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_id = update.effective_chat.id
     user_id = update.effective_user.id
@@ -1360,7 +1294,6 @@ async def create_game(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     game.message_id = message.message_id
 
-# Команда /join
 async def join_game(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     username = update.effective_user.username or f"Player_{user_id}"
@@ -1461,7 +1394,6 @@ async def join_game(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "❌ Не удалось отправить запрос создателю игры."
         )
 
-# Список игр
 async def list_games_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     
@@ -1501,7 +1433,6 @@ async def list_games_command(update: Update, context: ContextTypes.DEFAULT_TYPE)
         parse_mode=ParseMode.MARKDOWN
     )
 
-# Обработка инлайн кнопок
 async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
@@ -1820,7 +1751,6 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         game = games[game_id]
         trade = game.trades[trade_id]
         
-        # Здесь будет логика трейда
         await query.edit_message_text(
             "🔄 *Функция трейда в разработке*\n\n"
             "В следующем обновлении: выбор карточек и денег для обмена!",
@@ -1837,7 +1767,6 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await query.edit_message_text("❌ Трейд отклонен")
 
 async def update_game_message(game: Game, context: ContextTypes.DEFAULT_TYPE):
-    """Обновляет сообщение с игрой"""
     if not game.message_id:
         return
     
@@ -1866,7 +1795,6 @@ async def update_game_message(game: Game, context: ContextTypes.DEFAULT_TYPE):
     except:
         pass
 
-# Помощь
 async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     
@@ -1921,7 +1849,6 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         parse_mode=ParseMode.MARKDOWN
     )
 
-# Информация о боте
 async def info_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     
@@ -1955,7 +1882,6 @@ async def info_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         parse_mode=ParseMode.MARKDOWN
     )
 
-# Обработчик ошибок
 async def error_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     logger.error(f"Ошибка: {context.error}")
     if update and update.effective_message:
@@ -1965,7 +1891,6 @@ async def error_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
 
 def main():
-    """Запуск бота"""
     print("🚀 Запуск Monopoly Bot v4.0...")
     print(f"✅ Токен загружен")
     
