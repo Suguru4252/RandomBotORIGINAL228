@@ -23,6 +23,7 @@
             --light: #f8f9fa;
             --gray: #adb5bd;
             --admin: #9d4edd;
+            --admin-bg: #2d1b3a;
             
             --brown: #8B4513;
             --lightblue: #6bc5e8;
@@ -46,6 +47,61 @@
             align-items: center;
             padding: 20px;
             margin: 0;
+            transition: all 0.5s;
+        }
+
+        /* АДМИН РЕЖИМ */
+        body.admin-mode {
+            background: linear-gradient(145deg, #2d1b3a 0%, #4a1d4a 100%);
+            animation: adminBG 3s infinite;
+        }
+
+        @keyframes adminBG {
+            0% { background: linear-gradient(145deg, #2d1b3a 0%, #4a1d4a 100%); }
+            50% { background: linear-gradient(145deg, #4a1d4a 0%, #6b2d6b 100%); }
+            100% { background: linear-gradient(145deg, #2d1b3a 0%, #4a1d4a 100%); }
+        }
+
+        body.admin-mode #game-container {
+            border: 3px solid var(--admin);
+            box-shadow: 0 0 50px var(--admin);
+            animation: adminGlow 2s infinite;
+        }
+
+        @keyframes adminGlow {
+            0% { box-shadow: 0 0 30px var(--admin); }
+            50% { box-shadow: 0 0 60px var(--admin); }
+            100% { box-shadow: 0 0 30px var(--admin); }
+        }
+
+        body.admin-mode .login-card {
+            background: linear-gradient(145deg, #f3e8ff, #ffffff);
+            border: 2px solid var(--admin);
+        }
+
+        .admin-badge {
+            display: none;
+            position: fixed;
+            top: 20px;
+            left: 20px;
+            background: var(--admin);
+            color: white;
+            padding: 10px 20px;
+            border-radius: 40px;
+            font-weight: bold;
+            z-index: 9999;
+            box-shadow: 0 0 30px var(--admin);
+            animation: adminBadge 1s infinite;
+        }
+
+        @keyframes adminBadge {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.1); }
+            100% { transform: scale(1); }
+        }
+
+        body.admin-mode .admin-badge {
+            display: block;
         }
 
         #game-container {
@@ -56,6 +112,7 @@
             border-radius: 48px;
             padding: 24px;
             box-shadow: 0 25px 50px -12px rgba(0,0,0,0.5);
+            transition: all 0.5s;
         }
 
         /* ЭКРАН ВХОДА */
@@ -74,6 +131,7 @@
             width: 100%;
             max-width: 550px;
             text-align: center;
+            transition: all 0.3s;
         }
 
         .game-title {
@@ -82,6 +140,12 @@
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
             margin-bottom: 10px;
+        }
+
+        body.admin-mode .game-title {
+            background: linear-gradient(135deg, var(--admin), #ff6b6b);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
         }
 
         .input-group {
@@ -102,6 +166,18 @@
             border: 2px solid #e5e7eb;
             border-radius: 30px;
             font-size: 1.1em;
+            transition: all 0.3s;
+        }
+
+        .input-group input:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 4px rgba(67,97,238,0.2);
+        }
+
+        body.admin-mode .input-group input {
+            border-color: var(--admin);
+            background: #f3e8ff;
         }
 
         .character-selector {
@@ -176,6 +252,11 @@
 
         .btn.danger {
             background: var(--danger);
+            color: white;
+        }
+
+        .btn.admin {
+            background: var(--admin);
             color: white;
         }
 
@@ -352,6 +433,13 @@
             position: relative;
             border: 1px solid #d1d5db;
             cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .board-cell:hover {
+            transform: scale(1.05);
+            z-index: 10;
+            box-shadow: 0 5px 20px rgba(0,0,0,0.3);
         }
 
         .color-strip {
@@ -504,6 +592,27 @@
             width: 90%;
             max-height: 80vh;
             overflow-y: auto;
+            animation: modalPop 0.3s;
+        }
+
+        @keyframes modalPop {
+            from { transform: scale(0.8); opacity: 0; }
+            to { transform: scale(1); opacity: 1; }
+        }
+
+        .close {
+            position: absolute;
+            top: 15px;
+            right: 20px;
+            font-size: 2em;
+            cursor: pointer;
+            color: var(--gray);
+            transition: all 0.3s;
+        }
+
+        .close:hover {
+            color: var(--danger);
+            transform: scale(1.2);
         }
 
         .notification {
@@ -545,16 +654,17 @@
             border-radius: 15px;
             cursor: pointer;
             transition: all 0.2s;
+            border: 2px solid transparent;
         }
 
         .property-item:hover {
             transform: translateX(5px);
-            background: #e5e7eb;
+            border-color: var(--primary);
         }
 
         .property-item.selected {
             background: #d1fae5;
-            border: 2px solid var(--success);
+            border-color: var(--success);
         }
 
         .add-button {
@@ -567,10 +677,11 @@
             font-size: 1.5em;
             cursor: pointer;
             margin: 10px 0;
+            transition: all 0.3s;
         }
 
         .add-button:hover {
-            transform: scale(1.1);
+            transform: scale(1.1) rotate(90deg);
         }
 
         .add-button:disabled {
@@ -598,6 +709,12 @@
             z-index: 2000;
             min-width: 400px;
             text-align: center;
+            animation: notificationPop 0.3s;
+        }
+
+        @keyframes notificationPop {
+            from { transform: translate(-50%, -50%) scale(0.5); opacity: 0; }
+            to { transform: translate(-50%, -50%) scale(1); opacity: 1; }
         }
 
         .trade-buttons {
@@ -625,6 +742,18 @@
             display: flex;
             align-items: center;
             justify-content: center;
+            animation: adminDeletePulse 1s infinite;
+        }
+
+        @keyframes adminDeletePulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.1); }
+            100% { transform: scale(1); }
+        }
+
+        .admin-delete-btn:hover {
+            transform: scale(1.2);
+            background: #dc2626;
         }
 
         .game-item {
@@ -633,10 +762,22 @@
             border-radius: 30px;
             padding: 15px;
             margin-bottom: 10px;
+            transition: all 0.3s;
+        }
+
+        .game-item:hover {
+            transform: translateX(5px);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+        }
+
+        .admin-badge {
+            display: none;
         }
     </style>
 </head>
 <body>
+    <div class="admin-badge" id="admin-badge">⚡ АДМИН РЕЖИМ ⚡</div>
+
     <div id="game-container">
         <!-- ЭКРАН ВХОДА -->
         <div id="login-screen">
@@ -645,7 +786,7 @@
                 
                 <div class="input-group">
                     <label>👤 ВАШЕ ИМЯ</label>
-                    <input type="text" id="player-name" placeholder="Введите имя" maxlength="15">
+                    <input type="text" id="player-name" placeholder="Введите имя" maxlength="15" oninput="checkAdminInstant()">
                 </div>
                 
                 <div class="character-selector">
@@ -771,7 +912,7 @@
     <div class="modal" id="trade-modal">
         <div class="modal-content">
             <span class="close" onclick="closeTradeModal()">&times;</span>
-            <h2>🔄 ОБМЕН</h2>
+            <h2 id="trade-modal-title">🔄 ОБМЕН</h2>
             <div id="trade-content"></div>
         </div>
     </div>
@@ -797,15 +938,11 @@
         let updateInterval = null;
         let lobbyCleanupInterval = null;
         let isAdmin = false;
-        let lastUpdate = 0;
-        let isUpdating = false;
 
         // Трейд переменные
         let currentTrade = null;
         let tradeProposal = null;
         let selectingFor = null;
-        let selectedMyProps = [];
-        let selectedHisProps = [];
 
         // СЕКРЕТНЫЙ АДМИН НИК
         const ADMIN_NAME = 'SuguruK';
@@ -885,35 +1022,98 @@
             { text:"На Старт", pos:0, money:200 }
         ];
 
-        // ==================== ПРОВЕРКА АДМИНА ====================
-        function checkForAdmin() {
+        // ==================== МГНОВЕННАЯ ПРОВЕРКА АДМИНА ====================
+        function checkAdminInstant() {
             const nameInput = document.getElementById('player-name');
             if (!nameInput) return;
             
             const name = nameInput.value.trim();
+            const wasAdmin = isAdmin;
             isAdmin = (name === ADMIN_NAME);
+            
+            if (isAdmin && !wasAdmin) {
+                document.body.classList.add('admin-mode');
+                showNotif('⚡ АДМИН РЕЖИМ АКТИВИРОВАН ⚡', 'admin');
+                
+                // Обновляем список лобби если он открыт
+                if (document.getElementById('lobbies-list').style.display === 'block') {
+                    showLobbies();
+                }
+            } else if (!isAdmin && wasAdmin) {
+                document.body.classList.remove('admin-mode');
+                showNotif('👤 Обычный режим', 'info');
+                
+                // Обновляем список лобби если он открыт
+                if (document.getElementById('lobbies-list').style.display === 'block') {
+                    showLobbies();
+                }
+            }
         }
 
-        document.addEventListener('DOMContentLoaded', () => {
-            const nameInput = document.getElementById('player-name');
-            if (nameInput) {
-                nameInput.addEventListener('input', checkForAdmin);
-            }
-        });
+        // ==================== АВТООБНОВЛЕНИЕ ПОЛЯ ====================
+        function startAutoUpdate() {
+            if (updateInterval) clearInterval(updateInterval);
+            
+            updateInterval = setInterval(() => {
+                if (!currentGame || !currentGame.id) return;
+                
+                const saved = JSON.parse(localStorage.getItem('monopolyGames') || '{}');
+                const updatedGame = saved[currentGame.id];
+                
+                if (!updatedGame) {
+                    showNotif('❌ Лобби больше не существует', 'error');
+                    leaveToMenu();
+                    return;
+                }
+                
+                const stillInGame = updatedGame.players.some(p => p.id === currentPlayer.id);
+                if (!stillInGame) {
+                    showNotif('❌ Вас кикнули из лобби', 'error');
+                    leaveToMenu();
+                    return;
+                }
+                
+                if (!currentGame.started && updatedGame.started) {
+                    currentGame = updatedGame;
+                    enterGame();
+                    return;
+                }
+                
+                const gameChanged = JSON.stringify(currentGame) !== JSON.stringify(updatedGame);
+                if (gameChanged) {
+                    currentGame = updatedGame;
+                    
+                    if (document.getElementById('lobby-screen').style.display === 'block') {
+                        updateLobbyUI();
+                    } else if (document.getElementById('game-screen').style.display === 'block') {
+                        renderBoard();
+                        updatePlayersList();
+                        updateTurnIndicator();
+                        renderGameChat();
+                    }
+                }
+            }, 300); // Обновление каждые 0.3 секунды
+        }
 
         // ==================== УДАЛЕНИЕ ЛОББИ АДМИНОМ ====================
         function adminDeleteLobby(gameId) {
             if (!isAdmin) return;
             
             const games = JSON.parse(localStorage.getItem('monopolyGames') || '{}');
+            const deletedGame = games[gameId];
+            
+            if (!deletedGame) return;
+            
             delete games[gameId];
             localStorage.setItem('monopolyGames', JSON.stringify(games));
             
+            // Если текущий игрок был в этом лобби - отправляем его в меню
             if (currentGame && currentGame.id === gameId) {
                 showNotif('❌ Ваше лобби было удалено администратором', 'error');
                 leaveToMenu();
             }
             
+            // Обновляем список лобби
             showLobbies();
             showNotif(`✅ Лобби ${gameId} удалено`, 'admin');
         }
@@ -953,63 +1153,6 @@
                     }
                 }
             }, 5000);
-        }
-
-        // ==================== АВТООБНОВЛЕНИЕ ====================
-        function startAutoUpdate() {
-            if (updateInterval) clearInterval(updateInterval);
-            
-            updateInterval = setInterval(() => {
-                if (!currentGame || !currentGame.id || isUpdating) return;
-                
-                const now = Date.now();
-                if (now - lastUpdate < 800) return;
-                
-                isUpdating = true;
-                
-                const saved = JSON.parse(localStorage.getItem('monopolyGames') || '{}');
-                const updatedGame = saved[currentGame.id];
-                
-                if (!updatedGame) {
-                    showNotif('❌ Лобби больше не существует', 'error');
-                    leaveToMenu();
-                    isUpdating = false;
-                    return;
-                }
-                
-                const stillInGame = updatedGame.players.some(p => p.id === currentPlayer.id);
-                if (!stillInGame) {
-                    showNotif('❌ Вас кикнули из лобби', 'error');
-                    leaveToMenu();
-                    isUpdating = false;
-                    return;
-                }
-                
-                if (!currentGame.started && updatedGame.started) {
-                    currentGame = updatedGame;
-                    enterGame();
-                    lastUpdate = now;
-                    isUpdating = false;
-                    return;
-                }
-                
-                const gameChanged = JSON.stringify(currentGame) !== JSON.stringify(updatedGame);
-                if (gameChanged) {
-                    currentGame = updatedGame;
-                    
-                    if (document.getElementById('lobby-screen').style.display === 'block') {
-                        updateLobbyUI();
-                    } else if (document.getElementById('game-screen').style.display === 'block') {
-                        renderBoard();
-                        updatePlayersList();
-                        updateTurnIndicator();
-                        renderGameChat();
-                    }
-                }
-                
-                lastUpdate = now;
-                isUpdating = false;
-            }, 1000);
         }
 
         // ==================== ВЫБОР ПЕРСОНАЖА ====================
@@ -1054,7 +1197,8 @@
                 diceRolled: false,
                 jackpot: 0,
                 auction: null,
-                createdAt: Date.now()
+                createdAt: Date.now(),
+                trades: []
             };
 
             const games = JSON.parse(localStorage.getItem('monopolyGames') || '{}');
@@ -1206,6 +1350,8 @@
             document.getElementById('game-screen').style.display = 'none';
             currentGame = null;
             currentPlayer = null;
+            currentTrade = null;
+            tradeProposal = null;
         }
 
         // ==================== ЧАТ ЛОББИ ====================
@@ -1227,7 +1373,6 @@
             localStorage.setItem('monopolyGames', JSON.stringify(games));
             
             input.value = '';
-            renderLobbyChat();
         }
 
         function renderLobbyChat() {
@@ -1281,6 +1426,8 @@
         // ==================== ПОЛЕ ====================
         function renderBoard() {
             const board = document.getElementById('board');
+            if (!board) return;
+            
             board.innerHTML = '';
             
             for (let row = 0; row < 11; row++) {
@@ -1288,6 +1435,7 @@
                     const cell = document.createElement('div');
                     cell.className = 'board-cell';
                     
+                    // Углы
                     if (row === 0 && col === 0) {
                         cell.innerHTML = '<div class="cell-name">СТАРТ</div>';
                         cell.onclick = () => showCellInfo(0);
@@ -1304,18 +1452,23 @@
                         cell.innerHTML = '<div class="cell-name">В ТЮРЬМУ</div>';
                         cell.onclick = () => showCellInfo(30);
                     }
+                    // Верхний ряд
                     else if (row === 0 && col > 0 && col < 10) {
                         addPropertyCell(cell, col);
                     }
+                    // Нижний ряд
                     else if (row === 10 && col > 0 && col < 10) {
                         addPropertyCell(cell, 30 - col);
                     }
+                    // Левый ряд
                     else if (col === 0 && row > 0 && row < 10) {
                         addPropertyCell(cell, 20 - row);
                     }
+                    // Правый ряд
                     else if (col === 10 && row > 0 && row < 10) {
                         addPropertyCell(cell, 9 + row);
                     }
+                    // Центр
                     else if (row >= 2 && row <= 9 && col >= 2 && col <= 9) {
                         if (row === 5 && col === 5) {
                             cell.innerHTML = `
@@ -1329,6 +1482,7 @@
                         }
                     }
                     
+                    // Добавляем фишки игроков
                     const pos = getPosFromCell(row, col);
                     if (pos !== -1) {
                         const playersHere = currentGame.players.filter(p => p.pos === pos && p.alive);
@@ -1427,44 +1581,57 @@
                 const oldPos = player.pos;
                 const total = d1 + d2;
                 
-                player.pos = (player.pos + total) % 40;
+                // Анимация движения
+                let steps = total;
+                const moveInterval = setInterval(() => {
+                    if (steps === 0) {
+                        clearInterval(moveInterval);
+                        return;
+                    }
+                    player.pos = (player.pos + 1) % 40;
+                    renderBoard();
+                    steps--;
+                }, 200);
                 
-                if (player.pos < oldPos) {
-                    player.money += 200;
-                    addGameChat('system', `${player.name} +200 за Старт`);
-                }
-                
-                const land = currentGame.board[player.pos];
-                
-                if (land.type === 'tax') {
-                    if (player.money >= land.price) {
-                        player.money -= land.price;
-                        currentGame.jackpot += land.price;
-                    } else bankrupt(player);
-                }
-                else if (land.type === 'gotojail') {
-                    player.inJail = true;
-                    player.pos = 10;
-                    addGameChat('system', `${player.name} в тюрьму`);
-                }
-                else if (land.price > 0 && !land.owner) {
-                    selectedCell = player.pos;
-                    showPropModal(land);
-                }
-                else if (land.owner && land.owner !== player.id) {
-                    payRent(player, land);
-                }
-                
-                currentGame.diceRolled = true;
-                if (d1 !== d2) {
-                    nextTurn();
-                } else {
-                    showNotif('ДУБЛЬ! Ещё ход', 'warning');
-                }
-                
-                const games = JSON.parse(localStorage.getItem('monopolyGames') || '{}');
-                games[currentGame.id] = currentGame;
-                localStorage.setItem('monopolyGames', JSON.stringify(games));
+                setTimeout(() => {
+                    if (player.pos < oldPos) {
+                        player.money += 200;
+                        addGameChat('system', `${player.name} +200 за Старт`);
+                    }
+                    
+                    const land = currentGame.board[player.pos];
+                    
+                    if (land.type === 'tax') {
+                        if (player.money >= land.price) {
+                            player.money -= land.price;
+                            currentGame.jackpot += land.price;
+                        } else bankrupt(player);
+                    }
+                    else if (land.type === 'gotojail') {
+                        player.inJail = true;
+                        player.pos = 10;
+                        addGameChat('system', `${player.name} в тюрьму`);
+                    }
+                    else if (land.price > 0 && !land.owner) {
+                        selectedCell = player.pos;
+                        showPropModal(land);
+                    }
+                    else if (land.owner && land.owner !== player.id) {
+                        payRent(player, land);
+                    }
+                    
+                    currentGame.diceRolled = true;
+                    if (d1 !== d2) {
+                        nextTurn();
+                    } else {
+                        showNotif('ДУБЛЬ! Ещё ход', 'warning');
+                        currentGame.diceRolled = false;
+                    }
+                    
+                    const games = JSON.parse(localStorage.getItem('monopolyGames') || '{}');
+                    games[currentGame.id] = currentGame;
+                    localStorage.setItem('monopolyGames', JSON.stringify(games));
+                }, total * 200);
             }, 300);
         }
 
@@ -1668,7 +1835,6 @@
             localStorage.setItem('monopolyGames', JSON.stringify(games));
             
             input.value = '';
-            renderGameChat();
         }
 
         function renderGameChat() {
@@ -1698,41 +1864,63 @@
             localStorage.setItem('monopolyGames', JSON.stringify(games));
         }
 
-        // ==================== ТРЕЙД СИСТЕМА (ПОЛНОСТЬЮ ПЕРЕПИСАНА) ====================
+        // ==================== ТРЕЙД СИСТЕМА ====================
         function openTradeModal() {
             const others = currentGame.players.filter(p => p.id !== currentPlayer.id && p.alive);
             if (!others.length) return showNotif('Нет других игроков', 'error');
             
             let html = '<p style="text-align:center; font-size:1.2em;">Выберите игрока для обмена:</p>';
             others.forEach(p => {
-                html += `<button class="btn secondary" onclick="proposeTradeTo('${p.id}')" style="margin:5px 0;">${charEmojis[p.character]} ${p.name}</button>`;
+                html += `<button class="btn secondary" onclick="proposeTrade('${p.id}')" style="margin:5px 0;">${charEmojis[p.character]} ${p.name}</button>`;
             });
             
             document.getElementById('trade-content').innerHTML = html;
             openModal('trade-modal');
         }
 
-        function proposeTradeTo(targetId) {
+        function proposeTrade(targetId) {
             const target = getPlayerById(targetId);
             
             // Создаем предложение
-            tradeProposal = {
+            const proposal = {
                 id: 'trade_' + Date.now(),
                 fromId: currentPlayer.id,
                 fromName: currentPlayer.name,
+                fromChar: currentPlayer.character,
                 toId: targetId,
                 toName: target.name,
+                toChar: target.character,
                 status: 'pending'
             };
             
-            closeModal('trade-modal');
+            if (!currentGame.trades) currentGame.trades = [];
+            currentGame.trades.push(proposal);
             
-            // Показываем уведомление цели
-            showTradeNotification(targetId);
+            const games = JSON.parse(localStorage.getItem('monopolyGames') || '{}');
+            games[currentGame.id] = currentGame;
+            localStorage.setItem('monopolyGames', JSON.stringify(games));
+            
+            closeModal('trade-modal');
+            showNotif(`✅ Предложение отправлено ${target.name}`, 'success');
         }
 
-        function showTradeNotification(targetId) {
-            const target = getPlayerById(targetId);
+        // Проверка входящих предложений
+        function checkTradeProposals() {
+            if (!currentGame || !currentGame.trades) return;
+            
+            const pendingTrade = currentGame.trades.find(t => 
+                t.toId === currentPlayer.id && t.status === 'pending'
+            );
+            
+            if (pendingTrade) {
+                showTradeNotification(pendingTrade);
+            }
+        }
+
+        function showTradeNotification(proposal) {
+            // Удаляем старые уведомления
+            const oldNotif = document.getElementById('trade-notification');
+            if (oldNotif) oldNotif.remove();
             
             const notifDiv = document.createElement('div');
             notifDiv.className = 'trade-notification';
@@ -1740,33 +1928,27 @@
             notifDiv.innerHTML = `
                 <h2 style="color: var(--primary); margin-bottom: 20px;">🔄 ПРЕДЛОЖЕНИЕ ОБМЕНА</h2>
                 <p style="font-size: 1.3em; margin-bottom: 30px;">
-                    ${charEmojis[currentPlayer.character]} <strong>${currentPlayer.name}</strong><br>
+                    ${charEmojis[proposal.fromChar]} <strong>${proposal.fromName}</strong><br>
                     хочет обменяться с вами!
                 </p>
                 <div style="display: flex; gap: 15px;">
-                    <button class="btn primary" style="flex: 1;" onclick="acceptTradeProposal('${targetId}')">✅ ПРИНЯТЬ</button>
-                    <button class="btn danger" style="flex: 1;" onclick="declineTradeProposal()">❌ ОТКЛОНИТЬ</button>
+                    <button class="btn primary" style="flex: 1;" onclick="acceptTradeProposal('${proposal.id}')">✅ ПРИНЯТЬ</button>
+                    <button class="btn danger" style="flex: 1;" onclick="declineTradeProposal('${proposal.id}')">❌ ОТКЛОНИТЬ</button>
                 </div>
             `;
             
             document.body.appendChild(notifDiv);
-            
-            // Автоматически убираем через 30 секунд
-            setTimeout(() => {
-                const notif = document.getElementById('trade-notification');
-                if (notif) notif.remove();
-            }, 30000);
         }
 
-        function acceptTradeProposal(targetId) {
-            const notif = document.getElementById('trade-notification');
-            if (notif) notif.remove();
+        function acceptTradeProposal(proposalId) {
+            const proposal = currentGame.trades.find(t => t.id === proposalId);
+            if (!proposal) return;
             
             // Создаем активную сделку
             currentTrade = {
-                id: 'trade_' + Date.now(),
-                player1Id: tradeProposal.fromId,
-                player1Name: tradeProposal.fromName,
+                id: 'active_' + Date.now(),
+                player1Id: proposal.fromId,
+                player1Name: proposal.fromName,
                 player2Id: currentPlayer.id,
                 player2Name: currentPlayer.name,
                 props1: [],
@@ -1778,22 +1960,33 @@
                 accepted2: false
             };
             
-            // Сохраняем в игру
-            if (!currentGame.trades) currentGame.trades = [];
-            currentGame.trades.push(currentTrade);
+            // Удаляем предложение
+            currentGame.trades = currentGame.trades.filter(t => t.id !== proposalId);
+            if (!currentGame.activeTrades) currentGame.activeTrades = [];
+            currentGame.activeTrades.push(currentTrade);
             
             const games = JSON.parse(localStorage.getItem('monopolyGames') || '{}');
             games[currentGame.id] = currentGame;
             localStorage.setItem('monopolyGames', JSON.stringify(games));
             
-            // Открываем окно трейда для обоих игроков
+            // Убираем уведомление
+            const notif = document.getElementById('trade-notification');
+            if (notif) notif.remove();
+            
+            // Открываем окно трейда
             openTradeWindow();
         }
 
-        function declineTradeProposal() {
+        function declineTradeProposal(proposalId) {
+            currentGame.trades = currentGame.trades.filter(t => t.id !== proposalId);
+            
+            const games = JSON.parse(localStorage.getItem('monopolyGames') || '{}');
+            games[currentGame.id] = currentGame;
+            localStorage.setItem('monopolyGames', JSON.stringify(games));
+            
             const notif = document.getElementById('trade-notification');
             if (notif) notif.remove();
-            tradeProposal = null;
+            
             showNotif('❌ Вы отклонили предложение', 'info');
         }
 
@@ -1806,15 +1999,6 @@
             const isPlayer2 = currentPlayer.id === currentTrade.player2Id;
             
             if (!isPlayer1 && !isPlayer2) return;
-            
-            // Определяем, кто есть кто в текущем окне
-            const myId = currentPlayer.id;
-            const myProps = myId === currentTrade.player1Id ? currentTrade.props1 : currentTrade.props2;
-            const hisProps = myId === currentTrade.player1Id ? currentTrade.props2 : currentTrade.props1;
-            const myMoney = myId === currentTrade.player1Id ? currentTrade.money1 : currentTrade.money2;
-            const hisMoney = myId === currentTrade.player1Id ? currentTrade.money2 : currentTrade.money1;
-            const myName = myId === currentTrade.player1Id ? player1.name : player2.name;
-            const hisName = myId === currentTrade.player1Id ? player2.name : player1.name;
             
             document.getElementById('trade-modal-title').innerHTML = `🔄 ОБМЕН: ${player1.name} ⇄ ${player2.name}`;
             
@@ -1895,10 +2079,8 @@
         function selectProperty(pos) {
             if (!selectingFor) return;
             
-            // Добавляем свойство в трейд
             if (selectingFor === 'player1') {
                 currentTrade.props1.push(pos);
-                // Убираем из имущества игрока
                 const player = getPlayerById(currentTrade.player1Id);
                 player.props = player.props.filter(p => p !== pos);
             } else {
@@ -1909,12 +2091,10 @@
             
             closeModal('select-property-modal');
             
-            // Сохраняем изменения
             const games = JSON.parse(localStorage.getItem('monopolyGames') || '{}');
             games[currentGame.id] = currentGame;
             localStorage.setItem('monopolyGames', JSON.stringify(games));
             
-            // Обновляем окно
             openTradeWindow();
         }
 
@@ -1978,18 +2158,15 @@
                 currentTrade.accepted2 = true;
             }
             
-            // Если оба приняли - завершаем сделку
             if (currentTrade.accepted1 && currentTrade.accepted2) {
                 const player1 = getPlayerById(currentTrade.player1Id);
                 const player2 = getPlayerById(currentTrade.player2Id);
                 
-                // Передаем деньги
                 player1.money -= currentTrade.money1;
                 player1.money += currentTrade.money2;
                 player2.money -= currentTrade.money2;
                 player2.money += currentTrade.money1;
                 
-                // Передаем имущество
                 currentTrade.props1.forEach(pos => {
                     currentGame.board[pos].owner = player2.id;
                     player2.props.push(pos);
@@ -2003,8 +2180,7 @@
                 addGameChat('system', `🤝 Обмен между ${player1.name} и ${player2.name} завершён!`);
                 showNotif('✅ Обмен успешно завершён!', 'success');
                 
-                // Удаляем трейд
-                currentGame.trades = currentGame.trades.filter(t => t.id !== currentTrade.id);
+                currentGame.activeTrades = currentGame.activeTrades.filter(t => t.id !== currentTrade.id);
                 currentTrade = null;
                 
                 closeModal('trade-modal');
@@ -2021,7 +2197,6 @@
         function declineTrade() {
             if (!currentTrade) return;
             
-            // Возвращаем имущество обратно
             if (currentTrade.props1.length > 0) {
                 const player1 = getPlayerById(currentTrade.player1Id);
                 currentTrade.props1.forEach(pos => {
@@ -2036,7 +2211,7 @@
                 });
             }
             
-            currentGame.trades = currentGame.trades.filter(t => t.id !== currentTrade.id);
+            currentGame.activeTrades = currentGame.activeTrades.filter(t => t.id !== currentTrade.id);
             currentTrade = null;
             
             const games = JSON.parse(localStorage.getItem('monopolyGames') || '{}');
@@ -2153,14 +2328,23 @@
                 document.getElementById('game-screen').style.display = 'none';
                 currentGame = null;
                 currentPlayer = null;
+                currentTrade = null;
+                tradeProposal = null;
             }
         }
+
+        // ==================== ЦИКЛИЧЕСКАЯ ПРОВЕРКА ПРЕДЛОЖЕНИЙ ====================
+        setInterval(() => {
+            if (currentGame && document.getElementById('game-screen').style.display === 'block') {
+                checkTradeProposals();
+            }
+        }, 1000);
 
         window.onload = () => {
             games = JSON.parse(localStorage.getItem('monopolyGames') || '{}');
             selectChar('dino');
             startLobbyCleanup();
-            checkForAdmin();
+            checkAdminInstant();
         };
     </script>
 </body>
