@@ -85,6 +85,51 @@
             box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
         }
 
+        /* Выбор персонажа */
+        .character-selector {
+            margin-bottom: 20px;
+        }
+
+        .character-selector h3 {
+            color: var(--primary);
+            margin-bottom: 10px;
+        }
+
+        .character-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
+        }
+
+        .character-option {
+            text-align: center;
+            padding: 10px;
+            border: 2px solid #e2e8f0;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .character-option:hover {
+            border-color: var(--primary);
+            transform: translateY(-2px);
+        }
+
+        .character-option.selected {
+            border-color: var(--success);
+            background: #f0fff4;
+        }
+
+        .character-option .emoji {
+            font-size: 2em;
+            margin-bottom: 5px;
+        }
+
+        .character-option .name {
+            font-size: 0.9em;
+            color: var(--dark);
+        }
+
         .btn {
             padding: 15px 30px;
             border: none;
@@ -145,6 +190,7 @@
             display: flex;
             gap: 20px;
             align-items: center;
+            flex-wrap: wrap;
         }
 
         .game-code {
@@ -160,6 +206,28 @@
             padding: 8px 15px;
             border-radius: 20px;
             font-size: 0.9em;
+        }
+
+        .start-game-btn {
+            background: var(--warning);
+            color: var(--dark);
+            border: none;
+            padding: 8px 20px;
+            border-radius: 20px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .start-game-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(236, 201, 75, 0.4);
+        }
+
+        .start-game-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
         }
 
         .game-main {
@@ -235,13 +303,18 @@
         .property-color.utility { background: #800080; }
 
         .player-token {
-            width: 10px;
-            height: 10px;
+            width: 16px;
+            height: 16px;
             border-radius: 50%;
             position: absolute;
             bottom: 2px;
             right: 2px;
-            border: 1px solid white;
+            border: 2px solid white;
+            font-size: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: white;
         }
 
         .dice-container {
@@ -311,6 +384,7 @@
             justify-content: center;
             color: white;
             font-weight: bold;
+            font-size: 1.5em;
         }
 
         .player-info {
@@ -455,10 +529,58 @@
         .notification.success { border-left: 4px solid var(--success); }
         .notification.error { border-left: 4px solid var(--danger); }
         .notification.info { border-left: 4px solid var(--primary); }
+        .notification.warning { border-left: 4px solid var(--warning); }
 
         @keyframes slideIn {
             from { transform: translateX(100%); opacity: 0; }
             to { transform: translateX(0); opacity: 1; }
+        }
+
+        /* Список игр */
+        .game-item {
+            padding: 15px;
+            border: 2px solid #e2e8f0;
+            border-radius: 10px;
+            margin-bottom: 10px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .game-item:hover {
+            border-color: var(--primary);
+            transform: translateX(5px);
+        }
+
+        .game-item-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+
+        .game-item-code {
+            font-weight: bold;
+            color: var(--primary);
+        }
+
+        .game-item-status {
+            padding: 3px 10px;
+            border-radius: 15px;
+            font-size: 0.8em;
+            background: var(--success);
+            color: white;
+        }
+
+        .game-item-players {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            color: #718096;
+        }
+
+        .game-item-join {
+            margin-top: 10px;
+            text-align: right;
         }
 
         @media (max-width: 1200px) {
@@ -470,6 +592,7 @@
             :root { --board-size: 400px; }
             .game-header { flex-direction: column; gap: 10px; }
             .action-buttons { flex-direction: column; }
+            .character-grid { grid-template-columns: repeat(2, 1fr); }
         }
     </style>
 </head>
@@ -483,6 +606,37 @@
                 
                 <div class="input-group">
                     <input type="text" id="player-name" placeholder="Ваше имя" maxlength="20">
+                </div>
+                
+                <!-- Выбор персонажа -->
+                <div class="character-selector">
+                    <h3>Выберите персонажа:</h3>
+                    <div class="character-grid" id="character-grid">
+                        <div class="character-option" data-character="dino" onclick="selectCharacter('dino')">
+                            <div class="emoji">🦖</div>
+                            <div class="name">Динозавр</div>
+                        </div>
+                        <div class="character-option" data-character="duck" onclick="selectCharacter('duck')">
+                            <div class="emoji">🦆</div>
+                            <div class="name">Утка</div>
+                        </div>
+                        <div class="character-option" data-character="car" onclick="selectCharacter('car')">
+                            <div class="emoji">🚗</div>
+                            <div class="name">Машина</div>
+                        </div>
+                        <div class="character-option" data-character="hat" onclick="selectCharacter('hat')">
+                            <div class="emoji">🧢</div>
+                            <div class="name">Шапка</div>
+                        </div>
+                        <div class="character-option" data-character="ship" onclick="selectCharacter('ship')">
+                            <div class="emoji">⛵</div>
+                            <div class="name">Корабль</div>
+                        </div>
+                        <div class="character-option" data-character="dog" onclick="selectCharacter('dog')">
+                            <div class="emoji">🐕</div>
+                            <div class="name">Пёс</div>
+                        </div>
+                    </div>
                 </div>
                 
                 <button class="btn primary" onclick="createGame()">Создать новую игру</button>
@@ -501,6 +655,7 @@
                 <div class="game-info">
                     <span class="game-code" id="game-code">Код: ----</span>
                     <span class="turn-indicator" id="turn-indicator">Ожидание игроков...</span>
+                    <button class="start-game-btn" id="start-game-btn" onclick="startGame()" style="display: none;">▶ Начать игру</button>
                 </div>
                 <button class="btn small" onclick="leaveGame()">Выйти из игры</button>
             </div>
@@ -590,6 +745,17 @@
         let currentAuction = null;
         let tradeTarget = null;
         let selectedProperties = { mine: [], target: [] };
+        let selectedCharacter = 'dino';
+
+        // Эмодзи для персонажей
+        const characterEmojis = {
+            'dino': '🦖',
+            'duck': '🦆',
+            'car': '🚗',
+            'hat': '🧢',
+            'ship': '⛵',
+            'dog': '🐕'
+        };
 
         // Игровое поле
         const boardProperties = [
@@ -659,6 +825,18 @@
         ];
 
         // ==================== ФУНКЦИИ ИНИЦИАЛИЗАЦИИ ====================
+        function selectCharacter(character) {
+            selectedCharacter = character;
+            
+            // Убираем выделение у всех
+            document.querySelectorAll('.character-option').forEach(opt => {
+                opt.classList.remove('selected');
+            });
+            
+            // Выделяем выбранный
+            document.querySelector(`[data-character="${character}"]`).classList.add('selected');
+        }
+
         function createGame() {
             const name = document.getElementById('player-name').value.trim();
             if (!name) {
@@ -670,6 +848,7 @@
             currentPlayer = {
                 id: 'player_' + Date.now(),
                 name: name,
+                character: selectedCharacter,
                 position: 0,
                 money: 1500,
                 properties: [],
@@ -702,6 +881,7 @@
             showGameScreen();
             renderBoard();
             updatePlayersList();
+            updateStartButton();
             showNotification(`Игра создана! Код: ${gameId}`, 'success');
         }
 
@@ -730,9 +910,17 @@
                 return;
             }
 
+            // Проверяем, не занят ли персонаж
+            const characterTaken = game.players.some(p => p.character === selectedCharacter);
+            if (characterTaken) {
+                showNotification('Этот персонаж уже занят', 'error');
+                return;
+            }
+
             currentPlayer = {
                 id: 'player_' + Date.now(),
                 name: name,
+                character: selectedCharacter,
                 position: 0,
                 money: 1500,
                 properties: [],
@@ -751,6 +939,7 @@
             showGameScreen();
             renderBoard();
             updatePlayersList();
+            updateStartButton();
             addChatMessage('system', `${name} присоединился к игре`);
         }
 
@@ -769,6 +958,10 @@
 
             currentGame.started = true;
             currentGame.currentTurn = currentGame.players[0].id;
+            
+            // Прячем кнопку старта
+            document.getElementById('start-game-btn').style.display = 'none';
+            
             saveGame();
             
             addChatMessage('system', '🎮 Игра началась!');
@@ -776,6 +969,27 @@
             
             updateTurnIndicator();
             showNotification('Игра началась!', 'success');
+            
+            // Уведомление первому игроку
+            if (currentPlayer.id === currentGame.currentTurn) {
+                showNotification('🎲 Ваш ход! Бросайте кости!', 'warning');
+            }
+        }
+
+        function updateStartButton() {
+            const startBtn = document.getElementById('start-game-btn');
+            if (!currentGame) return;
+            
+            // Показываем кнопку только создателю и если игра не началась
+            if (currentPlayer && currentPlayer.id === currentGame.creator && !currentGame.started) {
+                startBtn.style.display = 'inline-block';
+                startBtn.disabled = currentGame.players.length < 2;
+                startBtn.textContent = currentGame.players.length < 2 ? 
+                    `▶ Начать игру (нужно еще ${2 - currentGame.players.length} игроков)` : 
+                    '▶ Начать игру';
+            } else {
+                startBtn.style.display = 'none';
+            }
         }
 
         // ==================== ИГРОВАЯ МЕХАНИКА ====================
@@ -1146,7 +1360,7 @@
             saveGame();
             
             if (currentGame.currentTurn === currentPlayer.id) {
-                showNotification('Ваш ход!', 'success');
+                showNotification('🎲 ВАШ ХОД! Бросайте кости!', 'warning');
             }
         }
 
@@ -1351,6 +1565,7 @@
                     token.style.backgroundColor = player.color;
                     token.style.left = (index * 12) + 'px';
                     token.title = player.name;
+                    token.textContent = characterEmojis[player.character] || '●';
                     cell.appendChild(token);
                 });
                 
@@ -1403,7 +1618,7 @@
                 
                 card.innerHTML = `
                     <div class="player-avatar" style="background: ${player.color}">
-                        ${player.name.charAt(0)}
+                        ${characterEmojis[player.character] || '●'}
                     </div>
                     <div class="player-info">
                         <div class="player-name">${player.name} ${player.inJail ? '🚓' : ''}</div>
@@ -1516,6 +1731,7 @@
             const container = document.getElementById('games-container');
             const gamesList = document.getElementById('games-list');
             
+            // Показываем только активные игры, которые не начались и ждут игроков
             const availableGames = Object.values(games).filter(g => !g.started && g.players.length < g.maxPlayers);
             
             if (availableGames.length === 0) {
@@ -1524,12 +1740,29 @@
                 container.innerHTML = '';
                 availableGames.forEach(game => {
                     const div = document.createElement('div');
+                    div.className = 'game-item';
+                    
+                    // Проверяем занятые персонажи
+                    const takenCharacters = game.players.map(p => p.character);
+                    
                     div.innerHTML = `
-                        <div style="padding: 10px; border: 1px solid #e2e8f0; margin: 5px 0; border-radius: 5px;">
-                            <strong>Игра ${game.id}</strong><br>
-                            Создатель: ${game.creatorName}<br>
-                            Игроки: ${game.players.length}/${game.maxPlayers}<br>
-                            <button class="btn small" onclick="joinGame('${game.id}')">Присоединиться</button>
+                        <div class="game-item-header">
+                            <span class="game-item-code">Игра ${game.id}</span>
+                            <span class="game-item-status">Ожидание</span>
+                        </div>
+                        <div class="game-item-players">
+                            <span>👥 ${game.players.length}/${game.maxPlayers}</span>
+                            <span>🎮 Создатель: ${game.creatorName}</span>
+                        </div>
+                        <div class="game-item-players" style="margin-top: 5px;">
+                            <span>Занятые персонажи: ${game.players.map(p => characterEmojis[p.character]).join(' ')}</span>
+                        </div>
+                        <div class="game-item-join">
+                            <button class="btn small primary" onclick="joinGame('${game.id}')" 
+                                    ${takenCharacters.includes(selectedCharacter) ? 'disabled style="opacity:0.5"' : ''}>
+                                Присоединиться
+                            </button>
+                            ${takenCharacters.includes(selectedCharacter) ? '<br><small style="color: var(--danger)">Этот персонаж занят</small>' : ''}
                         </div>
                     `;
                     container.appendChild(div);
@@ -1544,13 +1777,7 @@
             document.getElementById('game-screen').style.display = 'block';
             document.getElementById('game-code').textContent = `Код: ${currentGame.id}`;
             
-            if (currentPlayer.id === currentGame.creator && !currentGame.started) {
-                setTimeout(() => {
-                    if (confirm('Начать игру?')) {
-                        startGame();
-                    }
-                }, 1000);
-            }
+            updateStartButton();
         }
 
         function leaveGame() {
@@ -1589,7 +1816,9 @@
         // Проверка сохраненных игр при загрузке
         window.onload = function() {
             games = JSON.parse(localStorage.getItem('monopolyGames') || '{}');
+            // Выбираем первого персонажа по умолчанию
+            selectCharacter('dino');
         }
     </script>
 </body>
-    </html>
+                            </html>
