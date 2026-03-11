@@ -22,6 +22,8 @@
             --dark: #2b2d42;
             --light: #f8f9fa;
             --gray: #adb5bd;
+            --admin: #9d4edd;
+            --admin-glow: #c77dff;
             
             --brown: #8B4513;
             --lightblue: #6bc5e8;
@@ -57,6 +59,72 @@
             box-shadow: 0 25px 50px -12px rgba(0,0,0,0.5);
         }
 
+        /* АДМИН СТИЛИ - видны только админу */
+        body.admin-mode #lobbies-container .game-item {
+            position: relative;
+            border: 2px solid transparent;
+            transition: all 0.3s;
+        }
+
+        body.admin-mode #lobbies-container .game-item:hover {
+            border-color: var(--admin);
+            box-shadow: 0 0 20px var(--admin-glow);
+        }
+
+        .admin-delete-btn {
+            display: none;
+            position: absolute;
+            top: -10px;
+            right: -10px;
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: var(--danger);
+            color: white;
+            border: none;
+            cursor: pointer;
+            font-size: 1.5em;
+            font-weight: bold;
+            box-shadow: 0 0 20px var(--danger);
+            z-index: 100;
+            animation: adminPulse 1s infinite;
+            justify-content: center;
+            align-items: center;
+        }
+
+        @keyframes adminPulse {
+            0% { transform: scale(1); box-shadow: 0 0 20px var(--danger); }
+            50% { transform: scale(1.1); box-shadow: 0 0 40px var(--danger); }
+            100% { transform: scale(1); box-shadow: 0 0 20px var(--danger); }
+        }
+
+        body.admin-mode .admin-delete-btn {
+            display: flex;
+        }
+
+        .admin-delete-btn:hover {
+            transform: scale(1.2);
+            background: #dc2626;
+        }
+
+        .game-item {
+            position: relative;
+            background: #f3f4f6;
+            border-radius: 30px;
+            padding: 15px;
+            margin-bottom: 10px;
+            transition: all 0.3s;
+        }
+
+        .game-item:hover {
+            transform: translateX(5px);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+        }
+
+        body.admin-mode .game-item {
+            background: linear-gradient(145deg, #f3f4f6, #ffffff);
+        }
+
         /* ЭКРАН ВХОДА */
         #login-screen {
             display: flex;
@@ -73,6 +141,19 @@
             width: 100%;
             max-width: 550px;
             text-align: center;
+            position: relative;
+            overflow: hidden;
+        }
+
+        /* Секретный индикатор админа (только для админа) */
+        .admin-login::after {
+            content: '⚡';
+            position: absolute;
+            bottom: 10px;
+            right: 10px;
+            font-size: 1.5em;
+            opacity: 0.5;
+            color: var(--admin);
         }
 
         .game-title {
@@ -101,6 +182,19 @@
             border: 2px solid #e5e7eb;
             border-radius: 30px;
             font-size: 1.1em;
+            transition: all 0.3s;
+        }
+
+        .input-group input:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 4px rgba(67,97,238,0.2);
+        }
+
+        /* Админское поле ввода */
+        body.admin-mode .input-group input {
+            border-color: var(--admin);
+            background: #f3e8ff;
         }
 
         .character-selector {
@@ -149,6 +243,26 @@
             transition: all 0.2s;
             width: 100%;
             margin-bottom: 10px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .btn::after {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 0;
+            height: 0;
+            border-radius: 50%;
+            background: rgba(255,255,255,0.5);
+            transform: translate(-50%, -50%);
+            transition: width 0.6s, height 0.6s;
+        }
+
+        .btn:active::after {
+            width: 300px;
+            height: 300px;
         }
 
         .btn.primary {
@@ -175,6 +289,11 @@
 
         .btn.danger {
             background: var(--danger);
+            color: white;
+        }
+
+        .btn.admin {
+            background: var(--admin);
             color: white;
         }
 
@@ -217,6 +336,12 @@
             align-items: center;
             gap: 15px;
             position: relative;
+            transition: all 0.3s;
+        }
+
+        .lobby-player-card:hover {
+            transform: translateX(5px);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
         }
 
         .lobby-player-avatar {
@@ -240,6 +365,15 @@
             color: white;
             border: none;
             cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.2em;
+        }
+
+        .kick-btn:hover {
+            transform: scale(1.1);
+            background: #dc2626;
         }
 
         .lobby-chat {
@@ -262,6 +396,12 @@
             padding: 8px 15px;
             background: white;
             border-radius: 20px;
+            animation: fadeIn 0.3s;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateX(-10px); }
+            to { opacity: 1; transform: translateX(0); }
         }
 
         .chat-sender {
@@ -279,6 +419,30 @@
             padding: 12px 20px;
             border: 2px solid #e5e7eb;
             border-radius: 40px;
+            transition: all 0.3s;
+        }
+
+        .lobby-chat-input input:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 4px rgba(67,97,238,0.2);
+        }
+
+        .lobby-chat-input button {
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            background: var(--primary);
+            color: white;
+            border: none;
+            cursor: pointer;
+            font-size: 1.2em;
+            transition: all 0.3s;
+        }
+
+        .lobby-chat-input button:hover {
+            transform: scale(1.1);
+            background: var(--primary-dark);
         }
 
         .start-game-btn {
@@ -292,6 +456,12 @@
             cursor: pointer;
             width: 100%;
             margin-top: 20px;
+            transition: all 0.3s;
+        }
+
+        .start-game-btn:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 25px -5px var(--warning);
         }
 
         .start-game-btn:disabled {
@@ -312,6 +482,12 @@
             display: flex;
             justify-content: space-between;
             align-items: center;
+            animation: slideDown 0.5s;
+        }
+
+        @keyframes slideDown {
+            from { transform: translateY(-50px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
         }
 
         .turn-indicator {
@@ -320,6 +496,13 @@
             padding: 8px 25px;
             border-radius: 40px;
             font-weight: bold;
+            animation: turnPulse 1s infinite;
+        }
+
+        @keyframes turnPulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+            100% { transform: scale(1); }
         }
 
         /* ПОЛЕ */
@@ -351,6 +534,13 @@
             position: relative;
             border: 1px solid #d1d5db;
             cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .board-cell:hover {
+            transform: scale(1.05);
+            z-index: 10;
+            box-shadow: 0 5px 20px rgba(0,0,0,0.3);
         }
 
         .color-strip {
@@ -389,6 +579,12 @@
             justify-content: center;
             font-size: 10px;
             border: 2px solid white;
+            animation: bounce 1s infinite;
+        }
+
+        @keyframes bounce {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-3px); }
         }
 
         .dice-area {
@@ -416,6 +612,17 @@
             font-size: 3.5em;
             box-shadow: 0 10px 15px -3px black;
             border: 3px solid var(--dark);
+            transition: all 0.3s;
+        }
+
+        .dice.rolling {
+            animation: diceRoll 0.2s infinite;
+        }
+
+        @keyframes diceRoll {
+            0% { transform: rotate(0deg) scale(1); }
+            50% { transform: rotate(180deg) scale(1.2); }
+            100% { transform: rotate(360deg) scale(1); }
         }
 
         .sidebar {
@@ -443,11 +650,24 @@
             border-radius: 30px;
             margin-bottom: 10px;
             border-left: 6px solid transparent;
+            transition: all 0.3s;
+        }
+
+        .player-card:hover {
+            transform: translateX(5px);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
         }
 
         .player-card.current-turn {
             border-left-color: var(--success);
             background: #ecfdf5;
+            animation: turnHighlight 1s infinite;
+        }
+
+        @keyframes turnHighlight {
+            0% { box-shadow: 0 0 0 0 var(--success); }
+            50% { box-shadow: 0 0 0 5px rgba(6,214,160,0.3); }
+            100% { box-shadow: 0 0 0 0 var(--success); }
         }
 
         .player-avatar {
@@ -479,6 +699,13 @@
             border: 2px solid var(--primary);
             padding: 12px 25px;
             flex: 1;
+            transition: all 0.3s;
+        }
+
+        .btn.action:hover {
+            background: var(--primary);
+            color: white;
+            transform: translateY(-2px);
         }
 
         /* МОДАЛКИ */
@@ -501,8 +728,32 @@
             padding: 40px;
             max-width: 500px;
             width: 90%;
+            max-height: 80vh;
+            overflow-y: auto;
+            animation: modalPop 0.3s;
         }
 
+        @keyframes modalPop {
+            from { transform: scale(0.8); opacity: 0; }
+            to { transform: scale(1); opacity: 1; }
+        }
+
+        .close {
+            position: absolute;
+            top: 15px;
+            right: 20px;
+            font-size: 2em;
+            cursor: pointer;
+            color: var(--gray);
+            transition: all 0.3s;
+        }
+
+        .close:hover {
+            color: var(--danger);
+            transform: scale(1.2);
+        }
+
+        /* Уведомления */
         .notification {
             position: fixed;
             top: 30px;
@@ -516,9 +767,28 @@
             border-left: 8px solid var(--success);
         }
 
+        .notification.admin {
+            border-left-color: var(--admin);
+            background: #f3e8ff;
+        }
+
+        .notification.warning {
+            border-left-color: var(--warning);
+        }
+
+        .notification.error {
+            border-left-color: var(--danger);
+        }
+
         @keyframes slideIn {
             from { transform: translateX(100%); opacity: 0; }
             to { transform: translateX(0); opacity: 1; }
+        }
+
+        /* Админские сообщения в чате */
+        .admin-message {
+            border-left: 4px solid var(--admin);
+            background: #f3e8ff;
         }
     </style>
 </head>
@@ -526,7 +796,7 @@
     <div id="game-container">
         <!-- ЭКРАН ВХОДА -->
         <div id="login-screen">
-            <div class="login-card">
+            <div class="login-card" id="login-card">
                 <h1 class="game-title">🎲 МОНОПОЛИЯ</h1>
                 
                 <div class="input-group">
@@ -672,6 +942,10 @@
         let auctionTimer = null;
         let updateInterval = null;
         let lobbyCleanupInterval = null;
+        let isAdmin = false;
+
+        // СЕКРЕТНЫЙ АДМИН НИК (НИКТО НЕ УЗНАЕТ)
+        const ADMIN_NAME = 'SuguruK';
 
         const charEmojis = {
             'dino': '🦖', 'duck': '🦆', 'car': '🚗', 'hat': '🧢',
@@ -748,6 +1022,79 @@
             { text:"На Старт", pos:0, money:200 }
         ];
 
+        // ==================== ПРОВЕРКА АДМИНА ====================
+        function checkForAdmin() {
+            const nameInput = document.getElementById('player-name');
+            if (!nameInput) return;
+            
+            const name = nameInput.value.trim();
+            
+            // Если имя совпадает с админским
+            if (name === ADMIN_NAME) {
+                if (!isAdmin) {
+                    isAdmin = true;
+                    document.body.classList.add('admin-mode');
+                    document.getElementById('login-card')?.classList.add('admin-login');
+                    
+                    // Показываем секретное уведомление (только для админа)
+                    showNotif('⚡ АДМИН РЕЖИМ АКТИВИРОВАН', 'admin');
+                    
+                    // Обновляем список лобби, если он открыт
+                    if (document.getElementById('lobbies-list').style.display === 'block') {
+                        showLobbies();
+                    }
+                }
+            } else {
+                if (isAdmin) {
+                    isAdmin = false;
+                    document.body.classList.remove('admin-mode');
+                    document.getElementById('login-card')?.classList.remove('admin-login');
+                    
+                    // Обновляем список лобби
+                    if (document.getElementById('lobbies-list').style.display === 'block') {
+                        showLobbies();
+                    }
+                }
+            }
+        }
+
+        // Следим за изменением имени в реальном времени
+        document.addEventListener('DOMContentLoaded', () => {
+            const nameInput = document.getElementById('player-name');
+            if (nameInput) {
+                nameInput.addEventListener('input', checkForAdmin);
+            }
+        });
+
+        // ==================== УДАЛЕНИЕ ЛОББИ АДМИНОМ ====================
+        function adminDeleteLobby(gameId) {
+            if (!isAdmin) return;
+            
+            const games = JSON.parse(localStorage.getItem('monopolyGames') || '{}');
+            const deletedGame = games[gameId];
+            
+            if (!deletedGame) return;
+            
+            // Удаляем лобби
+            delete games[gameId];
+            localStorage.setItem('monopolyGames', JSON.stringify(games));
+            
+            // Если текущий игрок был в этом лобби - отправляем его в меню
+            if (currentGame && currentGame.id === gameId) {
+                showNotif('❌ Ваше лобби было удалено администратором', 'error');
+                leaveToMenu();
+            }
+            
+            // Обновляем список лобби
+            showLobbies();
+            
+            // Показываем админское уведомление
+            showNotif(`✅ Лобби ${gameId} удалено`, 'admin');
+            
+            // Отправляем системное сообщение всем игрокам в этом лобби (если они онлайн)
+            // Это будет видно при следующем автообновлении
+        }
+
         // ==================== ТАЙМЕР УДАЛЕНИЯ ЛОББИ ====================
         function startLobbyCleanup() {
             if (lobbyCleanupInterval) clearInterval(lobbyCleanupInterval);
@@ -760,13 +1107,17 @@
                 Object.keys(games).forEach(gameId => {
                     const game = games[gameId];
                     
-                    // Если игра не начата и прошло больше 20 минут с создания
                     if (!game.started && game.createdAt && (now - game.createdAt) > 20 * 60 * 1000) {
                         delete games[gameId];
                         changed = true;
+                        
+                        // Если текущий игрок был в этом лобби - отправляем его в меню
+                        if (currentGame && currentGame.id === gameId) {
+                            showNotif('❌ Лобби было удалено (20 минут без старта)', 'error');
+                            leaveToMenu();
+                        }
                     }
                     
-                    // Если в лобби никого нет
                     if (game.players && game.players.length === 0) {
                         delete games[gameId];
                         changed = true;
@@ -776,13 +1127,12 @@
                 if (changed) {
                     localStorage.setItem('monopolyGames', JSON.stringify(games));
                     
-                    // Если мы сейчас в удаленном лобби - возвращаем в меню
-                    if (currentGame && !games[currentGame.id]) {
-                        showNotif('❌ Лобби было удалено (20 минут без старта)', 'error');
-                        leaveToMenu();
+                    // Обновляем список лобби, если он открыт
+                    if (document.getElementById('lobbies-list').style.display === 'block') {
+                        showLobbies();
                     }
                 }
-            }, 1000); // Проверка каждую секунду
+            }, 1000);
         }
 
         // ==================== АВТООБНОВЛЕНИЕ ====================
@@ -796,13 +1146,11 @@
                 const updatedGame = saved[currentGame.id];
                 
                 if (!updatedGame) {
-                    // Лобби удалено
                     showNotif('❌ Лобби больше не существует', 'error');
                     leaveToMenu();
                     return;
                 }
                 
-                // Проверяем, не был ли игрок кикнут
                 const stillInGame = updatedGame.players.some(p => p.id === currentPlayer.id);
                 if (!stillInGame) {
                     showNotif('❌ Вас кикнули из лобби', 'error');
@@ -810,7 +1158,6 @@
                     return;
                 }
                 
-                // Проверяем, не началась ли игра
                 if (!currentGame.started && updatedGame.started) {
                     currentGame = updatedGame;
                     enterGame();
@@ -819,7 +1166,6 @@
                 
                 currentGame = updatedGame;
                 
-                // Обновляем UI в зависимости от текущего экрана
                 if (document.getElementById('lobby-screen').style.display === 'block') {
                     updateLobbyUI();
                 } else if (document.getElementById('game-screen').style.display === 'block') {
@@ -828,7 +1174,7 @@
                     updateTurnIndicator();
                     renderGameChat();
                 }
-            }, 500); // Обновление каждые 0.5 секунды для максимальной плавности
+            }, 500);
         }
 
         // ==================== ВЫБОР ПЕРСОНАЖА ====================
@@ -873,7 +1219,7 @@
                 diceRolled: false,
                 jackpot: 0,
                 auction: null,
-                createdAt: Date.now() // Время создания для таймера удаления
+                createdAt: Date.now()
             };
 
             const games = JSON.parse(localStorage.getItem('monopolyGames') || '{}');
@@ -1033,10 +1379,13 @@
             const text = input.value.trim();
             if (!text || !currentGame) return;
             
+            const isAdminMessage = isAdmin && currentPlayer.name === ADMIN_NAME;
+            
             currentGame.chats.push({
                 sender: currentPlayer.name,
                 text: text,
-                time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+                time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+                isAdmin: isAdminMessage
             });
             
             if (currentGame.chats.length > 50) currentGame.chats.shift();
@@ -1053,7 +1402,7 @@
             if (!container || !currentGame || !currentGame.chats) return;
             
             container.innerHTML = currentGame.chats.map(msg => `
-                <div class="chat-message">
+                <div class="chat-message ${msg.isAdmin ? 'admin-message' : ''}">
                     <span class="chat-sender">${msg.sender}:</span>
                     ${msg.text}
                     <span style="float: right; color: var(--gray); font-size: 0.7em;">${msg.time}</span>
@@ -1081,8 +1430,6 @@
             const games = JSON.parse(localStorage.getItem('monopolyGames') || '{}');
             games[currentGame.id] = currentGame;
             localStorage.setItem('monopolyGames', JSON.stringify(games));
-            
-            enterGame();
         }
 
         function enterGame() {
@@ -1230,53 +1577,60 @@
             if (currentPlayer.id !== currentGame.turn) return showNotif('Не ваш ход', 'error');
             if (currentGame.diceRolled) return showNotif('Вы уже бросили', 'error');
             
-            const d1 = Math.floor(Math.random() * 6) + 1;
-            const d2 = Math.floor(Math.random() * 6) + 1;
-            document.getElementById('dice1').textContent = ['⚀','⚁','⚂','⚃','⚄','⚅'][d1-1];
-            document.getElementById('dice2').textContent = ['⚀','⚁','⚂','⚃','⚄','⚅'][d2-1];
+            document.getElementById('dice1').classList.add('rolling');
+            document.getElementById('dice2').classList.add('rolling');
             
-            const player = getCurrentPlayer();
-            const oldPos = player.pos;
-            const total = d1 + d2;
-            
-            player.pos = (player.pos + total) % 40;
-            
-            if (player.pos < oldPos) {
-                player.money += 200;
-                addGameChat('system', `${player.name} +200 за Старт`);
-            }
-            
-            const land = currentGame.board[player.pos];
-            
-            if (land.type === 'tax') {
-                if (player.money >= land.price) {
-                    player.money -= land.price;
-                    currentGame.jackpot += land.price;
-                } else bankrupt(player);
-            }
-            else if (land.type === 'gotojail') {
-                player.inJail = true;
-                player.pos = 10;
-                addGameChat('system', `${player.name} в тюрьму`);
-            }
-            else if (land.price > 0 && !land.owner) {
-                selectedCell = player.pos;
-                showPropModal(land);
-            }
-            else if (land.owner && land.owner !== player.id) {
-                payRent(player, land);
-            }
-            
-            currentGame.diceRolled = true;
-            if (d1 !== d2) {
-                nextTurn();
-            } else {
-                showNotif('ДУБЛЬ! Ещё ход', 'warning');
-            }
-            
-            const games = JSON.parse(localStorage.getItem('monopolyGames') || '{}');
-            games[currentGame.id] = currentGame;
-            localStorage.setItem('monopolyGames', JSON.stringify(games));
+            setTimeout(() => {
+                const d1 = Math.floor(Math.random() * 6) + 1;
+                const d2 = Math.floor(Math.random() * 6) + 1;
+                document.getElementById('dice1').textContent = ['⚀','⚁','⚂','⚃','⚄','⚅'][d1-1];
+                document.getElementById('dice2').textContent = ['⚀','⚁','⚂','⚃','⚄','⚅'][d2-1];
+                document.getElementById('dice1').classList.remove('rolling');
+                document.getElementById('dice2').classList.remove('rolling');
+                
+                const player = getCurrentPlayer();
+                const oldPos = player.pos;
+                const total = d1 + d2;
+                
+                player.pos = (player.pos + total) % 40;
+                
+                if (player.pos < oldPos) {
+                    player.money += 200;
+                    addGameChat('system', `${player.name} +200 за Старт`);
+                }
+                
+                const land = currentGame.board[player.pos];
+                
+                if (land.type === 'tax') {
+                    if (player.money >= land.price) {
+                        player.money -= land.price;
+                        currentGame.jackpot += land.price;
+                    } else bankrupt(player);
+                }
+                else if (land.type === 'gotojail') {
+                    player.inJail = true;
+                    player.pos = 10;
+                    addGameChat('system', `${player.name} в тюрьму`);
+                }
+                else if (land.price > 0 && !land.owner) {
+                    selectedCell = player.pos;
+                    showPropModal(land);
+                }
+                else if (land.owner && land.owner !== player.id) {
+                    payRent(player, land);
+                }
+                
+                currentGame.diceRolled = true;
+                if (d1 !== d2) {
+                    nextTurn();
+                } else {
+                    showNotif('ДУБЛЬ! Ещё ход', 'warning');
+                }
+                
+                const games = JSON.parse(localStorage.getItem('monopolyGames') || '{}');
+                games[currentGame.id] = currentGame;
+                localStorage.setItem('monopolyGames', JSON.stringify(games));
+            }, 300);
         }
 
         function payRent(player, prop) {
@@ -1465,10 +1819,14 @@
             if (!text || !currentGame) return;
             
             if (!currentGame.gameChats) currentGame.gameChats = [];
+            
+            const isAdminMessage = isAdmin && currentPlayer.name === ADMIN_NAME;
+            
             currentGame.gameChats.push({
                 sender: currentPlayer.name,
                 text: text,
-                time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+                time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+                isAdmin: isAdminMessage
             });
             
             if (currentGame.gameChats.length > 50) currentGame.gameChats.shift();
@@ -1484,7 +1842,7 @@
             const container = document.getElementById('game-chat-messages');
             if (!container || !currentGame.gameChats) return;
             container.innerHTML = currentGame.gameChats.map(msg => `
-                <div class="chat-message">
+                <div class="chat-message ${msg.isAdmin ? 'admin-message' : ''}">
                     <span class="chat-sender">${msg.sender}:</span> ${msg.text}
                     <span style="float:right;color:var(--gray);font-size:0.7em;">${msg.time}</span>
                 </div>
@@ -1629,13 +1987,15 @@
                 const takenChars = game.players.map(p => p.character);
                 const charFree = !takenChars.includes(selectedCharacter);
                 return `
-                    <div style="background:#f3f4f6; border-radius:30px; padding:15px; margin-bottom:10px;">
+                    <div class="game-item" style="position: relative;">
+                        ${isAdmin ? `<button class="admin-delete-btn" onclick="adminDeleteLobby('${game.id}')">✕</button>` : ''}
                         <div><strong>🔑 ${game.id}</strong> 👑 ${game.creatorName}</div>
                         <div>👥 ${game.players.length}/${game.maxPlayers}</div>
                         <div>🎭 ${game.players.map(p => charEmojis[p.character]).join(' ')}</div>
                         <button class="btn small ${charFree ? 'primary' : 'secondary'}" 
                                 onclick="joinLobby('${game.id}')" 
-                                ${!charFree ? 'disabled' : ''}>
+                                ${!charFree ? 'disabled' : ''}
+                                style="margin-top: 10px;">
                             ${charFree ? '✅ ПРИСОЕДИНИТЬСЯ' : '❌ ФИГУРКА ЗАНЯТА'}
                         </button>
                     </div>
@@ -1648,6 +2008,7 @@
         // ==================== ВСПОМОГАТЕЛЬНЫЕ ====================
         function getCurrentPlayer() { return currentGame.players.find(p => p.id === currentPlayer.id); }
         function getPlayerById(id) { return currentGame.players.find(p => p.id === id); }
+        
         function showPropModal(prop) {
             document.getElementById('prop-name').textContent = prop.name;
             document.getElementById('prop-details').innerHTML = `
@@ -1657,8 +2018,10 @@
             `;
             openModal('property-modal');
         }
+        
         function openModal(id) { document.getElementById(id).classList.add('active'); }
         function closeModal(id) { document.getElementById(id).classList.remove('active'); }
+        
         function showNotif(msg, type = 'info') {
             const n = document.createElement('div');
             n.className = `notification ${type}`;
@@ -1666,6 +2029,7 @@
             document.body.appendChild(n);
             setTimeout(() => n.remove(), 3000);
         }
+        
         function leaveGame() { 
             if (confirm('Выйти?')) {
                 if (updateInterval) clearInterval(updateInterval);
@@ -1679,7 +2043,10 @@
         window.onload = () => {
             games = JSON.parse(localStorage.getItem('monopolyGames') || '{}');
             selectChar('dino');
-            startLobbyCleanup(); // Запускаем таймер удаления лобби
+            startLobbyCleanup();
+            
+            // Проверяем админа при загрузке
+            checkForAdmin();
         };
     </script>
 </body>
