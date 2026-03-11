@@ -23,7 +23,6 @@
             --light: #f8f9fa;
             --gray: #adb5bd;
             --admin: #9d4edd;
-            --admin-glow: #c77dff;
             
             --brown: #8B4513;
             --lightblue: #6bc5e8;
@@ -59,72 +58,6 @@
             box-shadow: 0 25px 50px -12px rgba(0,0,0,0.5);
         }
 
-        /* АДМИН СТИЛИ - видны только админу */
-        body.admin-mode #lobbies-container .game-item {
-            position: relative;
-            border: 2px solid transparent;
-            transition: all 0.3s;
-        }
-
-        body.admin-mode #lobbies-container .game-item:hover {
-            border-color: var(--admin);
-            box-shadow: 0 0 20px var(--admin-glow);
-        }
-
-        .admin-delete-btn {
-            display: none;
-            position: absolute;
-            top: -10px;
-            right: -10px;
-            width: 40px;
-            height: 40px;
-            border-radius: 50%;
-            background: var(--danger);
-            color: white;
-            border: none;
-            cursor: pointer;
-            font-size: 1.5em;
-            font-weight: bold;
-            box-shadow: 0 0 20px var(--danger);
-            z-index: 100;
-            animation: adminPulse 1s infinite;
-            justify-content: center;
-            align-items: center;
-        }
-
-        @keyframes adminPulse {
-            0% { transform: scale(1); box-shadow: 0 0 20px var(--danger); }
-            50% { transform: scale(1.1); box-shadow: 0 0 40px var(--danger); }
-            100% { transform: scale(1); box-shadow: 0 0 20px var(--danger); }
-        }
-
-        body.admin-mode .admin-delete-btn {
-            display: flex;
-        }
-
-        .admin-delete-btn:hover {
-            transform: scale(1.2);
-            background: #dc2626;
-        }
-
-        .game-item {
-            position: relative;
-            background: #f3f4f6;
-            border-radius: 30px;
-            padding: 15px;
-            margin-bottom: 10px;
-            transition: all 0.3s;
-        }
-
-        .game-item:hover {
-            transform: translateX(5px);
-            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
-        }
-
-        body.admin-mode .game-item {
-            background: linear-gradient(145deg, #f3f4f6, #ffffff);
-        }
-
         /* ЭКРАН ВХОДА */
         #login-screen {
             display: flex;
@@ -141,19 +74,6 @@
             width: 100%;
             max-width: 550px;
             text-align: center;
-            position: relative;
-            overflow: hidden;
-        }
-
-        /* Секретный индикатор админа (только для админа) */
-        .admin-login::after {
-            content: '⚡';
-            position: absolute;
-            bottom: 10px;
-            right: 10px;
-            font-size: 1.5em;
-            opacity: 0.5;
-            color: var(--admin);
         }
 
         .game-title {
@@ -189,12 +109,6 @@
             outline: none;
             border-color: var(--primary);
             box-shadow: 0 0 0 4px rgba(67,97,238,0.2);
-        }
-
-        /* Админское поле ввода */
-        body.admin-mode .input-group input {
-            border-color: var(--admin);
-            background: #f3e8ff;
         }
 
         .character-selector {
@@ -292,11 +206,6 @@
             color: white;
         }
 
-        .btn.admin {
-            background: var(--admin);
-            color: white;
-        }
-
         /* ЭКРАН ЛОББИ */
         #lobby-screen {
             display: none;
@@ -369,6 +278,7 @@
             align-items: center;
             justify-content: center;
             font-size: 1.2em;
+            transition: all 0.2s;
         }
 
         .kick-btn:hover {
@@ -389,6 +299,7 @@
             border-radius: 30px;
             padding: 15px;
             margin-bottom: 15px;
+            scroll-behavior: smooth;
         }
 
         .chat-message {
@@ -396,17 +307,26 @@
             padding: 8px 15px;
             background: white;
             border-radius: 20px;
-            animation: fadeIn 0.3s;
+            animation: fadeInMessage 0.3s ease;
+            word-wrap: break-word;
         }
 
-        @keyframes fadeIn {
-            from { opacity: 0; transform: translateX(-10px); }
-            to { opacity: 1; transform: translateX(0); }
+        @keyframes fadeInMessage {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
         }
 
         .chat-sender {
             font-weight: bold;
             color: var(--primary);
+            margin-right: 5px;
+        }
+
+        .chat-time {
+            float: right;
+            color: var(--gray);
+            font-size: 0.7em;
+            margin-left: 10px;
         }
 
         .lobby-chat-input {
@@ -496,12 +416,12 @@
             padding: 8px 25px;
             border-radius: 40px;
             font-weight: bold;
-            animation: turnPulse 1s infinite;
+            animation: turnPulse 2s infinite;
         }
 
         @keyframes turnPulse {
             0% { transform: scale(1); }
-            50% { transform: scale(1.05); }
+            50% { transform: scale(1.02); }
             100% { transform: scale(1); }
         }
 
@@ -661,12 +581,12 @@
         .player-card.current-turn {
             border-left-color: var(--success);
             background: #ecfdf5;
-            animation: turnHighlight 1s infinite;
+            animation: turnGlow 2s infinite;
         }
 
-        @keyframes turnHighlight {
+        @keyframes turnGlow {
             0% { box-shadow: 0 0 0 0 var(--success); }
-            50% { box-shadow: 0 0 0 5px rgba(6,214,160,0.3); }
+            50% { box-shadow: 0 0 0 5px rgba(6,214,160,0.2); }
             100% { box-shadow: 0 0 0 0 var(--success); }
         }
 
@@ -767,25 +687,58 @@
             border-left: 8px solid var(--success);
         }
 
-        .notification.admin {
-            border-left-color: var(--admin);
-            background: #f3e8ff;
-        }
-
-        .notification.warning {
-            border-left-color: var(--warning);
-        }
-
-        .notification.error {
-            border-left-color: var(--danger);
-        }
-
         @keyframes slideIn {
             from { transform: translateX(100%); opacity: 0; }
             to { transform: translateX(0); opacity: 1; }
         }
 
-        /* Админские сообщения в чате */
+        /* Админские стили */
+        .admin-delete-btn {
+            position: absolute;
+            top: -10px;
+            right: -10px;
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: var(--danger);
+            color: white;
+            border: none;
+            cursor: pointer;
+            font-size: 1.5em;
+            font-weight: bold;
+            box-shadow: 0 0 20px var(--danger);
+            z-index: 100;
+            animation: adminPulse 1s infinite;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        @keyframes adminPulse {
+            0% { transform: scale(1); box-shadow: 0 0 20px var(--danger); }
+            50% { transform: scale(1.1); box-shadow: 0 0 40px var(--danger); }
+            100% { transform: scale(1); box-shadow: 0 0 20px var(--danger); }
+        }
+
+        .admin-delete-btn:hover {
+            transform: scale(1.2);
+            background: #dc2626;
+        }
+
+        .game-item {
+            position: relative;
+            background: #f3f4f6;
+            border-radius: 30px;
+            padding: 15px;
+            margin-bottom: 10px;
+            transition: all 0.3s;
+        }
+
+        .game-item:hover {
+            transform: translateX(5px);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+        }
+
         .admin-message {
             border-left: 4px solid var(--admin);
             background: #f3e8ff;
@@ -943,8 +896,10 @@
         let updateInterval = null;
         let lobbyCleanupInterval = null;
         let isAdmin = false;
+        let lastUpdate = 0;
+        let isUpdating = false;
 
-        // СЕКРЕТНЫЙ АДМИН НИК (НИКТО НЕ УЗНАЕТ)
+        // СЕКРЕТНЫЙ АДМИН НИК
         const ADMIN_NAME = 'SuguruK';
 
         const charEmojis = {
@@ -1028,37 +983,18 @@
             if (!nameInput) return;
             
             const name = nameInput.value.trim();
+            isAdmin = (name === ADMIN_NAME);
             
-            // Если имя совпадает с админским
-            if (name === ADMIN_NAME) {
-                if (!isAdmin) {
-                    isAdmin = true;
-                    document.body.classList.add('admin-mode');
-                    document.getElementById('login-card')?.classList.add('admin-login');
-                    
-                    // Показываем секретное уведомление (только для админа)
-                    showNotif('⚡ АДМИН РЕЖИМ АКТИВИРОВАН', 'admin');
-                    
-                    // Обновляем список лобби, если он открыт
-                    if (document.getElementById('lobbies-list').style.display === 'block') {
-                        showLobbies();
-                    }
-                }
+            if (isAdmin) {
+                document.body.classList.add('admin-mode');
+                document.getElementById('login-card')?.classList.add('admin-login');
             } else {
-                if (isAdmin) {
-                    isAdmin = false;
-                    document.body.classList.remove('admin-mode');
-                    document.getElementById('login-card')?.classList.remove('admin-login');
-                    
-                    // Обновляем список лобби
-                    if (document.getElementById('lobbies-list').style.display === 'block') {
-                        showLobbies();
-                    }
-                }
+                document.body.classList.remove('admin-mode');
+                document.getElementById('login-card')?.classList.remove('admin-login');
             }
         }
 
-        // Следим за изменением имени в реальном времени
+        // Следим за изменением имени
         document.addEventListener('DOMContentLoaded', () => {
             const nameInput = document.getElementById('player-name');
             if (nameInput) {
@@ -1075,24 +1011,16 @@
             
             if (!deletedGame) return;
             
-            // Удаляем лобби
             delete games[gameId];
             localStorage.setItem('monopolyGames', JSON.stringify(games));
             
-            // Если текущий игрок был в этом лобби - отправляем его в меню
             if (currentGame && currentGame.id === gameId) {
                 showNotif('❌ Ваше лобби было удалено администратором', 'error');
                 leaveToMenu();
             }
             
-            // Обновляем список лобби
             showLobbies();
-            
-            // Показываем админское уведомление
             showNotif(`✅ Лобби ${gameId} удалено`, 'admin');
-            
-            // Отправляем системное сообщение всем игрокам в этом лобби (если они онлайн)
-            // Это будет видно при следующем автообновлении
         }
 
         // ==================== ТАЙМЕР УДАЛЕНИЯ ЛОББИ ====================
@@ -1111,7 +1039,6 @@
                         delete games[gameId];
                         changed = true;
                         
-                        // Если текущий игрок был в этом лобби - отправляем его в меню
                         if (currentGame && currentGame.id === gameId) {
                             showNotif('❌ Лобби было удалено (20 минут без старта)', 'error');
                             leaveToMenu();
@@ -1126,13 +1053,11 @@
                 
                 if (changed) {
                     localStorage.setItem('monopolyGames', JSON.stringify(games));
-                    
-                    // Обновляем список лобби, если он открыт
                     if (document.getElementById('lobbies-list').style.display === 'block') {
                         showLobbies();
                     }
                 }
-            }, 1000);
+            }, 5000); // Проверка раз в 5 секунд вместо 1
         }
 
         // ==================== АВТООБНОВЛЕНИЕ ====================
@@ -1140,7 +1065,12 @@
             if (updateInterval) clearInterval(updateInterval);
             
             updateInterval = setInterval(() => {
-                if (!currentGame || !currentGame.id) return;
+                if (!currentGame || !currentGame.id || isUpdating) return;
+                
+                const now = Date.now();
+                if (now - lastUpdate < 800) return; // Минимум 800мс между обновлениями
+                
+                isUpdating = true;
                 
                 const saved = JSON.parse(localStorage.getItem('monopolyGames') || '{}');
                 const updatedGame = saved[currentGame.id];
@@ -1148,6 +1078,7 @@
                 if (!updatedGame) {
                     showNotif('❌ Лобби больше не существует', 'error');
                     leaveToMenu();
+                    isUpdating = false;
                     return;
                 }
                 
@@ -1155,26 +1086,37 @@
                 if (!stillInGame) {
                     showNotif('❌ Вас кикнули из лобби', 'error');
                     leaveToMenu();
+                    isUpdating = false;
                     return;
                 }
                 
+                // Проверяем начало игры
                 if (!currentGame.started && updatedGame.started) {
                     currentGame = updatedGame;
                     enterGame();
+                    lastUpdate = now;
+                    isUpdating = false;
                     return;
                 }
                 
-                currentGame = updatedGame;
-                
-                if (document.getElementById('lobby-screen').style.display === 'block') {
-                    updateLobbyUI();
-                } else if (document.getElementById('game-screen').style.display === 'block') {
-                    renderBoard();
-                    updatePlayersList();
-                    updateTurnIndicator();
-                    renderGameChat();
+                // Проверяем изменения в игре
+                const gameChanged = JSON.stringify(currentGame) !== JSON.stringify(updatedGame);
+                if (gameChanged) {
+                    currentGame = updatedGame;
+                    
+                    if (document.getElementById('lobby-screen').style.display === 'block') {
+                        updateLobbyUI();
+                    } else if (document.getElementById('game-screen').style.display === 'block') {
+                        renderBoard();
+                        updatePlayersList();
+                        updateTurnIndicator();
+                        renderGameChat();
+                    }
                 }
-            }, 500);
+                
+                lastUpdate = now;
+                isUpdating = false;
+            }, 1000);
         }
 
         // ==================== ВЫБОР ПЕРСОНАЖА ====================
@@ -1395,21 +1337,27 @@
             localStorage.setItem('monopolyGames', JSON.stringify(games));
             
             input.value = '';
+            renderLobbyChat(); // Мгновенное отображение
         }
 
         function renderLobbyChat() {
             const container = document.getElementById('lobby-chat-messages');
             if (!container || !currentGame || !currentGame.chats) return;
             
+            const oldHeight = container.scrollHeight;
+            const wasAtBottom = container.scrollTop + container.clientHeight >= oldHeight - 20;
+            
             container.innerHTML = currentGame.chats.map(msg => `
                 <div class="chat-message ${msg.isAdmin ? 'admin-message' : ''}">
                     <span class="chat-sender">${msg.sender}:</span>
-                    ${msg.text}
-                    <span style="float: right; color: var(--gray); font-size: 0.7em;">${msg.time}</span>
+                    <span>${msg.text}</span>
+                    <span class="chat-time">${msg.time}</span>
                 </div>
             `).join('');
             
-            container.scrollTop = container.scrollHeight;
+            if (wasAtBottom) {
+                container.scrollTop = container.scrollHeight;
+            }
         }
 
         // ==================== НАЧАЛО ИГРЫ ====================
@@ -1430,6 +1378,9 @@
             const games = JSON.parse(localStorage.getItem('monopolyGames') || '{}');
             games[currentGame.id] = currentGame;
             localStorage.setItem('monopolyGames', JSON.stringify(games));
+            
+            // Создатель тоже входит в игру
+            enterGame();
         }
 
         function enterGame() {
@@ -1836,18 +1787,27 @@
             localStorage.setItem('monopolyGames', JSON.stringify(games));
             
             input.value = '';
+            renderGameChat(); // Мгновенное отображение
         }
 
         function renderGameChat() {
             const container = document.getElementById('game-chat-messages');
             if (!container || !currentGame.gameChats) return;
+            
+            const oldHeight = container.scrollHeight;
+            const wasAtBottom = container.scrollTop + container.clientHeight >= oldHeight - 20;
+            
             container.innerHTML = currentGame.gameChats.map(msg => `
                 <div class="chat-message ${msg.isAdmin ? 'admin-message' : ''}">
-                    <span class="chat-sender">${msg.sender}:</span> ${msg.text}
-                    <span style="float:right;color:var(--gray);font-size:0.7em;">${msg.time}</span>
+                    <span class="chat-sender">${msg.sender}:</span>
+                    <span>${msg.text}</span>
+                    <span class="chat-time">${msg.time}</span>
                 </div>
             `).join('');
-            container.scrollTop = container.scrollHeight;
+            
+            if (wasAtBottom) {
+                container.scrollTop = container.scrollHeight;
+            }
         }
 
         function addGameChat(sender, text) {
@@ -2044,8 +2004,6 @@
             games = JSON.parse(localStorage.getItem('monopolyGames') || '{}');
             selectChar('dino');
             startLobbyCleanup();
-            
-            // Проверяем админа при загрузке
             checkForAdmin();
         };
     </script>
