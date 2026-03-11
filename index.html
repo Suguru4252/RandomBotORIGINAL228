@@ -74,11 +74,6 @@
             100% { box-shadow: 0 0 30px var(--admin); }
         }
 
-        body.admin-mode .login-card {
-            background: linear-gradient(145deg, #f3e8ff, #ffffff);
-            border: 2px solid var(--admin);
-        }
-
         .admin-badge {
             display: none;
             position: fixed;
@@ -255,11 +250,6 @@
             color: white;
         }
 
-        .btn.admin {
-            background: var(--admin);
-            color: white;
-        }
-
         /* ЭКРАН ЛОББИ */
         #lobby-screen {
             display: none;
@@ -402,6 +392,13 @@
             padding: 8px 25px;
             border-radius: 40px;
             font-weight: bold;
+            animation: turnPulse 2s infinite;
+        }
+
+        @keyframes turnPulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+            100% { transform: scale(1); }
         }
 
         /* ПОЛЕ */
@@ -478,6 +475,12 @@
             justify-content: center;
             font-size: 10px;
             border: 2px solid white;
+            animation: tokenBounce 1s infinite;
+        }
+
+        @keyframes tokenBounce {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-3px); }
         }
 
         .dice-area {
@@ -505,6 +508,16 @@
             font-size: 3.5em;
             box-shadow: 0 10px 15px -3px black;
             border: 3px solid var(--dark);
+        }
+
+        .dice.rolling {
+            animation: diceRoll 0.2s infinite;
+        }
+
+        @keyframes diceRoll {
+            0% { transform: rotate(0deg) scale(1); }
+            50% { transform: rotate(180deg) scale(1.2); }
+            100% { transform: rotate(360deg) scale(1); }
         }
 
         .sidebar {
@@ -537,6 +550,13 @@
         .player-card.current-turn {
             border-left-color: var(--success);
             background: #ecfdf5;
+            animation: turnGlow 2s infinite;
+        }
+
+        @keyframes turnGlow {
+            0% { box-shadow: 0 0 0 0 var(--success); }
+            50% { box-shadow: 0 0 0 10px rgba(6,214,160,0.2); }
+            100% { box-shadow: 0 0 0 0 var(--success); }
         }
 
         .player-avatar {
@@ -568,6 +588,12 @@
             border: 2px solid var(--primary);
             padding: 12px 25px;
             flex: 1;
+        }
+
+        .btn.action:hover {
+            background: var(--primary);
+            color: white;
+            transform: translateY(-2px);
         }
 
         /* МОДАЛКИ */
@@ -751,27 +777,12 @@
             100% { transform: scale(1); }
         }
 
-        .admin-delete-btn:hover {
-            transform: scale(1.2);
-            background: #dc2626;
-        }
-
         .game-item {
             position: relative;
             background: #f3f4f6;
             border-radius: 30px;
             padding: 15px;
             margin-bottom: 10px;
-            transition: all 0.3s;
-        }
-
-        .game-item:hover {
-            transform: translateX(5px);
-            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
-        }
-
-        .admin-badge {
-            display: none;
         }
     </style>
 </head>
@@ -941,7 +952,6 @@
 
         // Трейд переменные
         let currentTrade = null;
-        let tradeProposal = null;
         let selectingFor = null;
 
         // СЕКРЕТНЫЙ АДМИН НИК
@@ -1034,16 +1044,12 @@
             if (isAdmin && !wasAdmin) {
                 document.body.classList.add('admin-mode');
                 showNotif('⚡ АДМИН РЕЖИМ АКТИВИРОВАН ⚡', 'admin');
-                
-                // Обновляем список лобби если он открыт
                 if (document.getElementById('lobbies-list').style.display === 'block') {
                     showLobbies();
                 }
             } else if (!isAdmin && wasAdmin) {
                 document.body.classList.remove('admin-mode');
                 showNotif('👤 Обычный режим', 'info');
-                
-                // Обновляем список лобби если он открыт
                 if (document.getElementById('lobbies-list').style.display === 'block') {
                     showLobbies();
                 }
@@ -1092,7 +1098,7 @@
                         renderGameChat();
                     }
                 }
-            }, 300); // Обновление каждые 0.3 секунды
+            }, 300);
         }
 
         // ==================== УДАЛЕНИЕ ЛОББИ АДМИНОМ ====================
@@ -1100,20 +1106,14 @@
             if (!isAdmin) return;
             
             const games = JSON.parse(localStorage.getItem('monopolyGames') || '{}');
-            const deletedGame = games[gameId];
-            
-            if (!deletedGame) return;
-            
             delete games[gameId];
             localStorage.setItem('monopolyGames', JSON.stringify(games));
             
-            // Если текущий игрок был в этом лобби - отправляем его в меню
             if (currentGame && currentGame.id === gameId) {
                 showNotif('❌ Ваше лобби было удалено администратором', 'error');
                 leaveToMenu();
             }
             
-            // Обновляем список лобби
             showLobbies();
             showNotif(`✅ Лобби ${gameId} удалено`, 'admin');
         }
@@ -1198,7 +1198,8 @@
                 jackpot: 0,
                 auction: null,
                 createdAt: Date.now(),
-                trades: []
+                trades: [],
+                activeTrades: []
             };
 
             const games = JSON.parse(localStorage.getItem('monopolyGames') || '{}');
@@ -1351,7 +1352,6 @@
             currentGame = null;
             currentPlayer = null;
             currentTrade = null;
-            tradeProposal = null;
         }
 
         // ==================== ЧАТ ЛОББИ ====================
@@ -1373,6 +1373,7 @@
             localStorage.setItem('monopolyGames', JSON.stringify(games));
             
             input.value = '';
+            renderLobbyChat();
         }
 
         function renderLobbyChat() {
@@ -1472,9 +1473,15 @@
                     else if (row >= 2 && row <= 9 && col >= 2 && col <= 9) {
                         if (row === 5 && col === 5) {
                             cell.innerHTML = `
-                                <div style="display: flex; gap: 10px;">
-                                    <div style="width:60px;height:80px;background:#ffedd5;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:2em;cursor:pointer;" onclick="drawChance()">🎲</div>
-                                    <div style="width:60px;height:80px;background:#dbeafe;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:2em;cursor:pointer;" onclick="drawChest()">📦</div>
+                                <div style="display: flex; gap: 10px; justify-content: center; align-items: center; height: 100%;">
+                                    <div style="width:60px;height:80px;background:#ffedd5;border-radius:10px;display:flex;flex-direction:column;align-items:center;justify-content:center;font-size:2em;cursor:pointer;box-shadow:0 4px 8px rgba(0,0,0,0.2);" onclick="drawChance()">
+                                        <div>🎲</div>
+                                        <div style="font-size:0.3em;">ШАНС</div>
+                                    </div>
+                                    <div style="width:60px;height:80px;background:#dbeafe;border-radius:10px;display:flex;flex-direction:column;align-items:center;justify-content:center;font-size:2em;cursor:pointer;box-shadow:0 4px 8px rgba(0,0,0,0.2);" onclick="drawChest()">
+                                        <div>📦</div>
+                                        <div style="font-size:0.3em;">КАЗНА</div>
+                                    </div>
                                 </div>
                             `;
                         } else {
@@ -1517,16 +1524,22 @@
             }
             
             cell.innerHTML += `<div class="cell-name">${prop.name}</div>`;
-            if (prop.price) cell.innerHTML += `<div>${prop.price}</div>`;
+            if (prop.price) cell.innerHTML += `<div style="font-size:0.7em; font-weight:bold;">${prop.price}</div>`;
             
             if (prop.houses > 0 || prop.hotel) {
                 const bDiv = document.createElement('div');
                 bDiv.className = 'buildings';
                 if (prop.hotel) {
-                    bDiv.innerHTML = '<div class="building hotel"></div>';
+                    const hotel = document.createElement('div');
+                    hotel.className = 'building hotel';
+                    hotel.title = 'Отель';
+                    bDiv.appendChild(hotel);
                 } else {
                     for (let i = 0; i < prop.houses; i++) {
-                        bDiv.innerHTML += '<div class="building house"></div>';
+                        const house = document.createElement('div');
+                        house.className = 'building house';
+                        house.title = 'Дом';
+                        bDiv.appendChild(house);
                     }
                 }
                 cell.appendChild(bDiv);
@@ -1586,6 +1599,7 @@
                 const moveInterval = setInterval(() => {
                     if (steps === 0) {
                         clearInterval(moveInterval);
+                        afterMove();
                         return;
                     }
                     player.pos = (player.pos + 1) % 40;
@@ -1593,8 +1607,8 @@
                     steps--;
                 }, 200);
                 
-                setTimeout(() => {
-                    if (player.pos < oldPos) {
+                function afterMove() {
+                    if (player.pos < oldPos && oldPos !== 0) {
                         player.money += 200;
                         addGameChat('system', `${player.name} +200 за Старт`);
                     }
@@ -1631,7 +1645,7 @@
                     const games = JSON.parse(localStorage.getItem('monopolyGames') || '{}');
                     games[currentGame.id] = currentGame;
                     localStorage.setItem('monopolyGames', JSON.stringify(games));
-                }, total * 200);
+                }
             }, 300);
         }
 
@@ -1835,6 +1849,7 @@
             localStorage.setItem('monopolyGames', JSON.stringify(games));
             
             input.value = '';
+            renderGameChat();
         }
 
         function renderGameChat() {
@@ -1864,7 +1879,7 @@
             localStorage.setItem('monopolyGames', JSON.stringify(games));
         }
 
-        // ==================== ТРЕЙД СИСТЕМА ====================
+        // ==================== ТРЕЙД СИСТЕМА (ПОЛНОСТЬЮ РАБОЧАЯ) ====================
         function openTradeModal() {
             const others = currentGame.players.filter(p => p.id !== currentPlayer.id && p.alive);
             if (!others.length) return showNotif('Нет других игроков', 'error');
@@ -1881,15 +1896,13 @@
         function proposeTrade(targetId) {
             const target = getPlayerById(targetId);
             
-            // Создаем предложение
             const proposal = {
-                id: 'trade_' + Date.now(),
+                id: 'proposal_' + Date.now(),
                 fromId: currentPlayer.id,
                 fromName: currentPlayer.name,
                 fromChar: currentPlayer.character,
                 toId: targetId,
                 toName: target.name,
-                toChar: target.character,
                 status: 'pending'
             };
             
@@ -1904,7 +1917,13 @@
             showNotif(`✅ Предложение отправлено ${target.name}`, 'success');
         }
 
-        // Проверка входящих предложений
+        // Проверка входящих предложений (каждую секунду)
+        setInterval(() => {
+            if (currentGame && document.getElementById('game-screen').style.display === 'block') {
+                checkTradeProposals();
+            }
+        }, 1000);
+
         function checkTradeProposals() {
             if (!currentGame || !currentGame.trades) return;
             
@@ -1912,16 +1931,12 @@
                 t.toId === currentPlayer.id && t.status === 'pending'
             );
             
-            if (pendingTrade) {
+            if (pendingTrade && !document.getElementById('trade-notification')) {
                 showTradeNotification(pendingTrade);
             }
         }
 
         function showTradeNotification(proposal) {
-            // Удаляем старые уведомления
-            const oldNotif = document.getElementById('trade-notification');
-            if (oldNotif) oldNotif.remove();
-            
             const notifDiv = document.createElement('div');
             notifDiv.className = 'trade-notification';
             notifDiv.id = 'trade-notification';
@@ -1969,11 +1984,9 @@
             games[currentGame.id] = currentGame;
             localStorage.setItem('monopolyGames', JSON.stringify(games));
             
-            // Убираем уведомление
             const notif = document.getElementById('trade-notification');
             if (notif) notif.remove();
             
-            // Открываем окно трейда
             openTradeWindow();
         }
 
@@ -2329,16 +2342,8 @@
                 currentGame = null;
                 currentPlayer = null;
                 currentTrade = null;
-                tradeProposal = null;
             }
         }
-
-        // ==================== ЦИКЛИЧЕСКАЯ ПРОВЕРКА ПРЕДЛОЖЕНИЙ ====================
-        setInterval(() => {
-            if (currentGame && document.getElementById('game-screen').style.display === 'block') {
-                checkTradeProposals();
-            }
-        }, 1000);
 
         window.onload = () => {
             games = JSON.parse(localStorage.getItem('monopolyGames') || '{}');
