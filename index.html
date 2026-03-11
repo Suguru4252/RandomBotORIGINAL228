@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>🎲 МОНОПОЛИЯ - РАБОЧАЯ ВЕРСИЯ</title>
+    <title>🎲 МОНОПОЛИЯ - РАБОЧАЯ ВЕРСИЯ С ТРЕЙДАМИ</title>
     <style>
         * {
             margin: 0;
@@ -561,6 +561,10 @@
             background: white;
             border-radius: 15px;
             cursor: pointer;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border: 2px solid transparent;
         }
 
         .property-item.selected {
@@ -568,14 +572,48 @@
             border: 2px solid var(--success);
         }
 
-        .add-button {
-            width: 40px;
-            height: 40px;
+        .property-item.can-select {
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .property-item.can-select:hover {
+            background: #e5e7eb;
+            transform: translateX(5px);
+        }
+
+        .property-item.owned {
+            border-left: 4px solid var(--primary);
+        }
+
+        .property-item.in-trade {
+            opacity: 0.7;
+            background: #f3f4f6;
+            border: 2px dashed var(--gray);
+        }
+
+        .remove-prop {
+            width: 24px;
+            height: 24px;
             border-radius: 50%;
+            background: var(--danger);
+            color: white;
+            border: none;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 16px;
+        }
+
+        .add-button {
+            width: 100%;
+            padding: 10px;
+            border-radius: 30px;
             background: var(--primary);
             color: white;
             border: none;
-            font-size: 1.5em;
+            font-size: 1em;
             cursor: pointer;
             margin: 10px 0;
         }
@@ -587,9 +625,17 @@
 
         .money-input {
             width: 100%;
-            padding: 10px;
+            padding: 12px;
             border: 2px solid #e5e7eb;
-            border-radius: 20px;
+            border-radius: 30px;
+            margin: 10px 0;
+            font-size: 1em;
+        }
+
+        .trade-money-display {
+            font-size: 1.2em;
+            font-weight: bold;
+            color: var(--primary);
             margin: 10px 0;
         }
 
@@ -605,12 +651,37 @@
             z-index: 2000;
             min-width: 400px;
             text-align: center;
+            animation: fadeIn 0.3s;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translate(-50%, -60%); }
+            to { opacity: 1; transform: translate(-50%, -50%); }
         }
 
         .trade-buttons {
             display: flex;
             gap: 15px;
             margin-top: 20px;
+            justify-content: center;
+        }
+
+        .trade-status {
+            text-align: center;
+            margin: 15px 0;
+            padding: 10px;
+            border-radius: 30px;
+            background: #f3f4f6;
+        }
+
+        .trade-status.accepted {
+            background: #d1fae5;
+            color: var(--success);
+        }
+
+        .trade-status.pending {
+            background: #fff3cd;
+            color: #856404;
         }
 
         .admin-delete-btn {
@@ -636,6 +707,20 @@
             border-radius: 30px;
             padding: 15px;
             margin-bottom: 10px;
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 3px 8px;
+            border-radius: 20px;
+            font-size: 0.8em;
+            font-weight: bold;
+            margin-left: 5px;
+        }
+        
+        .badge.success {
+            background: var(--success);
+            color: white;
         }
     </style>
 </head>
@@ -795,11 +880,11 @@
         let auctionTimer = null;
         let updateInterval = null;
         let lobbyCleanupInterval = null;
+        let tradeCheckInterval = null;
         let isAdmin = false;
 
         // Трейд переменные
         let currentTrade = null;
-        let tradeProposal = null;
         let selectingFor = null;
 
         const ADMIN_NAME = 'SuguruK';
@@ -919,7 +1004,16 @@
                     return;
                 }
                 
+                const oldTurn = currentGame.turn;
+                const oldTradeState = currentGame.activeTrades ? currentGame.activeTrades.length : 0;
+                
                 currentGame = updatedGame;
+                
+                // Проверяем изменение состояния трейдов
+                const newTradeState = currentGame.activeTrades ? currentGame.activeTrades.length : 0;
+                if (oldTradeState !== newTradeState) {
+                    checkPendingTrades();
+                }
                 
                 if (document.getElementById('lobby-screen').style.display === 'block') {
                     updateLobbyUI();
@@ -928,6 +1022,11 @@
                     updatePlayersList();
                     updateTurnIndicator();
                     renderGameChat();
+                    
+                    // Обновляем окно трейда, если оно открыто
+                    if (document.getElementById('trade-modal').classList.contains('active') && currentTrade) {
+                        updateTradeWindow();
+                    }
                 }
             }, 300);
         }
@@ -1020,7 +1119,8 @@
                 jackpot: 0,
                 auction: null,
                 createdAt: Date.now(),
-                trades: []
+                trades: [],
+                activeTrades: []
             };
 
             const games = JSON.parse(localStorage.getItem('monopolyGames') || '{}');
@@ -1029,6 +1129,7 @@
             
             enterLobby();
             startAutoUpdate();
+            startTradeCheck();
         }
 
         function joinLobby(gameId) {
@@ -1074,6 +1175,7 @@
             
             enterLobby();
             startAutoUpdate();
+            startTradeCheck();
         }
 
         function enterLobby() {
@@ -1153,6 +1255,7 @@
 
         function leaveToMenu() {
             if (updateInterval) clearInterval(updateInterval);
+            if (tradeCheckInterval) clearInterval(tradeCheckInterval);
             document.getElementById('login-screen').style.display = 'flex';
             document.getElementById('lobby-screen').style.display = 'none';
             document.getElementById('game-screen').style.display = 'none';
@@ -1342,7 +1445,7 @@
             let msg = `${prop.name}\n`;
             if (prop.owner) {
                 const owner = currentGame.players.find(p => p.id === prop.owner);
-                msg += `Владелец: ${owner.name}\nАренда: ${prop.rent[prop.houses || 0]}`;
+                msg += `Владелец: ${owner ? owner.name : 'Банк'}\nАренда: ${prop.rent[prop.houses || 0]}`;
             } else if (prop.price > 0) {
                 msg += `Цена: ${prop.price}💰\nАренда: ${prop.rent[0]}`;
             }
@@ -1389,7 +1492,10 @@
                     if (player.money >= land.price) {
                         player.money -= land.price;
                         currentGame.jackpot += land.price;
-                    } else bankrupt(player);
+                        addGameChat('system', `${player.name} заплатил налог ${land.price}💰`);
+                    } else {
+                        bankrupt(player);
+                    }
                 }
                 else if (land.type === 'gotojail') {
                     player.inJail = true;
@@ -1411,16 +1517,19 @@
                 }
                 
                 currentGame.diceRolled = true;
-                if (d1 !== d2) {
-                    nextTurn();
-                } else {
-                    showNotif('ДУБЛЬ! Ещё ход', 'warning');
-                    currentGame.diceRolled = false;
-                }
                 
+                // Обновляем состояние игры
                 const games = JSON.parse(localStorage.getItem('monopolyGames') || '{}');
                 games[currentGame.id] = currentGame;
                 localStorage.setItem('monopolyGames', JSON.stringify(games));
+                
+                if (d1 !== d2) {
+                    setTimeout(() => nextTurn(), 1000);
+                } else {
+                    showNotif('ДУБЛЬ! Ещё ход', 'warning');
+                    currentGame.diceRolled = false;
+                    document.getElementById('roll-dice').disabled = false;
+                }
             }
         }
 
@@ -1429,13 +1538,40 @@
             if (prop.color === 'railroad') {
                 const owner = getPlayerById(prop.owner);
                 const cnt = owner.props.filter(p => currentGame.board[p].color === 'railroad').length;
-                rent = [25, 50, 100, 200][cnt-1];
+                rent = [25, 50, 100, 200][cnt-1] || 25;
+            }
+            if (prop.color === 'utility') {
+                // Для коммунальных предприятий можно добавить логику
+                rent = 50; // Упрощенно
             }
             if (player.money >= rent) {
                 player.money -= rent;
                 getPlayerById(prop.owner).money += rent;
-                addGameChat('system', `${player.name} заплатил ${rent}💰`);
-            } else bankrupt(player, prop.owner);
+                addGameChat('system', `${player.name} заплатил ${rent}💰 ${getPlayerById(prop.owner).name}`);
+            } else {
+                bankrupt(player, prop.owner);
+            }
+        }
+
+        function bankrupt(player, creditorId) {
+            addGameChat('system', `💔 ${player.name} банкрот!`);
+            player.alive = false;
+            
+            // Передаем имущество кредитору
+            if (creditorId) {
+                const creditor = getPlayerById(creditorId);
+                player.props.forEach(pos => {
+                    currentGame.board[pos].owner = creditorId;
+                    creditor.props.push(pos);
+                });
+            }
+            
+            // Проверяем, остались ли живые игроки
+            const alivePlayers = currentGame.players.filter(p => p.alive);
+            if (alivePlayers.length === 1) {
+                addGameChat('system', `🏆 ПОБЕДИТЕЛЬ: ${alivePlayers[0].name}!`);
+                showNotif(`🏆 ПОБЕДИТЕЛЬ: ${alivePlayers[0].name}!`, 'success');
+            }
         }
 
         function drawChance() {
@@ -1521,10 +1657,14 @@
             if (!currentAuction) return;
             if (currentAuction.leader) {
                 const winner = getPlayerById(currentAuction.leader);
-                winner.money -= currentAuction.bid;
-                currentAuction.prop.owner = winner.id;
-                winner.props.push(selectedCell);
-                addGameChat('system', `🏆 ${winner.name} выиграл аукцион за ${currentAuction.bid}💰`);
+                if (winner.money >= currentAuction.bid) {
+                    winner.money -= currentAuction.bid;
+                    currentAuction.prop.owner = winner.id;
+                    winner.props.push(selectedCell);
+                    addGameChat('system', `🏆 ${winner.name} выиграл аукцион за ${currentAuction.bid}💰`);
+                } else {
+                    addGameChat('system', `❌ Аукцион не состоялся - у победителя нет денег`);
+                }
             }
             currentAuction = null;
             closeModal('auction-modal');
@@ -1551,6 +1691,7 @@
                 const games = JSON.parse(localStorage.getItem('monopolyGames') || '{}');
                 games[currentGame.id] = currentGame;
                 localStorage.setItem('monopolyGames', JSON.stringify(games));
+                showNotif(`🏗️ Дом построен на ${prop.name}`);
             }
         }
 
@@ -1572,6 +1713,7 @@
                 const games = JSON.parse(localStorage.getItem('monopolyGames') || '{}');
                 games[currentGame.id] = currentGame;
                 localStorage.setItem('monopolyGames', JSON.stringify(games));
+                showNotif(`🏨 Отель построен на ${prop.name}`);
             }
         }
 
@@ -1585,15 +1727,20 @@
 
         function nextTurn() {
             const alive = currentGame.players.filter(p => p.alive);
+            if (alive.length === 0) return;
+            
             let idx = alive.findIndex(p => p.id === currentGame.turn);
             idx = (idx + 1) % alive.length;
             currentGame.turn = alive[idx].id;
             currentGame.diceRolled = false;
-            if (currentPlayer.id === currentGame.turn) showNotif('🎲 ВАШ ХОД!', 'warning');
             
             const games = JSON.parse(localStorage.getItem('monopolyGames') || '{}');
             games[currentGame.id] = currentGame;
             localStorage.setItem('monopolyGames', JSON.stringify(games));
+            
+            if (currentPlayer.id === currentGame.turn) {
+                showNotif('🎲 ВАШ ХОД!', 'warning');
+            }
         }
 
         function endTurn() {
@@ -1646,163 +1793,300 @@
             localStorage.setItem('monopolyGames', JSON.stringify(games));
         }
 
-        // ==================== ТРЕЙД СИСТЕМА ====================
+        // ==================== НОВАЯ РАБОЧАЯ СИСТЕМА ТРЕЙДОВ ====================
+        
+        function startTradeCheck() {
+            if (tradeCheckInterval) clearInterval(tradeCheckInterval);
+            tradeCheckInterval = setInterval(checkPendingTrades, 1000);
+        }
+
+        function checkPendingTrades() {
+            if (!currentGame || !currentGame.activeTrades || !currentPlayer) return;
+            
+            // Проверяем входящие предложения
+            const incomingTrade = currentGame.activeTrades.find(t => 
+                t.player2Id === currentPlayer.id && t.status === 'pending' && !t.notified
+            );
+            
+            if (incomingTrade && !document.getElementById('trade-notification')) {
+                showTradeNotification(incomingTrade);
+            }
+            
+            // Проверяем, не завершен ли текущий трейд
+            if (currentTrade) {
+                const updatedTrade = currentGame.activeTrades?.find(t => t.id === currentTrade.id);
+                if (!updatedTrade) {
+                    // Трейд удален или завершен
+                    currentTrade = null;
+                    closeModal('trade-modal');
+                    showNotif('Обмен завершен', 'info');
+                } else {
+                    currentTrade = updatedTrade;
+                }
+            }
+        }
+
         function openTradeModal() {
+            if (currentPlayer.id !== currentGame.turn) {
+                return showNotif('Обмен возможен только в свой ход', 'error');
+            }
+            
+            // Проверяем, нет ли уже активного трейда
+            if (currentGame.activeTrades?.some(t => 
+                (t.player1Id === currentPlayer.id || t.player2Id === currentPlayer.id) && 
+                t.status !== 'completed'
+            )) {
+                return showNotif('У вас уже есть активный обмен', 'error');
+            }
+            
             const others = currentGame.players.filter(p => p.id !== currentPlayer.id && p.alive);
             if (!others.length) return showNotif('Нет других игроков', 'error');
             
-            let html = '<p>Выберите игрока:</p>';
+            let html = '<p>Выберите игрока для обмена:</p>';
             others.forEach(p => {
-                html += `<button class="btn secondary" onclick="proposeTrade('${p.id}')" style="margin:5px 0;">${charEmojis[p.character]} ${p.name}</button>`;
+                const hasActiveTrade = currentGame.activeTrades?.some(t => 
+                    (t.player1Id === p.id || t.player2Id === p.id) && t.status !== 'completed'
+                );
+                html += `<button class="btn secondary" onclick="initiateTrade('${p.id}')" style="margin:5px 0; width:100%;" ${hasActiveTrade ? 'disabled' : ''}>
+                    ${charEmojis[p.character]} ${p.name} ${hasActiveTrade ? '(в обмене)' : ''}
+                </button>`;
             });
             
             document.getElementById('trade-content').innerHTML = html;
             openModal('trade-modal');
         }
 
-        function proposeTrade(targetId) {
-            const proposal = {
-                id: 'prop_' + Date.now(),
-                fromId: currentPlayer.id,
-                fromName: currentPlayer.name,
-                fromChar: currentPlayer.character,
-                toId: targetId,
-                status: 'pending'
+        function initiateTrade(targetId) {
+            // Проверяем, нет ли уже активного трейда
+            if (currentGame.activeTrades?.some(t => 
+                (t.player1Id === currentPlayer.id && t.player2Id === targetId) ||
+                (t.player1Id === targetId && t.player2Id === currentPlayer.id)
+            )) {
+                closeModal('trade-modal');
+                return showNotif('Обмен с этим игроком уже начат', 'error');
+            }
+
+            const targetPlayer = getPlayerById(targetId);
+            
+            // Создаем новый трейд
+            const newTrade = {
+                id: 'trade_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5),
+                player1Id: currentPlayer.id,
+                player1Name: currentPlayer.name,
+                player1Char: currentPlayer.character,
+                player2Id: targetId,
+                player2Name: targetPlayer.name,
+                player2Char: targetPlayer.character,
+                props1: [],
+                props2: [],
+                money1: 0,
+                money2: 0,
+                accepted1: false,
+                accepted2: false,
+                status: 'pending',
+                createdAt: Date.now(),
+                notified: false
             };
             
-            if (!currentGame.trades) currentGame.trades = [];
-            currentGame.trades.push(proposal);
+            if (!currentGame.activeTrades) currentGame.activeTrades = [];
+            currentGame.activeTrades.push(newTrade);
             
             const games = JSON.parse(localStorage.getItem('monopolyGames') || '{}');
             games[currentGame.id] = currentGame;
             localStorage.setItem('monopolyGames', JSON.stringify(games));
             
             closeModal('trade-modal');
-            showNotif(`✅ Предложение отправлено`, 'success');
+            showNotif(`✅ Предложение отправлено ${targetPlayer.name}`, 'success');
+            
+            // Если мы отправляем предложение, сразу открываем окно ожидания
+            showTradeWaiting(newTrade);
         }
 
-        // Проверка предложений
-        setInterval(() => {
-            if (currentGame && document.getElementById('game-screen').style.display === 'block') {
-                const pending = currentGame.trades?.find(t => t.toId === currentPlayer.id && t.status === 'pending');
-                if (pending && !document.getElementById('trade-notification')) {
-                    showTradeNotification(pending);
-                }
-            }
-        }, 1000);
-
-        function showTradeNotification(proposal) {
+        function showTradeNotification(trade) {
             const notif = document.createElement('div');
             notif.className = 'trade-notification';
             notif.id = 'trade-notification';
             notif.innerHTML = `
-                <h2>🔄 ПРЕДЛОЖЕНИЕ</h2>
-                <p>${charEmojis[proposal.fromChar]} ${proposal.fromName} хочет обменяться!</p>
+                <h2>🔄 ПРЕДЛОЖЕНИЕ ОБМЕНА</h2>
+                <p style="font-size: 1.2em; margin: 20px 0;">
+                    ${charEmojis[trade.player1Char]} <strong>${trade.player1Name}</strong> хочет обменяться с вами!
+                </p>
                 <div class="trade-buttons">
-                    <button class="btn primary" onclick="acceptTradeProposal('${proposal.id}')">✅ ПРИНЯТЬ</button>
-                    <button class="btn danger" onclick="declineTradeProposal('${proposal.id}')">❌ ОТКЛОНИТЬ</button>
+                    <button class="btn primary" onclick="acceptTradeProposal('${trade.id}')">✅ ПРИНЯТЬ</button>
+                    <button class="btn danger" onclick="declineTradeProposal('${trade.id}')">❌ ОТКЛОНИТЬ</button>
                 </div>
             `;
             document.body.appendChild(notif);
-        }
-
-        function acceptTradeProposal(proposalId) {
-            const proposal = currentGame.trades.find(t => t.id === proposalId);
-            if (!proposal) return;
             
-            currentTrade = {
-                id: 'trade_' + Date.now(),
-                player1Id: proposal.fromId,
-                player1Name: proposal.fromName,
-                player2Id: currentPlayer.id,
-                player2Name: currentPlayer.name,
-                props1: [],
-                props2: [],
-                money1: 0,
-                money2: 0,
-                accepted1: false,
-                accepted2: false
-            };
-            
-            currentGame.trades = currentGame.trades.filter(t => t.id !== proposalId);
-            if (!currentGame.activeTrades) currentGame.activeTrades = [];
-            currentGame.activeTrades.push(currentTrade);
-            
+            // Отмечаем, что уведомление показано
+            trade.notified = true;
             const games = JSON.parse(localStorage.getItem('monopolyGames') || '{}');
             games[currentGame.id] = currentGame;
             localStorage.setItem('monopolyGames', JSON.stringify(games));
+        }
+
+        function showTradeWaiting(trade) {
+            document.getElementById('trade-modal-title').innerHTML = '🔄 ОЖИДАНИЕ ОТВЕТА';
+            document.getElementById('trade-content').innerHTML = `
+                <div style="text-align: center; padding: 30px;">
+                    <div style="font-size: 3em; margin-bottom: 20px;">⏳</div>
+                    <h3>Ожидаем ответ от ${trade.player2Name}</h3>
+                    <p>Предложение отправлено. Подождите...</p>
+                    <button class="btn danger" onclick="cancelTradeProposal('${trade.id}')" style="margin-top: 20px;">❌ ОТМЕНИТЬ</button>
+                </div>
+            `;
+            openModal('trade-modal');
+        }
+
+        function acceptTradeProposal(tradeId) {
+            const trade = currentGame.activeTrades?.find(t => t.id === tradeId);
+            if (!trade) return;
             
+            trade.status = 'active';
+            currentTrade = trade;
+            
+            // Убираем уведомление
             document.getElementById('trade-notification')?.remove();
+            
+            // Открываем окно обмена
             openTradeWindow();
         }
 
-        function declineTradeProposal(proposalId) {
-            currentGame.trades = currentGame.trades.filter(t => t.id !== proposalId);
-            const games = JSON.parse(localStorage.getItem('monopolyGames') || '{}');
-            games[currentGame.id] = currentGame;
-            localStorage.setItem('monopolyGames', JSON.stringify(games));
+        function declineTradeProposal(tradeId) {
+            const tradeIndex = currentGame.activeTrades?.findIndex(t => t.id === tradeId);
+            if (tradeIndex !== -1) {
+                currentGame.activeTrades.splice(tradeIndex, 1);
+                
+                const games = JSON.parse(localStorage.getItem('monopolyGames') || '{}');
+                games[currentGame.id] = currentGame;
+                localStorage.setItem('monopolyGames', JSON.stringify(games));
+            }
+            
             document.getElementById('trade-notification')?.remove();
             showNotif('❌ Предложение отклонено', 'info');
+        }
+
+        function cancelTradeProposal(tradeId) {
+            const tradeIndex = currentGame.activeTrades?.findIndex(t => t.id === tradeId);
+            if (tradeIndex !== -1) {
+                currentGame.activeTrades.splice(tradeIndex, 1);
+                
+                const games = JSON.parse(localStorage.getItem('monopolyGames') || '{}');
+                games[currentGame.id] = currentGame;
+                localStorage.setItem('monopolyGames', JSON.stringify(games));
+            }
+            
+            closeModal('trade-modal');
+            showNotif('❌ Предложение отменено', 'info');
         }
 
         function openTradeWindow() {
             if (!currentTrade) return;
             
-            const p1 = getPlayerById(currentTrade.player1Id);
-            const p2 = getPlayerById(currentTrade.player2Id);
-            const isP1 = currentPlayer.id === currentTrade.player1Id;
+            const isPlayer1 = currentPlayer.id === currentTrade.player1Id;
+            const otherPlayer = isPlayer1 ? 
+                getPlayerById(currentTrade.player2Id) : 
+                getPlayerById(currentTrade.player1Id);
             
-            document.getElementById('trade-modal-title').innerHTML = `🔄 ОБМЕН: ${p1.name} ⇄ ${p2.name}`;
+            if (!otherPlayer) return;
+            
+            document.getElementById('trade-modal-title').innerHTML = `🔄 ОБМЕН: ${currentTrade.player1Name} ⇄ ${currentTrade.player2Name}`;
+            
+            // Проверяем, принял ли уже другой игрок
+            const otherAccepted = isPlayer1 ? currentTrade.accepted2 : currentTrade.accepted1;
+            const selfAccepted = isPlayer1 ? currentTrade.accepted1 : currentTrade.accepted2;
             
             let html = `
-                <div class="trade-container">
-                    <div class="trade-column">
-                        <h3>${charEmojis[p1.character]} ${p1.name}</h3>
-                        <div id="props1-list">${renderTradeProps(currentTrade.props1)}</div>
-                        ${isP1 ? `<button class="add-button" onclick="openPropertySelector('player1')">+</button>` : ''}
-                        <input type="number" class="money-input" id="money1" value="${currentTrade.money1}" min="0" max="${p1.money}" onchange="updateTradeMoney('player1', this.value)" ${!isP1 ? 'disabled' : ''}>
-                    </div>
-                    <div class="trade-column">
-                        <h3>${charEmojis[p2.character]} ${p2.name}</h3>
-                        <div id="props2-list">${renderTradeProps(currentTrade.props2)}</div>
-                        ${!isP1 ? `<button class="add-button" onclick="openPropertySelector('player2')">+</button>` : ''}
-                        <input type="number" class="money-input" id="money2" value="${currentTrade.money2}" min="0" max="${p2.money}" onchange="updateTradeMoney('player2', this.value)" ${isP1 ? 'disabled' : ''}>
-                    </div>
-                </div>
-                <div class="trade-buttons">
-                    <button class="btn primary" onclick="acceptTrade()">✅ ПРИНЯТЬ</button>
-                    <button class="btn danger" onclick="declineTrade()">❌ ОТКЛОНИТЬ</button>
+                <div class="trade-status ${otherAccepted ? 'accepted' : 'pending'}">
+                    ${otherAccepted ? '✅' : '⏳'} ${otherPlayer.name}: ${otherAccepted ? 'Принял' : 'Ожидает'}
                 </div>
             `;
+            
+            html += `
+                <div class="trade-container">
+                    <div class="trade-column">
+                        <h3>${charEmojis[currentTrade.player1Char]} ${currentTrade.player1Name}</h3>
+                        <div id="props1-list">${renderTradeProps(currentTrade.props1, currentTrade.player1Id)}</div>
+                        ${isPlayer1 ? `<button class="add-button" onclick="openPropertySelector('player1')" ${selfAccepted ? 'disabled' : ''}>➕ ДОБАВИТЬ УЛИЦУ</button>` : ''}
+                        <div class="trade-money-display">💰 ${currentTrade.money1}</div>
+                        ${isPlayer1 ? `
+                            <input type="number" class="money-input" id="money1" value="${currentTrade.money1}" min="0" max="${currentPlayer.money}" onchange="updateTradeMoney('player1', this.value)" ${selfAccepted ? 'disabled' : ''}>
+                        ` : ''}
+                    </div>
+                    <div class="trade-column">
+                        <h3>${charEmojis[currentTrade.player2Char]} ${currentTrade.player2Name}</h3>
+                        <div id="props2-list">${renderTradeProps(currentTrade.props2, currentTrade.player2Id)}</div>
+                        ${!isPlayer1 ? `<button class="add-button" onclick="openPropertySelector('player2')" ${selfAccepted ? 'disabled' : ''}>➕ ДОБАВИТЬ УЛИЦУ</button>` : ''}
+                        <div class="trade-money-display">💰 ${currentTrade.money2}</div>
+                        ${!isPlayer1 ? `
+                            <input type="number" class="money-input" id="money2" value="${currentTrade.money2}" min="0" max="${currentPlayer.money}" onchange="updateTradeMoney('player2', this.value)" ${selfAccepted ? 'disabled' : ''}>
+                        ` : ''}
+                    </div>
+                </div>
+            `;
+            
+            // Кнопки действий
+            html += `<div class="trade-buttons">`;
+            
+            if (!selfAccepted) {
+                html += `<button class="btn primary" onclick="acceptTrade()">✅ ПРИНЯТЬ УСЛОВИЯ</button>`;
+            }
+            
+            html += `<button class="btn danger" onclick="cancelTrade()">❌ ОТМЕНИТЬ</button>`;
+            
+            if (selfAccepted && otherAccepted) {
+                html += `<button class="btn success" onclick="completeTrade()" style="background: var(--success);">✅ ЗАВЕРШИТЬ ОБМЕН</button>`;
+            }
+            
+            html += `</div>`;
             
             document.getElementById('trade-content').innerHTML = html;
             openModal('trade-modal');
         }
 
-        function renderTradeProps(props) {
-            if (!props || props.length === 0) return '<p>Нет улиц</p>';
+        function renderTradeProps(props, ownerId) {
+            if (!props || props.length === 0) return '<p style="color: var(--gray);">Нет улиц</p>';
+            
             return props.map(pos => {
-                const p = currentGame.board[pos];
-                return `<div class="property-item selected" onclick="removeProperty(${pos})">${p.name} (${p.price}💰)</div>`;
+                const prop = currentGame.board[pos];
+                const owner = getPlayerById(ownerId);
+                const canRemove = (ownerId === currentPlayer.id) && 
+                                 ((currentTrade.player1Id === currentPlayer.id && !currentTrade.accepted1) ||
+                                  (currentTrade.player2Id === currentPlayer.id && !currentTrade.accepted2));
+                
+                return `
+                    <div class="property-item selected">
+                        <span>${prop.name} (${prop.price}💰)</span>
+                        ${canRemove ? `<button class="remove-prop" onclick="removeProperty(${pos})">✕</button>` : ''}
+                    </div>
+                `;
             }).join('');
         }
 
         function openPropertySelector(playerKey) {
             const player = getCurrentPlayer();
-            const available = player.props.filter(pos => {
-                if (playerKey === 'player1') return !currentTrade.props1.includes(pos);
-                else return !currentTrade.props2.includes(pos);
-            });
+            const isPlayer1 = (playerKey === 'player1');
             
-            if (available.length === 0) return showNotif('Нет доступных улиц', 'error');
+            // Получаем доступные улицы (которые не в трейде)
+            const inTrade = isPlayer1 ? currentTrade.props1 : currentTrade.props2;
+            const available = player.props.filter(pos => !inTrade.includes(pos));
+            
+            if (available.length === 0) {
+                return showNotif('Нет доступных улиц для обмена', 'error');
+            }
             
             selectingFor = playerKey;
-            document.getElementById('select-prop-title').innerHTML = `🏠 ВЫБЕРИТЕ УЛИЦУ`;
+            document.getElementById('select-prop-title').innerHTML = '🏠 ВЫБЕРИТЕ УЛИЦУ ДЛЯ ОБМЕНА';
             
             let html = '';
             available.forEach(pos => {
-                const p = currentGame.board[pos];
-                html += `<div class="property-item" onclick="selectProperty(${pos})">${p.name} (${p.price}💰)</div>`;
+                const prop = currentGame.board[pos];
+                html += `
+                    <div class="property-item can-select owned" onclick="selectProperty(${pos})">
+                        <span>${prop.name}</span>
+                        <span>💰 ${prop.price}</span>
+                    </div>
+                `;
             });
             
             document.getElementById('select-prop-list').innerHTML = html;
@@ -1813,23 +2097,35 @@
             if (!selectingFor) return;
             
             if (selectingFor === 'player1') {
-                currentTrade.props1.push(pos);
-                getPlayerById(currentTrade.player1Id).props = getPlayerById(currentTrade.player1Id).props.filter(p => p !== pos);
+                if (!currentTrade.props1.includes(pos)) {
+                    currentTrade.props1.push(pos);
+                    // Убираем из props игрока временно
+                    const player = getPlayerById(currentTrade.player1Id);
+                    player.props = player.props.filter(p => p !== pos);
+                }
             } else {
-                currentTrade.props2.push(pos);
-                getPlayerById(currentTrade.player2Id).props = getPlayerById(currentTrade.player2Id).props.filter(p => p !== pos);
+                if (!currentTrade.props2.includes(pos)) {
+                    currentTrade.props2.push(pos);
+                    const player = getPlayerById(currentTrade.player2Id);
+                    player.props = player.props.filter(p => p !== pos);
+                }
             }
             
             closeModal('select-property-modal');
+            selectingFor = null;
             
+            // Сохраняем изменения
             const games = JSON.parse(localStorage.getItem('monopolyGames') || '{}');
             games[currentGame.id] = currentGame;
             localStorage.setItem('monopolyGames', JSON.stringify(games));
             
-            openTradeWindow();
+            // Обновляем окно
+            updateTradeWindow();
         }
 
         function removeProperty(pos) {
+            if (!currentTrade) return;
+            
             if (currentTrade.props1.includes(pos) && currentPlayer.id === currentTrade.player1Id) {
                 currentTrade.props1 = currentTrade.props1.filter(p => p !== pos);
                 getPlayerById(currentTrade.player1Id).props.push(pos);
@@ -1842,73 +2138,85 @@
             games[currentGame.id] = currentGame;
             localStorage.setItem('monopolyGames', JSON.stringify(games));
             
-            openTradeWindow();
+            updateTradeWindow();
         }
 
         function updateTradeMoney(playerKey, value) {
             const amount = parseInt(value) || 0;
+            const player = getCurrentPlayer();
+            
+            if (amount > player.money) {
+                showNotif('Недостаточно денег', 'error');
+                return;
+            }
+            
             if (playerKey === 'player1' && currentPlayer.id === currentTrade.player1Id) {
-                if (amount > getPlayerById(currentTrade.player1Id).money) return showNotif('Недостаточно денег', 'error');
                 currentTrade.money1 = amount;
             } else if (playerKey === 'player2' && currentPlayer.id === currentTrade.player2Id) {
-                if (amount > getPlayerById(currentTrade.player2Id).money) return showNotif('Недостаточно денег', 'error');
                 currentTrade.money2 = amount;
             }
             
             const games = JSON.parse(localStorage.getItem('monopolyGames') || '{}');
             games[currentGame.id] = currentGame;
             localStorage.setItem('monopolyGames', JSON.stringify(games));
+            
+            updateTradeWindow();
         }
 
         function acceptTrade() {
             if (!currentTrade) return;
             
-            if (currentPlayer.id === currentTrade.player1Id) currentTrade.accepted1 = true;
-            else currentTrade.accepted2 = true;
-            
-            if (currentTrade.accepted1 && currentTrade.accepted2) {
-                const p1 = getPlayerById(currentTrade.player1Id);
-                const p2 = getPlayerById(currentTrade.player2Id);
-                
-                p1.money = p1.money - currentTrade.money1 + currentTrade.money2;
-                p2.money = p2.money - currentTrade.money2 + currentTrade.money1;
-                
-                currentTrade.props1.forEach(pos => {
-                    currentGame.board[pos].owner = p2.id;
-                    p2.props.push(pos);
-                });
-                
-                currentTrade.props2.forEach(pos => {
-                    currentGame.board[pos].owner = p1.id;
-                    p1.props.push(pos);
-                });
-                
-                addGameChat('system', `🤝 Обмен между ${p1.name} и ${p2.name} завершён!`);
-                showNotif('✅ Обмен завершён!', 'success');
-                
-                currentGame.activeTrades = currentGame.activeTrades.filter(t => t.id !== currentTrade.id);
-                currentTrade = null;
-                closeModal('trade-modal');
+            if (currentPlayer.id === currentTrade.player1Id) {
+                currentTrade.accepted1 = true;
             } else {
-                showNotif('✅ Вы приняли, ждём второго', 'info');
-                closeModal('trade-modal');
+                currentTrade.accepted2 = true;
             }
             
             const games = JSON.parse(localStorage.getItem('monopolyGames') || '{}');
             games[currentGame.id] = currentGame;
             localStorage.setItem('monopolyGames', JSON.stringify(games));
+            
+            updateTradeWindow();
+            
+            if (currentTrade.accepted1 && currentTrade.accepted2) {
+                showNotif('✅ Оба игрока приняли условия! Нажмите "Завершить обмен"', 'success');
+            } else {
+                showNotif('✅ Вы приняли условия, ожидаем второго игрока', 'info');
+            }
         }
 
-        function declineTrade() {
+        function completeTrade() {
             if (!currentTrade) return;
             
-            if (currentTrade.props1.length) {
-                getPlayerById(currentTrade.player1Id).props.push(...currentTrade.props1);
-            }
-            if (currentTrade.props2.length) {
-                getPlayerById(currentTrade.player2Id).props.push(...currentTrade.props2);
+            const p1 = getPlayerById(currentTrade.player1Id);
+            const p2 = getPlayerById(currentTrade.player2Id);
+            
+            if (!p1 || !p2) return;
+            
+            // Проверяем, хватает ли денег
+            if (p1.money < currentTrade.money1 || p2.money < currentTrade.money2) {
+                return showNotif('У одного из игроков не хватает денег', 'error');
             }
             
+            // Переводим деньги
+            p1.money = p1.money - currentTrade.money1 + currentTrade.money2;
+            p2.money = p2.money - currentTrade.money2 + currentTrade.money1;
+            
+            // Передаем улицы
+            currentTrade.props1.forEach(pos => {
+                currentGame.board[pos].owner = p2.id;
+                p2.props.push(pos);
+            });
+            
+            currentTrade.props2.forEach(pos => {
+                currentGame.board[pos].owner = p1.id;
+                p1.props.push(pos);
+            });
+            
+            addGameChat('system', `🤝 Обмен между ${p1.name} и ${p2.name} завершён!`);
+            showNotif('✅ Обмен успешно завершён!', 'success');
+            
+            // Удаляем трейд из активных
             currentGame.activeTrades = currentGame.activeTrades.filter(t => t.id !== currentTrade.id);
             currentTrade = null;
             
@@ -1917,39 +2225,98 @@
             localStorage.setItem('monopolyGames', JSON.stringify(games));
             
             closeModal('trade-modal');
-            showNotif('❌ Обмен отклонён', 'info');
+        }
+
+        function cancelTrade() {
+            if (!currentTrade) return;
+            
+            // Возвращаем улицы владельцам
+            if (currentTrade.props1.length) {
+                const p1 = getPlayerById(currentTrade.player1Id);
+                currentTrade.props1.forEach(pos => {
+                    if (!p1.props.includes(pos)) {
+                        p1.props.push(pos);
+                    }
+                });
+            }
+            
+            if (currentTrade.props2.length) {
+                const p2 = getPlayerById(currentTrade.player2Id);
+                currentTrade.props2.forEach(pos => {
+                    if (!p2.props.includes(pos)) {
+                        p2.props.push(pos);
+                    }
+                });
+            }
+            
+            // Удаляем трейд
+            currentGame.activeTrades = currentGame.activeTrades.filter(t => t.id !== currentTrade.id);
+            currentTrade = null;
+            
+            const games = JSON.parse(localStorage.getItem('monopolyGames') || '{}');
+            games[currentGame.id] = currentGame;
+            localStorage.setItem('monopolyGames', JSON.stringify(games));
+            
+            closeModal('trade-modal');
+            showNotif('❌ Обмен отменён', 'info');
+        }
+
+        function updateTradeWindow() {
+            if (document.getElementById('trade-modal').classList.contains('active') && currentTrade) {
+                openTradeWindow();
+            }
         }
 
         function closeTradeModal() {
+            if (currentTrade) {
+                // Не закрываем, если трейд активен
+                return;
+            }
             closeModal('trade-modal');
         }
 
         // ==================== ОБНОВЛЕНИЕ ====================
         function updatePlayersList() {
             const container = document.getElementById('players-list');
-            if (!container) return;
-            container.innerHTML = currentGame.players.map(p => `
-                <div class="player-card ${p.id === currentGame.turn ? 'current-turn' : ''}">
-                    <div class="player-avatar" style="background: ${p.color}">${charEmojis[p.character]}</div>
-                    <div>
-                        <div class="player-name">${p.name} ${p.inJail ? '🚓' : ''}</div>
-                        <div>💰 ${p.money}</div>
-                        <div>🏠 ${p.props.length}</div>
+            if (!container || !currentGame) return;
+            
+            container.innerHTML = currentGame.players.map(p => {
+                const isCurrentTurn = p.id === currentGame.turn;
+                const inTrade = currentGame.activeTrades?.some(t => 
+                    (t.player1Id === p.id || t.player2Id === p.id) && t.status !== 'completed'
+                );
+                
+                return `
+                    <div class="player-card ${isCurrentTurn ? 'current-turn' : ''}">
+                        <div class="player-avatar" style="background: ${p.color}">${charEmojis[p.character]}</div>
+                        <div style="flex: 1;">
+                            <div class="player-name">
+                                ${p.name} ${p.inJail ? '🚓' : ''}
+                                ${inTrade ? '<span class="badge success">🔄</span>' : ''}
+                            </div>
+                            <div>💰 ${p.money}</div>
+                            <div>🏠 ${p.props.length}</div>
+                        </div>
                     </div>
-                </div>
-            `).join('');
+                `;
+            }).join('');
         }
 
         function updateTurnIndicator() {
             const ind = document.getElementById('turn-indicator');
-            if (!currentGame.started) ind.textContent = '⏳ ОЖИДАНИЕ...';
-            else ind.textContent = `🎲 ХОДИТ: ${getPlayerById(currentGame.turn)?.name}`;
+            if (!currentGame || !currentGame.started) {
+                ind.textContent = '⏳ ОЖИДАНИЕ...';
+            } else {
+                const player = getPlayerById(currentGame.turn);
+                ind.textContent = `🎲 ХОДИТ: ${player ? player.name : '...'}`;
+            }
         }
 
         function showMyCards() {
             const me = getCurrentPlayer();
             if (!me.props.length) return showNotif('Нет собственности', 'info');
-            let msg = '🏠 ВАША СОБСТВЕННОСТЬ:\n';
+            
+            let msg = '🏠 ВАША СОБСТВЕННОСТЬ:\n\n';
             me.props.forEach(pos => {
                 const p = currentGame.board[pos];
                 msg += `${p.name} — ${p.price}💰`;
@@ -1979,13 +2346,18 @@
                         <button class="btn small ${charFree ? 'primary' : 'secondary'}" onclick="joinLobby('${game.id}')" ${!charFree ? 'disabled' : ''}>${charFree ? '✅ ПРИСОЕДИНИТЬСЯ' : '❌ ФИГУРКА ЗАНЯТА'}</button>
                     </div>
                 `;
-            }).join('') : '<p>Нет доступных лобби</p>';
+            }).join('') : '<p style="text-align: center; padding: 20px;">Нет доступных лобби</p>';
             
             listDiv.style.display = 'block';
         }
 
-        function getCurrentPlayer() { return currentGame.players.find(p => p.id === currentPlayer.id); }
-        function getPlayerById(id) { return currentGame.players.find(p => p.id === id); }
+        function getCurrentPlayer() { 
+            return currentGame?.players.find(p => p.id === currentPlayer?.id); 
+        }
+        
+        function getPlayerById(id) { 
+            return currentGame?.players.find(p => p.id === id); 
+        }
         
         function showPropModal(prop) {
             document.getElementById('prop-name').textContent = prop.name;
@@ -1997,8 +2369,13 @@
             openModal('property-modal');
         }
         
-        function openModal(id) { document.getElementById(id).classList.add('active'); }
-        function closeModal(id) { document.getElementById(id).classList.remove('active'); }
+        function openModal(id) { 
+            document.getElementById(id).classList.add('active'); 
+        }
+        
+        function closeModal(id) { 
+            document.getElementById(id).classList.remove('active'); 
+        }
         
         function showNotif(msg, type = 'info') {
             const n = document.createElement('div');
@@ -2009,8 +2386,9 @@
         }
         
         function leaveGame() { 
-            if (confirm('Выйти?')) {
+            if (confirm('Выйти из игры?')) {
                 if (updateInterval) clearInterval(updateInterval);
+                if (tradeCheckInterval) clearInterval(tradeCheckInterval);
                 document.getElementById('login-screen').style.display = 'flex';
                 document.getElementById('game-screen').style.display = 'none';
                 currentGame = null;
@@ -2019,6 +2397,7 @@
             }
         }
 
+        // Инициализация
         window.onload = () => {
             games = JSON.parse(localStorage.getItem('monopolyGames') || '{}');
             selectChar('dino');
