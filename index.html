@@ -1,0 +1,661 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Monopoly Game - Классическая настольная игра</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: #333;
+            line-height: 1.6;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            text-align: center;
+            padding: 60px 20px;
+            border-radius: 10px;
+            margin-bottom: 40px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+        }
+
+        header h1 {
+            font-size: 3em;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+
+        header p {
+            font-size: 1.2em;
+            opacity: 0.9;
+        }
+
+        .features {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 30px;
+            margin-bottom: 50px;
+        }
+
+        .feature-card {
+            background: white;
+            border-radius: 10px;
+            padding: 30px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+            transition: transform 0.3s ease;
+        }
+
+        .feature-card:hover {
+            transform: translateY(-5px);
+        }
+
+        .feature-card h3 {
+            color: #667eea;
+            margin-bottom: 15px;
+            font-size: 1.5em;
+        }
+
+        .feature-card ul {
+            list-style-type: none;
+        }
+
+        .feature-card li {
+            margin-bottom: 10px;
+            padding-left: 25px;
+            position: relative;
+        }
+
+        .feature-card li:before {
+            content: "✓";
+            color: #667eea;
+            position: absolute;
+            left: 0;
+            font-weight: bold;
+        }
+
+        .game-rules {
+            background: white;
+            border-radius: 10px;
+            padding: 40px;
+            margin-bottom: 50px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+        }
+
+        .game-rules h2 {
+            color: #667eea;
+            margin-bottom: 20px;
+            font-size: 2em;
+        }
+
+        .game-rules h3 {
+            color: #764ba2;
+            margin: 20px 0 10px;
+        }
+
+        .game-rules p {
+            margin-bottom: 10px;
+        }
+
+        .game-rules ul {
+            margin-left: 20px;
+            margin-bottom: 20px;
+        }
+
+        .game-rules li {
+            margin-bottom: 5px;
+        }
+
+        .board-preview {
+            background: #f8f9fa;
+            border-radius: 10px;
+            padding: 40px;
+            margin-bottom: 50px;
+            text-align: center;
+        }
+
+        .board-preview h2 {
+            color: #667eea;
+            margin-bottom: 20px;
+            font-size: 2em;
+        }
+
+        .board-grid {
+            display: grid;
+            grid-template-columns: repeat(10, 1fr);
+            gap: 5px;
+            max-width: 800px;
+            margin: 0 auto;
+        }
+
+        .board-cell {
+            aspect-ratio: 1;
+            background: white;
+            border: 2px solid #667eea;
+            border-radius: 5px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.8em;
+            font-weight: bold;
+            color: #333;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .board-cell:hover {
+            background: #667eea;
+            color: white;
+            transform: scale(1.1);
+        }
+
+        .board-cell.special {
+            background: #ffd700;
+        }
+
+        .board-cell.property {
+            background: #98fb98;
+        }
+
+        .board-cell.railroad {
+            background: #87ceeb;
+        }
+
+        .board-cell.utility {
+            background: #dda0dd;
+        }
+
+        .board-cell.tax {
+            background: #ffb6c1;
+        }
+
+        .board-cell.jail {
+            background: #ffa07a;
+        }
+
+        .properties-list {
+            background: white;
+            border-radius: 10px;
+            padding: 40px;
+            margin-bottom: 50px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+        }
+
+        .properties-list h2 {
+            color: #667eea;
+            margin-bottom: 30px;
+            font-size: 2em;
+            text-align: center;
+        }
+
+        .color-group {
+            margin-bottom: 30px;
+            border: 1px solid #e0e0e0;
+            border-radius: 8px;
+            padding: 20px;
+        }
+
+        .color-group h3 {
+            margin-bottom: 15px;
+            font-size: 1.3em;
+        }
+
+        .color-group.brown { border-left: 5px solid #8b4513; }
+        .color-group.lightblue { border-left: 5px solid #87ceeb; }
+        .color-group.pink { border-left: 5px solid #ff69b4; }
+        .color-group.orange { border-left: 5px solid #ffa500; }
+        .color-group.red { border-left: 5px solid #ff0000; }
+        .color-group.yellow { border-left: 5px solid #ffff00; }
+        .color-group.green { border-left: 5px solid #008000; }
+        .color-group.blue { border-left: 5px solid #0000ff; }
+        .color-group.railroad { border-left: 5px solid #4a4a4a; }
+        .color-group.utility { border-left: 5px solid #800080; }
+
+        .property-item {
+            display: grid;
+            grid-template-columns: 2fr 1fr 1fr 1fr;
+            padding: 10px;
+            border-bottom: 1px solid #e0e0e0;
+        }
+
+        .property-item:last-child {
+            border-bottom: none;
+        }
+
+        .property-item .name { font-weight: bold; }
+        .property-item .price { color: #28a745; }
+        .property-item .rent { color: #dc3545; }
+        .property-item .house-price { color: #ffc107; }
+
+        .cta-section {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            text-align: center;
+            padding: 60px 20px;
+            border-radius: 10px;
+            margin-bottom: 40px;
+        }
+
+        .cta-section h2 {
+            font-size: 2.5em;
+            margin-bottom: 20px;
+        }
+
+        .cta-section p {
+            font-size: 1.2em;
+            margin-bottom: 30px;
+            opacity: 0.9;
+        }
+
+        .btn {
+            display: inline-block;
+            background: white;
+            color: #667eea;
+            padding: 15px 40px;
+            border-radius: 50px;
+            text-decoration: none;
+            font-weight: bold;
+            font-size: 1.2em;
+            transition: all 0.3s ease;
+            border: none;
+            cursor: pointer;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+        }
+
+        .btn:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 8px 25px rgba(0,0,0,0.3);
+            background: #f8f9fa;
+        }
+
+        footer {
+            text-align: center;
+            color: white;
+            padding: 20px;
+            opacity: 0.8;
+        }
+
+        @media (max-width: 768px) {
+            header h1 { font-size: 2em; }
+            .feature-card { padding: 20px; }
+            .game-rules { padding: 20px; }
+            .board-grid { grid-template-columns: repeat(5, 1fr); }
+            .property-item {
+                grid-template-columns: 1fr;
+                gap: 5px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🎲 MONOPOLY GAME</h1>
+            <p>Классическая настольная игра о недвижимости</p>
+        </header>
+
+        <section class="features">
+            <div class="feature-card">
+                <h3>🏠 Недвижимость</h3>
+                <ul>
+                    <li>22 улицы разных цветов</li>
+                    <li>4 железнодорожных вокзала</li>
+                    <li>2 коммунальных предприятия</li>
+                    <li>Стройте дома и отели</li>
+                </ul>
+            </div>
+
+            <div class="feature-card">
+                <h3>💰 Экономика</h3>
+                <ul>
+                    <li>Стартовый капитал: 1500</li>
+                    <li>Проход через Старт: +200</li>
+                    <li>Налоги: 100-200</li>
+                    <li>Джекпот на парковке</li>
+                </ul>
+            </div>
+
+            <div class="feature-card">
+                <h3>🎲 События</h3>
+                <ul>
+                    <li>Шанс и Казна (16 карт)</li>
+                    <li>Тюрьма на 3 хода</li>
+                    <li>Бесплатная парковка</li>
+                    <li>Аукционы при отказе</li>
+                </ul>
+            </div>
+        </section>
+
+        <section class="game-rules">
+            <h2>📚 Правила игры</h2>
+            
+            <h3>Подготовка к игре</h3>
+            <p>Каждый игрок получает 1500. Игроки по очереди бросают кубики и передвигают фишку на выпавшее количество клеток.</p>
+            
+            <h3>Покупка собственности</h3>
+            <p>Если вы остановились на свободной клетке, вы можете купить её по указанной цене. Если откажетесь - собственность выставляется на аукцион.</p>
+            
+            <h3>Аренда</h3>
+            <p>Если вы остановились на чужой собственности, вы платите аренду владельцу. Размер аренды зависит от количества построек.</p>
+            
+            <h3>Дома и отели</h3>
+            <p>Можно строить дома после того, как вы собрали все участки одного цвета. Максимум 4 дома, затем можно построить отель.</p>
+            
+            <h3>Коммунальные предприятия</h3>
+            <ul>
+                <li>1 коммуналка: аренда = сумма кубиков × 4</li>
+                <li>2 коммуналки: аренда = сумма кубиков × 10</li>
+            </ul>
+            
+            <h3>Железнодорожные вокзалы</h3>
+            <ul>
+                <li>1 вокзал: аренда 25</li>
+                <li>2 вокзала: аренда 50</li>
+                <li>3 вокзала: аренда 100</li>
+                <li>4 вокзала: аренда 200</li>
+            </ul>
+            
+            <h3>Тюрьма</h3>
+            <p>Вы можете попасть в тюрьму, если:</p>
+            <ul>
+                <li>Выпало 3 дубля подряд</li>
+                <li>Попали на клетку "Отправляйтесь в тюрьму"</li>
+                <li>Вытянули карту Шанс/Казна</li>
+            </ul>
+            <p>В тюрьме можно находиться до 3 ходов. Выйти можно, выбросив дубль или заплатив 50.</p>
+        </section>
+
+        <section class="board-preview">
+            <h2>🗺️ Игровое поле</h2>
+            <div class="board-grid">
+                <div class="board-cell special" title="Старт">🚀</div>
+                <div class="board-cell property" title="Улица Победы">1</div>
+                <div class="board-cell special" title="Казна">📦</div>
+                <div class="board-cell property" title="Проспект Мира">3</div>
+                <div class="board-cell tax" title="Налог 200">💰</div>
+                <div class="board-cell railroad" title="Вокзал">🚂</div>
+                <div class="board-cell property" title="Невский пр.">6</div>
+                <div class="board-cell special" title="Шанс">🎲</div>
+                <div class="board-cell property" title="Ул. Горького">8</div>
+                <div class="board-cell property" title="Ул. Чехова">9</div>
+                <div class="board-cell jail" title="Тюрьма">🚓</div>
+                <div class="board-cell property" title="Пушкинская">11</div>
+                <div class="board-cell utility" title="Электростанция">⚡</div>
+                <div class="board-cell property" title="Ул. Лермонтова">13</div>
+                <div class="board-cell property" title="Ул. Толстого">14</div>
+                <div class="board-cell railroad" title="Вокзал">🚂</div>
+                <div class="board-cell property" title="Ул. Гагарина">16</div>
+                <div class="board-cell special" title="Казна">📦</div>
+                <div class="board-cell property" title="Ул. Королева">18</div>
+                <div class="board-cell property" title="Ул. Циолковского">19</div>
+                <div class="board-cell special" title="Парковка">🅿️</div>
+                <div class="board-cell property" title="Арбат">21</div>
+                <div class="board-cell special" title="Шанс">🎲</div>
+                <div class="board-cell property" title="Тверская">23</div>
+                <div class="board-cell property" title="Кузнецкий мост">24</div>
+                <div class="board-cell railroad" title="Вокзал">🚂</div>
+                <div class="board-cell property" title="Пр. Вернадского">26</div>
+                <div class="board-cell property" title="Пр. Ленина">27</div>
+                <div class="board-cell utility" title="Водопровод">💧</div>
+                <div class="board-cell property" title="Университетская">29</div>
+                <div class="board-cell jail" title="В тюрьму">⛓️</div>
+                <div class="board-cell property" title="Невский пр.">31</div>
+                <div class="board-cell property" title="Ул. Рубинштейна">32</div>
+                <div class="board-cell special" title="Казна">📦</div>
+                <div class="board-cell property" title="Лиговский пр.">34</div>
+                <div class="board-cell railroad" title="Вокзал">🚂</div>
+                <div class="board-cell special" title="Шанс">🎲</div>
+                <div class="board-cell property" title="Красная площадь">37</div>
+                <div class="board-cell tax" title="Налог 100">💰</div>
+                <div class="board-cell property" title="Кремль">39</div>
+            </div>
+        </section>
+
+        <section class="properties-list">
+            <h2>🏷️ Список собственности</h2>
+            
+            <div class="color-group brown">
+                <h3>Коричневый</h3>
+                <div class="property-item">
+                    <span class="name">Улица Победы</span>
+                    <span class="price">60💰</span>
+                    <span class="rent">2-250💰</span>
+                    <span class="house-price">50💰</span>
+                </div>
+                <div class="property-item">
+                    <span class="name">Проспект Мира</span>
+                    <span class="price">60💰</span>
+                    <span class="rent">4-450💰</span>
+                    <span class="house-price">50💰</span>
+                </div>
+            </div>
+
+            <div class="color-group lightblue">
+                <h3>Голубой</h3>
+                <div class="property-item">
+                    <span class="name">Невский проспект</span>
+                    <span class="price">100💰</span>
+                    <span class="rent">6-550💰</span>
+                    <span class="house-price">50💰</span>
+                </div>
+                <div class="property-item">
+                    <span class="name">Улица Горького</span>
+                    <span class="price">100💰</span>
+                    <span class="rent">6-550💰</span>
+                    <span class="house-price">50💰</span>
+                </div>
+                <div class="property-item">
+                    <span class="name">Улица Чехова</span>
+                    <span class="price">120💰</span>
+                    <span class="rent">8-600💰</span>
+                    <span class="house-price">50💰</span>
+                </div>
+            </div>
+
+            <div class="color-group pink">
+                <h3>Розовый</h3>
+                <div class="property-item">
+                    <span class="name">Пушкинская улица</span>
+                    <span class="price">140💰</span>
+                    <span class="rent">10-750💰</span>
+                    <span class="house-price">100💰</span>
+                </div>
+                <div class="property-item">
+                    <span class="name">Улица Лермонтова</span>
+                    <span class="price">140💰</span>
+                    <span class="rent">10-750💰</span>
+                    <span class="house-price">100💰</span>
+                </div>
+                <div class="property-item">
+                    <span class="name">Улица Толстого</span>
+                    <span class="price">160💰</span>
+                    <span class="rent">12-900💰</span>
+                    <span class="house-price">100💰</span>
+                </div>
+            </div>
+
+            <div class="color-group orange">
+                <h3>Оранжевый</h3>
+                <div class="property-item">
+                    <span class="name">Улица Гагарина</span>
+                    <span class="price">180💰</span>
+                    <span class="rent">14-950💰</span>
+                    <span class="house-price">100💰</span>
+                </div>
+                <div class="property-item">
+                    <span class="name">Улица Королева</span>
+                    <span class="price">180💰</span>
+                    <span class="rent">14-950💰</span>
+                    <span class="house-price">100💰</span>
+                </div>
+                <div class="property-item">
+                    <span class="name">Улица Циолковского</span>
+                    <span class="price">200💰</span>
+                    <span class="rent">16-1000💰</span>
+                    <span class="house-price">100💰</span>
+                </div>
+            </div>
+
+            <div class="color-group red">
+                <h3>Красный</h3>
+                <div class="property-item">
+                    <span class="name">Арбат</span>
+                    <span class="price">220💰</span>
+                    <span class="rent">18-1050💰</span>
+                    <span class="house-price">150💰</span>
+                </div>
+                <div class="property-item">
+                    <span class="name">Тверская улица</span>
+                    <span class="price">220💰</span>
+                    <span class="rent">18-1050💰</span>
+                    <span class="house-price">150💰</span>
+                </div>
+                <div class="property-item">
+                    <span class="name">Кузнецкий мост</span>
+                    <span class="price">240💰</span>
+                    <span class="rent">20-1100💰</span>
+                    <span class="house-price">150💰</span>
+                </div>
+            </div>
+
+            <div class="color-group yellow">
+                <h3>Желтый</h3>
+                <div class="property-item">
+                    <span class="name">Проспект Вернадского</span>
+                    <span class="price">260💰</span>
+                    <span class="rent">22-1150💰</span>
+                    <span class="house-price">150💰</span>
+                </div>
+                <div class="property-item">
+                    <span class="name">Проспект Ленина</span>
+                    <span class="price">260💰</span>
+                    <span class="rent">22-1150💰</span>
+                    <span class="house-price">150💰</span>
+                </div>
+                <div class="property-item">
+                    <span class="name">Университетская</span>
+                    <span class="price">280💰</span>
+                    <span class="rent">24-1200💰</span>
+                    <span class="house-price">150💰</span>
+                </div>
+            </div>
+
+            <div class="color-group green">
+                <h3>Зеленый</h3>
+                <div class="property-item">
+                    <span class="name">Невский проспект</span>
+                    <span class="price">300💰</span>
+                    <span class="rent">26-1275💰</span>
+                    <span class="house-price">200💰</span>
+                </div>
+                <div class="property-item">
+                    <span class="name">Улица Рубинштейна</span>
+                    <span class="price">300💰</span>
+                    <span class="rent">26-1275💰</span>
+                    <span class="house-price">200💰</span>
+                </div>
+                <div class="property-item">
+                    <span class="name">Лиговский проспект</span>
+                    <span class="price">320💰</span>
+                    <span class="rent">28-1400💰</span>
+                    <span class="house-price">200💰</span>
+                </div>
+            </div>
+
+            <div class="color-group blue">
+                <h3>Синий</h3>
+                <div class="property-item">
+                    <span class="name">Красная площадь</span>
+                    <span class="price">350💰</span>
+                    <span class="rent">35-1500💰</span>
+                    <span class="house-price">200💰</span>
+                </div>
+                <div class="property-item">
+                    <span class="name">Кремль</span>
+                    <span class="price">400💰</span>
+                    <span class="rent">50-2000💰</span>
+                    <span class="house-price">200💰</span>
+                </div>
+            </div>
+
+            <div class="color-group railroad">
+                <h3>🚂 Железнодорожные вокзалы</h3>
+                <div class="property-item">
+                    <span class="name">Вокзал (4 шт)</span>
+                    <span class="price">200💰</span>
+                    <span class="rent">25-200💰</span>
+                    <span class="house-price">-</span>
+                </div>
+            </div>
+
+            <div class="color-group utility">
+                <h3>⚡ Коммунальные предприятия</h3>
+                <div class="property-item">
+                    <span class="name">Электростанция</span>
+                    <span class="price">150💰</span>
+                    <span class="rent">×4-×10</span>
+                    <span class="house-price">-</span>
+                </div>
+                <div class="property-item">
+                    <span class="name">Водопровод</span>
+                    <span class="price">150💰</span>
+                    <span class="rent">×4-×10</span>
+                    <span class="house-price">-</span>
+                </div>
+            </div>
+        </section>
+
+        <section class="cta-section">
+            <h2>🎮 Хотите сыграть в настоящую монополию?</h2>
+            <p>Скачайте официальную версию игры или соберитесь с друзьями</p>
+            <a href="#" class="btn" onclick="alert('Это демонстрационная версия сайта. Для игры в настоящую монополию приобретите настольную версию или найдите друзей для игры!')">Начать игру</a>
+        </section>
+
+        <footer>
+            <p>© 2024 Monopoly Game. Все права защищены.</p>
+            <p>Это неофициальный фанатский сайт. Monopoly является зарегистрированной торговой маркой.</p>
+        </footer>
+    </div>
+
+    <script>
+        // Добавляем интерактивности
+        document.querySelectorAll('.board-cell').forEach(cell => {
+            cell.addEventListener('click', function() {
+                const title = this.getAttribute('title') || 'Клетка';
+                alert(`Вы нажали на клетку: ${title}`);
+            });
+        });
+
+        // Анимация при скролле
+        const observer = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    entry.target.style.opacity = 1;
+                    entry.target.style.transform = 'translateY(0)';
+                }
+            });
+        });
+
+        document.querySelectorAll('.feature-card, .color-group').forEach(el => {
+            el.style.opacity = 0;
+            el.style.transform = 'translateY(20px)';
+            el.style.transition = 'all 0.5s ease';
+            observer.observe(el);
+        });
+    </script>
+</body>
+                    </html>
