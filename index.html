@@ -671,6 +671,7 @@
         let currentAuction = null;
         let auctionTimer = null;
         let updateInterval = null;
+        let lobbyCleanupInterval = null;
 
         const charEmojis = {
             'dino': '🦖', 'duck': '🦆', 'car': '🚗', 'hat': '🧢',
@@ -747,39 +748,87 @@
             { text:"На Старт", pos:0, money:200 }
         ];
 
+        // ==================== ТАЙМЕР УДАЛЕНИЯ ЛОББИ ====================
+        function startLobbyCleanup() {
+            if (lobbyCleanupInterval) clearInterval(lobbyCleanupInterval);
+            
+            lobbyCleanupInterval = setInterval(() => {
+                const games = JSON.parse(localStorage.getItem('monopolyGames') || '{}');
+                let changed = false;
+                const now = Date.now();
+                
+                Object.keys(games).forEach(gameId => {
+                    const game = games[gameId];
+                    
+                    // Если игра не начата и прошло больше 20 минут с создания
+                    if (!game.started && game.createdAt && (now - game.createdAt) > 20 * 60 * 1000) {
+                        delete games[gameId];
+                        changed = true;
+                    }
+                    
+                    // Если в лобби никого нет
+                    if (game.players && game.players.length === 0) {
+                        delete games[gameId];
+                        changed = true;
+                    }
+                });
+                
+                if (changed) {
+                    localStorage.setItem('monopolyGames', JSON.stringify(games));
+                    
+                    // Если мы сейчас в удаленном лобби - возвращаем в меню
+                    if (currentGame && !games[currentGame.id]) {
+                        showNotif('❌ Лобби было удалено (20 минут без старта)', 'error');
+                        leaveToMenu();
+                    }
+                }
+            }, 1000); // Проверка каждую секунду
+        }
+
         // ==================== АВТООБНОВЛЕНИЕ ====================
         function startAutoUpdate() {
             if (updateInterval) clearInterval(updateInterval);
+            
             updateInterval = setInterval(() => {
                 if (!currentGame || !currentGame.id) return;
                 
-                // Загружаем актуальные данные из localStorage
                 const saved = JSON.parse(localStorage.getItem('monopolyGames') || '{}');
                 const updatedGame = saved[currentGame.id];
                 
-                if (updatedGame) {
-                    // Проверяем, не был ли игрок кикнут
-                    const stillInGame = updatedGame.players.some(p => p.id === currentPlayer.id);
-                    if (!stillInGame && currentGame) {
-                        // Нас кикнули - возвращаем в меню
-                        showNotif('❌ Вас кикнули из лобби', 'error');
-                        leaveToMenu();
-                        return;
-                    }
-                    
-                    currentGame = updatedGame;
-                    
-                    // Обновляем UI в зависимости от текущего экрана
-                    if (document.getElementById('lobby-screen').style.display === 'block') {
-                        updateLobbyUI();
-                    } else if (document.getElementById('game-screen').style.display === 'block') {
-                        renderBoard();
-                        updatePlayersList();
-                        updateTurnIndicator();
-                        renderGameChat();
-                    }
+                if (!updatedGame) {
+                    // Лобби удалено
+                    showNotif('❌ Лобби больше не существует', 'error');
+                    leaveToMenu();
+                    return;
                 }
-            }, 1000); // Обновление каждую секунду
+                
+                // Проверяем, не был ли игрок кикнут
+                const stillInGame = updatedGame.players.some(p => p.id === currentPlayer.id);
+                if (!stillInGame) {
+                    showNotif('❌ Вас кикнули из лобби', 'error');
+                    leaveToMenu();
+                    return;
+                }
+                
+                // Проверяем, не началась ли игра
+                if (!currentGame.started && updatedGame.started) {
+                    currentGame = updatedGame;
+                    enterGame();
+                    return;
+                }
+                
+                currentGame = updatedGame;
+                
+                // Обновляем UI в зависимости от текущего экрана
+                if (document.getElementById('lobby-screen').style.display === 'block') {
+                    updateLobbyUI();
+                } else if (document.getElementById('game-screen').style.display === 'block') {
+                    renderBoard();
+                    updatePlayersList();
+                    updateTurnIndicator();
+                    renderGameChat();
+                }
+            }, 500); // Обновление каждые 0.5 секунды для максимальной плавности
         }
 
         // ==================== ВЫБОР ПЕРСОНАЖА ====================
@@ -823,10 +872,11 @@
                 turn: null,
                 diceRolled: false,
                 jackpot: 0,
-                auction: null
+                auction: null,
+                createdAt: Date.now() // Время создания для таймера удаления
             };
 
-            games = JSON.parse(localStorage.getItem('monopolyGames') || '{}');
+            const games = JSON.parse(localStorage.getItem('monopolyGames') || '{}');
             games[gameId] = currentGame;
             localStorage.setItem('monopolyGames', JSON.stringify(games));
             
@@ -838,7 +888,7 @@
             const name = document.getElementById('player-name').value.trim();
             if (!name) return showNotif('Введите имя!', 'error');
 
-            games = JSON.parse(localStorage.getItem('monopolyGames') || '{}');
+            const games = JSON.parse(localStorage.getItem('monopolyGames') || '{}');
             const game = games[gameId];
             
             if (!game) return showNotif('Лобби не найдено', 'error');
@@ -864,7 +914,6 @@
 
             game.players.push(currentPlayer);
             
-            // Добавляем сообщение о входе
             if (!game.chats) game.chats = [];
             game.chats.push({
                 sender: 'system',
@@ -890,10 +939,8 @@
         }
 
         function updateLobbyUI() {
-            // Обновляем список игроков
             const container = document.getElementById('lobby-players');
-            const countSpan = document.getElementById('lobby-players-count');
-            if (countSpan) countSpan.textContent = `${currentGame.players.length}/${currentGame.maxPlayers}`;
+            if (!container) return;
             
             container.innerHTML = currentGame.players.map(player => {
                 const isCreator = player.id === currentGame.creator;
@@ -913,10 +960,8 @@
                 `;
             }).join('');
             
-            // Обновляем чат
             renderLobbyChat();
             
-            // Обновляем кнопку старта
             const startBtn = document.getElementById('start-game-btn');
             if (currentPlayer.isCreator) {
                 startBtn.style.display = 'block';
@@ -940,30 +985,27 @@
             
             currentGame.players = currentGame.players.filter(p => p.id !== playerId);
             
-            // Добавляем сообщение о кике
             currentGame.chats.push({
                 sender: 'system',
                 text: `👢 ${kickedPlayer.name} был кикнут`,
                 time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
             });
             
+            const games = JSON.parse(localStorage.getItem('monopolyGames') || '{}');
             games[currentGame.id] = currentGame;
             localStorage.setItem('monopolyGames', JSON.stringify(games));
-            
-            updateLobbyUI();
         }
 
         function leaveLobby() {
             if (!currentGame || !currentPlayer) return;
             
-            // Удаляем игрока из лобби
             currentGame.players = currentGame.players.filter(p => p.id !== currentPlayer.id);
             
+            const games = JSON.parse(localStorage.getItem('monopolyGames') || '{}');
+            
             if (currentPlayer.isCreator || currentGame.players.length === 0) {
-                // Если создатель уходит или лобби пустое - удаляем лобби
                 delete games[currentGame.id];
             } else {
-                // Добавляем сообщение о выходе
                 currentGame.chats.push({
                     sender: 'system',
                     text: `🚪 ${currentPlayer.name} покинул лобби`,
@@ -973,7 +1015,6 @@
             }
             
             localStorage.setItem('monopolyGames', JSON.stringify(games));
-            
             leaveToMenu();
         }
 
@@ -1000,11 +1041,11 @@
             
             if (currentGame.chats.length > 50) currentGame.chats.shift();
             
+            const games = JSON.parse(localStorage.getItem('monopolyGames') || '{}');
             games[currentGame.id] = currentGame;
             localStorage.setItem('monopolyGames', JSON.stringify(games));
             
             input.value = '';
-            renderLobbyChat();
         }
 
         function renderLobbyChat() {
@@ -1031,13 +1072,13 @@
             currentGame.turn = currentGame.players[0].id;
             currentGame.gameChats = [];
             
-            // Добавляем сообщение о начале игры
             currentGame.gameChats.push({
                 sender: 'system',
                 text: '🎮 ИГРА НАЧАЛАСЬ! Первый ход: ' + currentGame.players[0].name,
                 time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
             });
             
+            const games = JSON.parse(localStorage.getItem('monopolyGames') || '{}');
             games[currentGame.id] = currentGame;
             localStorage.setItem('monopolyGames', JSON.stringify(games));
             
@@ -1065,7 +1106,6 @@
                     const cell = document.createElement('div');
                     cell.className = 'board-cell';
                     
-                    // Углы
                     if (row === 0 && col === 0) {
                         cell.innerHTML = '<div class="cell-name">СТАРТ</div>';
                         cell.onclick = () => showCellInfo(0);
@@ -1082,23 +1122,18 @@
                         cell.innerHTML = '<div class="cell-name">В ТЮРЬМУ</div>';
                         cell.onclick = () => showCellInfo(30);
                     }
-                    // Верхний ряд
                     else if (row === 0 && col > 0 && col < 10) {
                         addPropertyCell(cell, col);
                     }
-                    // Нижний ряд
                     else if (row === 10 && col > 0 && col < 10) {
                         addPropertyCell(cell, 30 - col);
                     }
-                    // Левый ряд
                     else if (col === 0 && row > 0 && row < 10) {
                         addPropertyCell(cell, 20 - row);
                     }
-                    // Правый ряд
                     else if (col === 10 && row > 0 && row < 10) {
                         addPropertyCell(cell, 9 + row);
                     }
-                    // Центр (ШАНС и КАЗНА)
                     else if (row >= 2 && row <= 9 && col >= 2 && col <= 9) {
                         if (row === 5 && col === 5) {
                             cell.innerHTML = `
@@ -1112,7 +1147,6 @@
                         }
                     }
                     
-                    // Добавляем фишки игроков
                     const pos = getPosFromCell(row, col);
                     if (pos !== -1) {
                         const playersHere = currentGame.players.filter(p => p.pos === pos && p.alive);
@@ -1240,6 +1274,7 @@
                 showNotif('ДУБЛЬ! Ещё ход', 'warning');
             }
             
+            const games = JSON.parse(localStorage.getItem('monopolyGames') || '{}');
             games[currentGame.id] = currentGame;
             localStorage.setItem('monopolyGames', JSON.stringify(games));
         }
@@ -1279,6 +1314,7 @@
             if (card.pos !== undefined) player.pos = card.pos;
             if (card.jailCard) player.jailCards++;
             
+            const games = JSON.parse(localStorage.getItem('monopolyGames') || '{}');
             games[currentGame.id] = currentGame;
             localStorage.setItem('monopolyGames', JSON.stringify(games));
         }
@@ -1296,6 +1332,7 @@
             } else showNotif('❌ Не хватает денег', 'error');
             closeModal('property-modal');
             
+            const games = JSON.parse(localStorage.getItem('monopolyGames') || '{}');
             games[currentGame.id] = currentGame;
             localStorage.setItem('monopolyGames', JSON.stringify(games));
         }
@@ -1349,6 +1386,7 @@
             currentAuction = null;
             closeModal('auction-modal');
             
+            const games = JSON.parse(localStorage.getItem('monopolyGames') || '{}');
             games[currentGame.id] = currentGame;
             localStorage.setItem('monopolyGames', JSON.stringify(games));
         }
@@ -1367,6 +1405,7 @@
                 prop.houses = (prop.houses || 0) + 1;
                 addGameChat('system', `${player.name} построил дом на ${prop.name}`);
                 
+                const games = JSON.parse(localStorage.getItem('monopolyGames') || '{}');
                 games[currentGame.id] = currentGame;
                 localStorage.setItem('monopolyGames', JSON.stringify(games));
             }
@@ -1387,6 +1426,7 @@
                 prop.houses = 0;
                 addGameChat('system', `${player.name} построил отель на ${prop.name}`);
                 
+                const games = JSON.parse(localStorage.getItem('monopolyGames') || '{}');
                 games[currentGame.id] = currentGame;
                 localStorage.setItem('monopolyGames', JSON.stringify(games));
             }
@@ -1408,6 +1448,7 @@
             currentGame.diceRolled = false;
             if (currentPlayer.id === currentGame.turn) showNotif('🎲 ВАШ ХОД!', 'warning');
             
+            const games = JSON.parse(localStorage.getItem('monopolyGames') || '{}');
             games[currentGame.id] = currentGame;
             localStorage.setItem('monopolyGames', JSON.stringify(games));
         }
@@ -1432,6 +1473,7 @@
             
             if (currentGame.gameChats.length > 50) currentGame.gameChats.shift();
             
+            const games = JSON.parse(localStorage.getItem('monopolyGames') || '{}');
             games[currentGame.id] = currentGame;
             localStorage.setItem('monopolyGames', JSON.stringify(games));
             
@@ -1458,6 +1500,7 @@
             });
             if (currentGame.gameChats.length > 50) currentGame.gameChats.shift();
             
+            const games = JSON.parse(localStorage.getItem('monopolyGames') || '{}');
             games[currentGame.id] = currentGame;
             localStorage.setItem('monopolyGames', JSON.stringify(games));
         }
@@ -1554,6 +1597,7 @@
             addGameChat('system', `🤝 Обмен между ${me.name} и ${target.name}`);
             closeModal('trade-modal');
             
+            const games = JSON.parse(localStorage.getItem('monopolyGames') || '{}');
             games[currentGame.id] = currentGame;
             localStorage.setItem('monopolyGames', JSON.stringify(games));
         }
@@ -1575,7 +1619,7 @@
 
         // ==================== СПИСОК ЛОББИ ====================
         function showLobbies() {
-            games = JSON.parse(localStorage.getItem('monopolyGames') || '{}');
+            const games = JSON.parse(localStorage.getItem('monopolyGames') || '{}');
             const container = document.getElementById('lobbies-container');
             const listDiv = document.getElementById('lobbies-list');
             
@@ -1635,6 +1679,7 @@
         window.onload = () => {
             games = JSON.parse(localStorage.getItem('monopolyGames') || '{}');
             selectChar('dino');
+            startLobbyCleanup(); // Запускаем таймер удаления лобби
         };
     </script>
 </body>
