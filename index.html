@@ -3,44 +3,42 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>🎲 МОНОПОЛИЯ - ТРЕЙДИНГ</title>
+    <title>🎲 МОНОПОЛИЯ - КЛАССИЧЕСКАЯ</title>
     <style>
         * {
             margin: 0;
             padding: 0;
             box-sizing: border-box;
-            font-family: 'Segoe UI', 'Poppins', system-ui, sans-serif;
+            font-family: 'Segoe UI', Roboto, system-ui, sans-serif;
         }
 
         :root {
-            --primary: #6366f1;
-            --primary-dark: #4f46e5;
-            --secondary: #ec4899;
-            --success: #10b981;
-            --danger: #ef4444;
-            --warning: #f59e0b;
-            --dark: #1f2937;
-            --light: #f9fafb;
-            --gray: #9ca3af;
+            --primary: #4361ee;
+            --primary-dark: #3a56d4;
+            --secondary: #7209b7;
+            --success: #06d6a0;
+            --danger: #ef476f;
+            --warning: #ffd166;
+            --dark: #2b2d42;
+            --light: #f8f9fa;
+            --gray: #adb5bd;
             
             --brown: #8B4513;
-            --lightblue: #7ec8e0;
-            --pink: #ed7fb5;
+            --lightblue: #6bc5e8;
+            --pink: #f090b0;
             --orange: #faa634;
-            --red: #e64848;
+            --red: #e84848;
             --yellow: #f5d742;
             --green: #5aa45a;
             --blue: #3f6ba5;
-            --railroad: #4b5563;
-            --utility: #b1c800;
+            --railroad: #4a4a4a;
+            --utility: #a0c800;
             
             --board-size: min(700px, 65vw);
         }
 
         body {
-            background: linear-gradient(-45deg, #ee7752, #e73c7e, #23a6d5, #23d5ab);
-            background-size: 400% 400%;
-            animation: gradientBG 15s ease infinite;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             min-height: 100vh;
             display: flex;
             justify-content: center;
@@ -49,27 +47,20 @@
             margin: 0;
         }
 
-        @keyframes gradientBG {
-            0% { background-position: 0% 50%; }
-            50% { background-position: 100% 50%; }
-            100% { background-position: 0% 50%; }
-        }
-
         #game-container {
             width: 100%;
             max-width: 1600px;
-            background: rgba(255,255,255,0.1);
-            backdrop-filter: blur(15px);
+            background: rgba(255,255,255,0.95);
             border-radius: 48px;
             padding: 24px;
-            box-shadow: 0 25px 50px -12px rgba(0,0,0,0.5), inset 0 0 0 1px rgba(255,255,255,0.2);
-            animation: containerGlow 3s infinite;
+            box-shadow: 0 25px 50px -12px rgba(0,0,0,0.5);
+            animation: containerPulse 3s infinite;
         }
 
-        @keyframes containerGlow {
-            0% { box-shadow: 0 25px 50px -12px rgba(0,0,0,0.5), inset 0 0 0 1px rgba(255,255,255,0.2); }
-            50% { box-shadow: 0 25px 50px -12px rgba(99,102,241,0.5), inset 0 0 10px 2px rgba(255,255,255,0.5); }
-            100% { box-shadow: 0 25px 50px -12px rgba(0,0,0,0.5), inset 0 0 0 1px rgba(255,255,255,0.2); }
+        @keyframes containerPulse {
+            0% { box-shadow: 0 25px 50px -12px rgba(0,0,0,0.5); }
+            50% { box-shadow: 0 25px 50px -12px #4361ee, 0 0 30px #4361ee; }
+            100% { box-shadow: 0 25px 50px -12px rgba(0,0,0,0.5); }
         }
 
         /* ЭКРАН ВХОДА */
@@ -81,46 +72,44 @@
         }
 
         .login-card {
-            background: rgba(255,255,255,0.95);
-            backdrop-filter: blur(10px);
+            background: white;
             padding: 40px;
             border-radius: 48px;
-            box-shadow: 0 30px 60px rgba(0,0,0,0.3), inset 0 0 0 1px rgba(255,255,255,0.5);
+            box-shadow: 0 30px 60px rgba(0,0,0,0.3);
             width: 100%;
             max-width: 550px;
             text-align: center;
-            animation: cardFloat 3s infinite ease-in-out;
-            transform-origin: center;
+            animation: float 3s infinite ease-in-out;
         }
 
-        @keyframes cardFloat {
-            0% { transform: translateY(0px) rotate(0deg); }
-            25% { transform: translateY(-5px) rotate(0.5deg); }
-            75% { transform: translateY(5px) rotate(-0.5deg); }
-            100% { transform: translateY(0px) rotate(0deg); }
+        @keyframes float {
+            0% { transform: translateY(0px); }
+            50% { transform: translateY(-10px); }
+            100% { transform: translateY(0px); }
         }
 
         .game-title {
             font-size: 4em;
-            background: linear-gradient(135deg, var(--primary), var(--secondary), var(--warning));
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
             margin-bottom: 10px;
-            animation: titlePulse 2s infinite;
+            animation: glow 2s infinite;
         }
 
-        @keyframes titlePulse {
-            0% { filter: drop-shadow(0 0 5px rgba(99,102,241,0.5)); }
-            50% { filter: drop-shadow(0 0 20px rgba(236,72,153,0.8)); }
-            100% { filter: drop-shadow(0 0 5px rgba(99,102,241,0.5)); }
+        @keyframes glow {
+            0% { filter: drop-shadow(0 0 5px #4361ee); }
+            50% { filter: drop-shadow(0 0 20px #7209b7); }
+            100% { filter: drop-shadow(0 0 5px #4361ee); }
         }
 
         .character-option {
-            transition: all 0.3s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+            transition: all 0.3s;
         }
 
         .character-option:hover {
-            transform: scale(1.1) rotate(5deg);
+            transform: scale(1.1);
+            box-shadow: 0 10px 25px -5px var(--primary);
         }
 
         .character-option.selected {
@@ -129,14 +118,19 @@
 
         @keyframes selectedPulse {
             0% { box-shadow: 0 0 0 0 var(--success); }
-            50% { box-shadow: 0 0 0 10px rgba(16,185,129,0.2); }
+            50% { box-shadow: 0 0 0 10px rgba(6,214,160,0.3); }
             100% { box-shadow: 0 0 0 0 var(--success); }
         }
 
         .btn {
-            transition: all 0.3s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+            transition: all 0.3s;
             position: relative;
             overflow: hidden;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 25px -5px var(--primary);
         }
 
         .btn::after {
@@ -160,57 +154,41 @@
         /* ЭКРАН ЛОББИ */
         #lobby-screen {
             display: none;
-            background: rgba(255,255,255,0.95);
-            backdrop-filter: blur(10px);
+            background: white;
             border-radius: 48px;
             padding: 30px;
-            animation: lobbyAppear 0.5s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+            animation: slideDown 0.5s;
         }
 
-        @keyframes lobbyAppear {
-            0% { transform: scale(0.8) rotate(-2deg); opacity: 0; }
-            100% { transform: scale(1) rotate(0); opacity: 1; }
+        @keyframes slideDown {
+            from { transform: translateY(-50px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
         }
 
         .lobby-player-card {
-            animation: playerCardAppear 0.3s ease-out;
+            animation: fadeIn 0.3s;
             transition: all 0.3s;
         }
 
         .lobby-player-card:hover {
-            transform: translateX(10px) scale(1.05);
-            box-shadow: 0 10px 25px -5px var(--primary);
+            transform: translateX(10px);
+            box-shadow: 0 5px 15px -5px var(--primary);
         }
 
-        @keyframes playerCardAppear {
-            0% { transform: translateX(-50px); opacity: 0; }
-            100% { transform: translateX(0); opacity: 1; }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateX(-20px); }
+            to { opacity: 1; transform: translateX(0); }
         }
 
         /* ЭКРАН ИГРЫ */
         #game-screen {
             display: none;
-            animation: gameAppear 0.5s ease-out;
+            animation: scaleIn 0.5s;
         }
 
-        @keyframes gameAppear {
-            0% { transform: translateY(50px); opacity: 0; }
-            100% { transform: translateY(0); opacity: 1; }
-        }
-
-        .game-header {
-            background: rgba(255,255,255,0.95);
-            backdrop-filter: blur(10px);
-            border-radius: 60px;
-            padding: 15px 30px;
-            margin-bottom: 20px;
-            animation: headerGlow 2s infinite;
-        }
-
-        @keyframes headerGlow {
-            0% { box-shadow: 0 0 20px rgba(99,102,241,0.3); }
-            50% { box-shadow: 0 0 40px rgba(236,72,153,0.3); }
-            100% { box-shadow: 0 0 20px rgba(99,102,241,0.3); }
+        @keyframes scaleIn {
+            from { transform: scale(0.9); opacity: 0; }
+            to { transform: scale(1); opacity: 1; }
         }
 
         .turn-indicator {
@@ -224,75 +202,50 @@
         }
 
         /* ПОЛЕ */
-        .monopoly-board {
-            animation: boardSpin 20s infinite linear;
-        }
-
-        @keyframes boardSpin {
-            0% { box-shadow: 0 25px 50px -12px rgba(0,0,0,0.5), 0 0 0 4px #1e293b; }
-            50% { box-shadow: 0 25px 50px -12px rgba(99,102,241,0.5), 0 0 0 4px var(--primary); }
-            100% { box-shadow: 0 25px 50px -12px rgba(0,0,0,0.5), 0 0 0 4px #1e293b; }
-        }
-
         .board-cell {
-            transition: all 0.2s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+            transition: all 0.2s;
         }
 
         .board-cell:hover {
-            transform: scale(1.1) rotate(1deg);
-            z-index: 100;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+            transform: scale(1.05);
+            z-index: 10;
+            box-shadow: 0 5px 20px rgba(0,0,0,0.3);
         }
 
         .token {
-            animation: tokenBounce 1s infinite;
-            transition: all 0.3s;
+            animation: bounce 1s infinite;
         }
 
-        @keyframes tokenBounce {
+        @keyframes bounce {
             0%, 100% { transform: translateY(0); }
             50% { transform: translateY(-3px); }
         }
 
         .dice {
-            transition: all 0.2s;
-            animation: diceIdle 2s infinite;
-        }
-
-        @keyframes diceIdle {
-            0% { transform: rotate(0deg); }
-            25% { transform: rotate(5deg); }
-            75% { transform: rotate(-5deg); }
-            100% { transform: rotate(0deg); }
+            transition: all 0.3s;
         }
 
         .dice.rolling {
-            animation: diceRoll 0.2s infinite;
+            animation: diceRoll 0.3s infinite;
         }
 
         @keyframes diceRoll {
             0% { transform: rotate(0deg) scale(1); }
-            25% { transform: rotate(90deg) scale(1.2); }
-            50% { transform: rotate(180deg) scale(1); }
-            75% { transform: rotate(270deg) scale(1.2); }
+            50% { transform: rotate(180deg) scale(1.2); }
             100% { transform: rotate(360deg) scale(1); }
         }
 
         /* МОДАЛКИ */
         .modal-content {
-            animation: modalPop 0.4s cubic-bezier(0.68, -0.55, 0.265, 1.55);
-            background: rgba(255,255,255,0.98);
-            backdrop-filter: blur(10px);
-            border: 1px solid rgba(255,255,255,0.5);
+            animation: popIn 0.3s;
         }
 
-        @keyframes modalPop {
-            0% { transform: scale(0.5) rotate(-10deg); opacity: 0; }
-            70% { transform: scale(1.05) rotate(2deg); }
-            100% { transform: scale(1) rotate(0); opacity: 1; }
+        @keyframes popIn {
+            from { transform: scale(0.8); opacity: 0; }
+            to { transform: scale(1); opacity: 1; }
         }
 
-        /* ТРЕЙД ОКНО */
+        /* ТРЕЙД */
         .trade-container {
             display: grid;
             grid-template-columns: 1fr 1fr;
@@ -301,81 +254,52 @@
         }
 
         .trade-column {
-            background: linear-gradient(145deg, #f3f4f6, #ffffff);
+            background: #f3f4f6;
             border-radius: 30px;
             padding: 20px;
-            box-shadow: 0 10px 25px -5px rgba(0,0,0,0.1);
-            animation: columnAppear 0.3s ease-out;
+            animation: slideIn 0.3s;
         }
 
-        @keyframes columnAppear {
-            0% { transform: translateY(20px); opacity: 0; }
-            100% { transform: translateY(0); opacity: 1; }
-        }
-
-        .trade-column h3 {
-            color: var(--primary);
-            margin-bottom: 15px;
-            font-size: 1.5em;
-            animation: textGlow 2s infinite;
-        }
-
-        @keyframes textGlow {
-            0% { text-shadow: 0 0 5px var(--primary); }
-            50% { text-shadow: 0 0 20px var(--secondary); }
-            100% { text-shadow: 0 0 5px var(--primary); }
+        @keyframes slideIn {
+            from { transform: translateX(-20px); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
         }
 
         .property-item {
-            padding: 12px;
-            margin: 8px 0;
+            padding: 10px;
+            margin: 5px 0;
             background: white;
-            border-radius: 20px;
+            border-radius: 15px;
             cursor: pointer;
-            transition: all 0.3s;
-            border: 2px solid transparent;
-            animation: propertyAppear 0.2s ease-out;
-        }
-
-        @keyframes propertyAppear {
-            0% { transform: scale(0.9); opacity: 0; }
-            100% { transform: scale(1); opacity: 1; }
+            transition: all 0.2s;
         }
 
         .property-item:hover {
-            transform: translateX(10px) scale(1.02);
-            border-color: var(--primary);
-            box-shadow: 0 5px 15px rgba(99,102,241,0.3);
+            transform: translateX(5px);
+            background: #e5e7eb;
         }
 
         .property-item.selected {
             background: #d1fae5;
-            border-color: var(--success);
-            animation: selectedItem 1s infinite;
-        }
-
-        @keyframes selectedItem {
-            0% { box-shadow: 0 0 0 0 var(--success); }
-            50% { box-shadow: 0 0 0 5px rgba(16,185,129,0.2); }
-            100% { box-shadow: 0 0 0 0 var(--success); }
+            border: 2px solid var(--success);
+            animation: glow 1s infinite;
         }
 
         .add-button {
-            width: 50px;
-            height: 50px;
+            width: 40px;
+            height: 40px;
             border-radius: 50%;
-            background: linear-gradient(135deg, var(--primary), var(--secondary));
+            background: var(--primary);
             color: white;
             border: none;
-            font-size: 2em;
+            font-size: 1.5em;
             cursor: pointer;
-            margin: 10px 0;
-            animation: buttonPulse 2s infinite;
             transition: all 0.3s;
+            animation: pulse 2s infinite;
         }
 
         .add-button:hover {
-            transform: scale(1.2) rotate(90deg);
+            transform: scale(1.1) rotate(90deg);
         }
 
         .add-button:disabled {
@@ -384,69 +308,10 @@
             animation: none;
         }
 
-        @keyframes buttonPulse {
+        @keyframes pulse {
             0% { box-shadow: 0 0 0 0 var(--primary); }
-            70% { box-shadow: 0 0 0 10px rgba(99,102,241,0); }
+            70% { box-shadow: 0 0 0 10px rgba(67,97,238,0); }
             100% { box-shadow: 0 0 0 0 var(--primary); }
-        }
-
-        .money-input {
-            width: 100%;
-            padding: 15px;
-            border: 2px solid #e5e7eb;
-            border-radius: 30px;
-            font-size: 1.1em;
-            margin: 10px 0;
-            transition: all 0.3s;
-        }
-
-        .money-input:focus {
-            outline: none;
-            border-color: var(--primary);
-            box-shadow: 0 0 0 4px rgba(99,102,241,0.2);
-            transform: scale(1.02);
-        }
-
-        .trade-buttons {
-            display: flex;
-            gap: 15px;
-            margin-top: 20px;
-        }
-
-        .trade-buttons button {
-            flex: 1;
-            padding: 15px;
-            border: none;
-            border-radius: 30px;
-            font-weight: bold;
-            cursor: pointer;
-            transition: all 0.3s;
-            animation: buttonSlide 0.3s ease-out;
-        }
-
-        @keyframes buttonSlide {
-            0% { transform: translateX(-20px); opacity: 0; }
-            100% { transform: translateX(0); opacity: 1; }
-        }
-
-        .trade-buttons button.accept {
-            background: linear-gradient(135deg, var(--success), #059669);
-            color: white;
-        }
-
-        .trade-buttons button.accept:hover {
-            transform: scale(1.05);
-            box-shadow: 0 10px 25px -5px var(--success);
-        }
-
-        .trade-buttons button.decline {
-            background: linear-gradient(135deg, var(--danger), #dc2626);
-            color: white;
-        }
-
-        .trade-buttons button.decline:hover {
-            transform: scale(1.05);
-            box-shadow: 0 10px 25px -5px var(--danger);
         }
 
         .trade-notification {
@@ -454,29 +319,26 @@
             top: 50%;
             left: 50%;
             transform: translate(-50%, -50%);
-            background: rgba(255,255,255,0.98);
-            backdrop-filter: blur(10px);
+            background: white;
             padding: 30px;
             border-radius: 60px;
             box-shadow: 0 30px 60px rgba(0,0,0,0.3);
             z-index: 2000;
-            animation: notificationPop 0.3s cubic-bezier(0.68, -0.55, 0.265, 1.55);
-            border: 1px solid rgba(255,255,255,0.5);
-            min-width: 400px;
+            animation: notificationPop 0.3s;
         }
 
         @keyframes notificationPop {
-            0% { transform: translate(-50%, -50%) scale(0.5); opacity: 0; }
-            100% { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+            from { transform: translate(-50%, -50%) scale(0.5); opacity: 0; }
+            to { transform: translate(-50%, -50%) scale(1); opacity: 1; }
         }
 
         .notification {
-            animation: notificationSlide 0.3s ease-out;
+            animation: slideInRight 0.3s;
         }
 
-        @keyframes notificationSlide {
-            0% { transform: translateX(100%) rotate(10deg); opacity: 0; }
-            100% { transform: translateX(0) rotate(0); opacity: 1; }
+        @keyframes slideInRight {
+            from { transform: translateX(100%); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
         }
     </style>
 </head>
@@ -486,7 +348,6 @@
         <div id="login-screen">
             <div class="login-card">
                 <h1 class="game-title">🎲 МОНОПОЛИЯ</h1>
-                <h2 style="color: var(--gray); margin-bottom: 20px;">ТРЕЙДИНГ ЭДИШН</h2>
                 
                 <div class="input-group">
                     <label>👤 ВАШЕ ИМЯ</label>
@@ -496,14 +357,14 @@
                 <div class="character-selector">
                     <h3>🎭 ВЫБЕРИТЕ ФИГУРКУ</h3>
                     <div class="character-grid">
-                        <div class="character-option selected" data-char="dino" onclick="selectChar('dino')"><div class="emoji">🦖</div><div>Динозавр</div></div>
-                        <div class="character-option" data-char="duck" onclick="selectChar('duck')"><div class="emoji">🦆</div><div>Утка</div></div>
-                        <div class="character-option" data-char="car" onclick="selectChar('car')"><div class="emoji">🚗</div><div>Машина</div></div>
-                        <div class="character-option" data-char="hat" onclick="selectChar('hat')"><div class="emoji">🧢</div><div>Шапка</div></div>
-                        <div class="character-option" data-char="ship" onclick="selectChar('ship')"><div class="emoji">⛵</div><div>Корабль</div></div>
-                        <div class="character-option" data-char="dog" onclick="selectChar('dog')"><div class="emoji">🐕</div><div>Пёс</div></div>
-                        <div class="character-option" data-char="cat" onclick="selectChar('cat')"><div class="emoji">🐱</div><div>Кот</div></div>
-                        <div class="character-option" data-char="penguin" onclick="selectChar('penguin')"><div class="emoji">🐧</div><div>Пингвин</div></div>
+                        <div class="character-option selected" data-char="dino" onclick="selectChar('dino')"><div class="emoji">🦖</div></div>
+                        <div class="character-option" data-char="duck" onclick="selectChar('duck')"><div class="emoji">🦆</div></div>
+                        <div class="character-option" data-char="car" onclick="selectChar('car')"><div class="emoji">🚗</div></div>
+                        <div class="character-option" data-char="hat" onclick="selectChar('hat')"><div class="emoji">🧢</div></div>
+                        <div class="character-option" data-char="ship" onclick="selectChar('ship')"><div class="emoji">⛵</div></div>
+                        <div class="character-option" data-char="dog" onclick="selectChar('dog')"><div class="emoji">🐕</div></div>
+                        <div class="character-option" data-char="cat" onclick="selectChar('cat')"><div class="emoji">🐱</div></div>
+                        <div class="character-option" data-char="penguin" onclick="selectChar('penguin')"><div class="emoji">🐧</div></div>
                     </div>
                 </div>
                 
@@ -795,7 +656,7 @@
                     updateTurnIndicator();
                     renderGameChat();
                 }
-            }, 300);
+            }, 500);
         }
 
         // ==================== ВЫБОР ПЕРСОНАЖА ====================
@@ -915,7 +776,7 @@
                 const canKick = currentPlayer.isCreator && player.id !== currentPlayer.id;
                 
                 return `
-                    <div class="lobby-player-card" style="animation-delay: ${Math.random() * 0.5}s">
+                    <div class="lobby-player-card">
                         <div class="lobby-player-avatar" style="background: ${player.color}">
                             ${charEmojis[player.character]}
                         </div>
@@ -1107,8 +968,8 @@
                         if (row === 5 && col === 5) {
                             cell.innerHTML = `
                                 <div style="display: flex; gap: 10px;">
-                                    <div style="width:60px;height:80px;background:#ffedd5;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:2em;cursor:pointer;transition:all 0.3s;" onmouseover="this.style.transform='scale(1.1)'" onmouseout="this.style.transform='scale(1)'" onclick="drawChance()">🎲</div>
-                                    <div style="width:60px;height:80px;background:#dbeafe;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:2em;cursor:pointer;transition:all 0.3s;" onmouseover="this.style.transform='scale(1.1)'" onmouseout="this.style.transform='scale(1)'" onclick="drawChest()">📦</div>
+                                    <div style="width:60px;height:80px;background:#ffedd5;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:2em;cursor:pointer;" onmouseover="this.style.transform='scale(1.1)'" onmouseout="this.style.transform='scale(1)'" onclick="drawChance()">🎲</div>
+                                    <div style="width:60px;height:80px;background:#dbeafe;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:2em;cursor:pointer;" onmouseover="this.style.transform='scale(1.1)'" onmouseout="this.style.transform='scale(1)'" onclick="drawChest()">📦</div>
                                 </div>
                             `;
                         } else {
@@ -1487,10 +1348,8 @@
             if (!others.length) return showNotif('Нет других игроков', 'error');
             
             let html = '<p style="text-align:center; font-size:1.2em;">Выберите игрока для обмена:</p>';
-            others.forEach((p, index) => {
-                html += `<button class="btn secondary" onclick="proposeTradeTo('${p.id}')" style="margin:5px 0; animation: buttonSlide 0.3s ${index * 0.1}s both;">
-                    ${charEmojis[p.character]} ${p.name}
-                </button>`;
+            others.forEach(p => {
+                html += `<button class="btn secondary" onclick="proposeTradeTo('${p.id}')" style="margin:5px 0;">${charEmojis[p.character]} ${p.name}</button>`;
             });
             
             document.getElementById('trade-content').innerHTML = html;
@@ -1507,8 +1366,6 @@
             };
             
             closeModal('trade-modal');
-            
-            // Показываем уведомление о предложении
             showTradeNotification(targetId);
         }
 
@@ -1532,7 +1389,6 @@
             
             document.body.appendChild(notifDiv);
             
-            // Автоматически убираем через 30 секунд
             setTimeout(() => {
                 const notif = document.getElementById('trade-notification');
                 if (notif) notif.remove();
@@ -1543,11 +1399,10 @@
             const notif = document.getElementById('trade-notification');
             if (notif) notif.remove();
             
-            // Создаем трейд
             currentTrade = {
                 id: 'trade_' + Date.now(),
-                player1: targetId, // Тот, кто предложил
-                player2: currentPlayer.id, // Тот, кто принял
+                player1: targetId,
+                player2: currentPlayer.id,
                 props1: [],
                 props2: [],
                 money1: 0,
@@ -1583,11 +1438,6 @@
             
             if (!isPlayer1 && !isPlayer2) return;
             
-            const myProps = isPlayer1 ? currentTrade.props1 : currentTrade.props2;
-            const hisProps = isPlayer1 ? currentTrade.props2 : currentTrade.props1;
-            const myMoney = isPlayer1 ? currentTrade.money1 : currentTrade.money2;
-            const hisMoney = isPlayer1 ? currentTrade.money2 : currentTrade.money1;
-            
             document.getElementById('trade-modal-title').innerHTML = `🔄 ОБМЕН: ${player1.name} ⇄ ${player2.name}`;
             
             let html = `
@@ -1595,7 +1445,7 @@
                     <div class="trade-column">
                         <h3>${charEmojis[player1.character]} ${player1.name}</h3>
                         <div style="max-height: 200px; overflow-y: auto; margin-bottom: 10px;" id="props1-list">
-                            ${renderPropsList(currentTrade.props1, player1.props, 'player1')}
+                            ${renderPropsList(currentTrade.props1, 'player1')}
                         </div>
                         <button class="add-button" onclick="openPropertySelector('player1')" ${!isPlayer1 ? 'disabled' : ''}>+</button>
                         <input type="number" class="money-input" id="money1" value="${currentTrade.money1}" min="0" max="${player1.money}" placeholder="Деньги" onchange="updateTradeMoney('player1', this.value)" ${!isPlayer1 ? 'disabled' : ''}>
@@ -1603,15 +1453,15 @@
                     <div class="trade-column">
                         <h3>${charEmojis[player2.character]} ${player2.name}</h3>
                         <div style="max-height: 200px; overflow-y: auto; margin-bottom: 10px;" id="props2-list">
-                            ${renderPropsList(currentTrade.props2, player2.props, 'player2')}
+                            ${renderPropsList(currentTrade.props2, 'player2')}
                         </div>
                         <button class="add-button" onclick="openPropertySelector('player2')" ${!isPlayer2 ? 'disabled' : ''}>+</button>
                         <input type="number" class="money-input" id="money2" value="${currentTrade.money2}" min="0" max="${player2.money}" placeholder="Деньги" onchange="updateTradeMoney('player2', this.value)" ${!isPlayer2 ? 'disabled' : ''}>
                     </div>
                 </div>
                 <div class="trade-buttons">
-                    <button class="accept" onclick="acceptTrade()">✅ ПРИНЯТЬ</button>
-                    <button class="decline" onclick="declineTrade()">❌ ОТКЛОНИТЬ</button>
+                    <button class="btn primary" onclick="acceptTrade()" style="flex: 1;">✅ ПРИНЯТЬ</button>
+                    <button class="btn danger" onclick="declineTrade()" style="flex: 1;">❌ ОТКЛОНИТЬ</button>
                 </div>
             `;
             
@@ -1619,10 +1469,10 @@
             openModal('trade-modal');
         }
 
-        function renderPropsList(tradeProps, allProps, playerKey) {
-            if (tradeProps.length === 0) return '<p style="color: var(--gray); text-align: center;">Нет выбранных улиц</p>';
+        function renderPropsList(props, playerKey) {
+            if (props.length === 0) return '<p style="color: var(--gray); text-align: center;">Нет выбранных улиц</p>';
             
-            return tradeProps.map(pos => {
+            return props.map(pos => {
                 const prop = currentGame.board[pos];
                 return `<div class="property-item selected" onclick="removeProperty('${playerKey}', ${pos})">${prop.name} (${prop.price}💰)</div>`;
             }).join('');
@@ -1669,7 +1519,6 @@
             
             if (selectingFor === 'player1') {
                 currentTrade.props1.push(pos);
-                // Убираем из имущества игрока временно
                 const player = getPlayerById(currentTrade.player1);
                 player.props = player.props.filter(p => p !== pos);
             } else {
@@ -1745,17 +1594,14 @@
             }
             
             if (currentTrade.accepted1 && currentTrade.accepted2) {
-                // Совершаем обмен
                 const player1 = getPlayerById(currentTrade.player1);
                 const player2 = getPlayerById(currentTrade.player2);
                 
-                // Передаем деньги
                 player1.money -= currentTrade.money1;
                 player1.money += currentTrade.money2;
                 player2.money -= currentTrade.money2;
                 player2.money += currentTrade.money1;
                 
-                // Передаем имущество (оно уже временно убрано)
                 currentTrade.props1.forEach(pos => {
                     currentGame.board[pos].owner = player2.id;
                     player2.props.push(pos);
@@ -1769,7 +1615,6 @@
                 addGameChat('system', `🤝 Обмен между ${player1.name} и ${player2.name} завершён!`);
                 showNotif('✅ Обмен успешно завершён!', 'success');
                 
-                // Удаляем трейд
                 currentGame.trades = currentGame.trades.filter(t => t.id !== currentTrade.id);
                 currentTrade = null;
                 
@@ -1787,7 +1632,6 @@
         function declineTrade() {
             if (!currentTrade) return;
             
-            // Возвращаем имущество обратно
             if (currentTrade.props1.length > 0) {
                 const player1 = getPlayerById(currentTrade.player1);
                 currentTrade.props1.forEach(pos => {
@@ -1814,10 +1658,6 @@
         }
 
         function closeTradeModal() {
-            if (currentTrade) {
-                // Если трейд активен и закрываем окно, ничего не делаем
-                // Трейд остается активным
-            }
             closeModal('trade-modal');
         }
 
@@ -1826,7 +1666,7 @@
             const container = document.getElementById('players-list');
             if (!container) return;
             container.innerHTML = currentGame.players.map(p => `
-                <div class="player-card ${p.id === currentGame.turn ? 'current-turn' : ''}" style="animation: playerCardAppear 0.3s ease-out">
+                <div class="player-card ${p.id === currentGame.turn ? 'current-turn' : ''}">
                     <div class="player-avatar" style="background: ${p.color}">${charEmojis[p.character]}</div>
                     <div>
                         <div class="player-name">${p.name} ${p.inJail ? '🚓' : ''}</div>
@@ -1869,11 +1709,11 @@
             
             const available = Object.values(games).filter(g => !g.started && g.players.length < g.maxPlayers);
             
-            container.innerHTML = available.length ? available.map((game, index) => {
+            container.innerHTML = available.length ? available.map(game => {
                 const takenChars = game.players.map(p => p.character);
                 const charFree = !takenChars.includes(selectedCharacter);
                 return `
-                    <div style="background:#f3f4f6; border-radius:30px; padding:15px; margin-bottom:10px; animation: slideIn 0.3s ${index * 0.1}s both;">
+                    <div style="background:#f3f4f6; border-radius:30px; padding:15px; margin-bottom:10px;">
                         <div><strong>🔑 ${game.id}</strong> 👑 ${game.creatorName}</div>
                         <div>👥 ${game.players.length}/${game.maxPlayers}</div>
                         <div>🎭 ${game.players.map(p => charEmojis[p.character]).join(' ')}</div>
@@ -1917,7 +1757,6 @@
             const n = document.createElement('div');
             n.className = `notification ${type}`;
             n.textContent = msg;
-            n.style.animation = 'notificationSlide 0.3s ease-out';
             document.body.appendChild(n);
             setTimeout(() => n.remove(), 3000);
         }
