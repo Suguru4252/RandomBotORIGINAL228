@@ -3,82 +3,59 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>🎲 МОНОПОЛИЯ - КЛАССИЧЕСКАЯ</title>
+    <title>🎲 МОНОПОЛИЯ ONLINE - Классическая игра</title>
     <style>
         * {
             margin: 0;
             padding: 0;
             box-sizing: border-box;
-            font-family: 'Segoe UI', Roboto, system-ui, sans-serif;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
         }
 
         :root {
-            --primary: #4361ee;
-            --primary-dark: #3a56d4;
-            --secondary: #7209b7;
-            --success: #06d6a0;
-            --danger: #ef476f;
-            --warning: #ffd166;
-            --dark: #2b2d42;
-            --light: #f8f9fa;
-            --gray: #adb5bd;
-            
-            --brown: #8B4513;
-            --lightblue: #6bc5e8;
-            --pink: #f090b0;
-            --orange: #faa634;
-            --red: #e84848;
-            --yellow: #f5d742;
-            --green: #5aa45a;
-            --blue: #3f6ba5;
-            --railroad: #4a4a4a;
-            --utility: #a0c800;
-            
-            --board-size: min(700px, 65vw);
+            --primary: #667eea;
+            --secondary: #764ba2;
+            --success: #48bb78;
+            --danger: #f56565;
+            --warning: #ecc94b;
+            --dark: #2d3748;
+            --light: #f7fafc;
+            --board-size: 600px;
         }
 
         body {
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             min-height: 100vh;
-            display: flex;
-            justify-content: center;
-            align-items: center;
             padding: 20px;
-            margin: 0;
+            animation: gradientBG 10s ease infinite;
         }
 
-        #game-container {
-            width: 100%;
-            max-width: 1600px;
-            background: rgba(255,255,255,0.95);
-            border-radius: 48px;
-            padding: 24px;
-            box-shadow: 0 25px 50px -12px rgba(0,0,0,0.5);
-            animation: containerPulse 3s infinite;
+        @keyframes gradientBG {
+            0% { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
+            50% { background: linear-gradient(135deg, #764ba2 0%, #667eea 100%); }
+            100% { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
         }
 
-        @keyframes containerPulse {
-            0% { box-shadow: 0 25px 50px -12px rgba(0,0,0,0.5); }
-            50% { box-shadow: 0 25px 50px -12px #4361ee, 0 0 30px #4361ee; }
-            100% { box-shadow: 0 25px 50px -12px rgba(0,0,0,0.5); }
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
         }
 
-        /* ЭКРАН ВХОДА */
+        /* Экран входа */
         #login-screen {
             display: flex;
             justify-content: center;
             align-items: center;
-            min-height: 80vh;
+            min-height: 100vh;
         }
 
         .login-card {
             background: white;
             padding: 40px;
-            border-radius: 48px;
-            box-shadow: 0 30px 60px rgba(0,0,0,0.3);
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
             width: 100%;
-            max-width: 550px;
-            text-align: center;
+            max-width: 500px;
             animation: float 3s infinite ease-in-out;
         }
 
@@ -89,48 +66,111 @@
         }
 
         .game-title {
-            font-size: 4em;
-            background: linear-gradient(135deg, var(--primary), var(--secondary));
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
+            font-size: 3em;
+            color: var(--primary);
             margin-bottom: 10px;
+            text-align: center;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.1);
             animation: glow 2s infinite;
         }
 
         @keyframes glow {
-            0% { filter: drop-shadow(0 0 5px #4361ee); }
-            50% { filter: drop-shadow(0 0 20px #7209b7); }
-            100% { filter: drop-shadow(0 0 5px #4361ee); }
+            0% { text-shadow: 2px 2px 4px rgba(0,0,0,0.1); }
+            50% { text-shadow: 0 0 20px var(--primary), 0 0 40px var(--secondary); }
+            100% { text-shadow: 2px 2px 4px rgba(0,0,0,0.1); }
+        }
+
+        .game-subtitle {
+            color: var(--secondary);
+            margin-bottom: 30px;
+            text-align: center;
+            font-size: 1.2em;
+        }
+
+        .input-group {
+            margin-bottom: 20px;
+        }
+
+        .input-group input {
+            width: 100%;
+            padding: 15px;
+            border: 2px solid #e2e8f0;
+            border-radius: 10px;
+            font-size: 1.1em;
+            transition: all 0.3s;
+        }
+
+        .input-group input:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+            transform: scale(1.02);
+        }
+
+        .character-selector {
+            margin-bottom: 20px;
+        }
+
+        .character-selector h3 {
+            color: var(--primary);
+            margin-bottom: 10px;
+        }
+
+        .character-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
         }
 
         .character-option {
+            text-align: center;
+            padding: 10px;
+            border: 2px solid #e2e8f0;
+            border-radius: 10px;
+            cursor: pointer;
             transition: all 0.3s;
         }
 
         .character-option:hover {
-            transform: scale(1.1);
-            box-shadow: 0 10px 25px -5px var(--primary);
+            border-color: var(--primary);
+            transform: translateY(-2px) scale(1.05);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
         }
 
         .character-option.selected {
+            border-color: var(--success);
+            background: #f0fff4;
             animation: selectedPulse 1s infinite;
         }
 
         @keyframes selectedPulse {
             0% { box-shadow: 0 0 0 0 var(--success); }
-            50% { box-shadow: 0 0 0 10px rgba(6,214,160,0.3); }
+            50% { box-shadow: 0 0 0 5px rgba(72, 187, 120, 0.3); }
             100% { box-shadow: 0 0 0 0 var(--success); }
         }
 
-        .btn {
-            transition: all 0.3s;
-            position: relative;
-            overflow: hidden;
+        .character-option .emoji {
+            font-size: 2em;
+            margin-bottom: 5px;
         }
 
-        .btn:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 10px 25px -5px var(--primary);
+        .character-option .name {
+            font-size: 0.9em;
+            color: var(--dark);
+        }
+
+        .btn {
+            padding: 15px 30px;
+            border: none;
+            border-radius: 10px;
+            font-size: 1.1em;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.3s;
+            width: 100%;
+            margin-bottom: 10px;
+            position: relative;
+            overflow: hidden;
         }
 
         .btn::after {
@@ -151,12 +191,48 @@
             height: 300px;
         }
 
-        /* ЭКРАН ЛОББИ */
-        #lobby-screen {
-            display: none;
+        .btn.primary {
+            background: var(--primary);
+            color: white;
+        }
+
+        .btn.primary:hover {
+            background: var(--secondary);
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn.secondary {
             background: white;
-            border-radius: 48px;
-            padding: 30px;
+            color: var(--primary);
+            border: 2px solid var(--primary);
+        }
+
+        .btn.secondary:hover {
+            background: var(--primary);
+            color: white;
+        }
+
+        .btn.small {
+            padding: 8px 15px;
+            font-size: 0.9em;
+            width: auto;
+        }
+
+        /* Экран игры */
+        #game-screen {
+            display: none;
+        }
+
+        .game-header {
+            background: var(--dark);
+            color: white;
+            padding: 15px 30px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
             animation: slideDown 0.5s;
         }
 
@@ -165,33 +241,25 @@
             to { transform: translateY(0); opacity: 1; }
         }
 
-        .lobby-player-card {
-            animation: fadeIn 0.3s;
-            transition: all 0.3s;
+        .game-info {
+            display: flex;
+            gap: 20px;
+            align-items: center;
         }
 
-        .lobby-player-card:hover {
-            transform: translateX(10px);
-            box-shadow: 0 5px 15px -5px var(--primary);
-        }
-
-        @keyframes fadeIn {
-            from { opacity: 0; transform: translateX(-20px); }
-            to { opacity: 1; transform: translateX(0); }
-        }
-
-        /* ЭКРАН ИГРЫ */
-        #game-screen {
-            display: none;
-            animation: scaleIn 0.5s;
-        }
-
-        @keyframes scaleIn {
-            from { transform: scale(0.9); opacity: 0; }
-            to { transform: scale(1); opacity: 1; }
+        .game-code {
+            font-size: 1.2em;
+            font-weight: bold;
+            background: rgba(255,255,255,0.2);
+            padding: 8px 15px;
+            border-radius: 20px;
         }
 
         .turn-indicator {
+            background: var(--success);
+            padding: 8px 15px;
+            border-radius: 20px;
+            font-size: 0.9em;
             animation: turnPulse 1s infinite;
         }
 
@@ -201,238 +269,455 @@
             100% { transform: scale(1); }
         }
 
-        /* ПОЛЕ */
+        .game-main {
+            display: flex;
+            gap: 20px;
+        }
+
+        /* Игровое поле */
+        .board-container {
+            flex: 3;
+        }
+
+        .monopoly-board {
+            width: var(--board-size);
+            height: var(--board-size);
+            background: white;
+            border: 3px solid var(--dark);
+            border-radius: 10px;
+            display: grid;
+            grid-template-columns: repeat(11, 1fr);
+            grid-template-rows: repeat(11, 1fr);
+            gap: 2px;
+            padding: 2px;
+            background: #e2e8f0;
+            margin-bottom: 20px;
+        }
+
         .board-cell {
+            background: white;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.7em;
+            text-align: center;
+            padding: 2px;
+            border-radius: 3px;
+            cursor: pointer;
             transition: all 0.2s;
+            position: relative;
         }
 
         .board-cell:hover {
-            transform: scale(1.05);
+            transform: scale(1.1);
             z-index: 10;
-            box-shadow: 0 5px 20px rgba(0,0,0,0.3);
+            box-shadow: 0 2px 10px rgba(0,0,0,0.2);
         }
 
-        .token {
-            animation: bounce 1s infinite;
+        .board-cell.special { background: #fef3c7; }
+        .board-cell.property { background: linear-gradient(135deg, #fff 0%, #f0f0f0 100%); }
+        .board-cell.railroad { background: #bfdbfe; }
+        .board-cell.utility { background: #c7d2fe; }
+        .board-cell.tax { background: #fee2e2; }
+        .board-cell.jail { background: #fed7aa; }
+
+        .property-color {
+            width: 100%;
+            height: 4px;
+            position: absolute;
+            top: 0;
+            left: 0;
         }
 
-        @keyframes bounce {
-            0%, 100% { transform: translateY(0); }
-            50% { transform: translateY(-3px); }
+        .property-color.brown { background: #8b4513; }
+        .property-color.lightblue { background: #87ceeb; }
+        .property-color.pink { background: #ff69b4; }
+        .property-color.orange { background: #ffa500; }
+        .property-color.red { background: #ff0000; }
+        .property-color.yellow { background: #ffff00; }
+        .property-color.green { background: #008000; }
+        .property-color.blue { background: #0000ff; }
+        .property-color.railroad { background: #4a4a4a; }
+        .property-color.utility { background: #800080; }
+
+        .player-token {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            position: absolute;
+            bottom: 2px;
+            right: 2px;
+            border: 1px solid white;
+        }
+
+        .dice-container {
+            display: flex;
+            gap: 20px;
+            align-items: center;
+            justify-content: center;
         }
 
         .dice {
-            transition: all 0.3s;
+            width: 60px;
+            height: 60px;
+            background: white;
+            border: 2px solid var(--dark);
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 2em;
+            font-weight: bold;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
         }
 
         .dice.rolling {
-            animation: diceRoll 0.3s infinite;
+            animation: roll 0.2s infinite;
         }
 
-        @keyframes diceRoll {
-            0% { transform: rotate(0deg) scale(1); }
-            50% { transform: rotate(180deg) scale(1.2); }
-            100% { transform: rotate(360deg) scale(1); }
+        @keyframes roll {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
         }
 
-        /* МОДАЛКИ */
+        /* Боковая панель */
+        .sidebar {
+            flex: 1;
+            background: white;
+            border-radius: 10px;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            max-height: 800px;
+            overflow-y: auto;
+        }
+
+        .players-panel h3, .chat-panel h3 {
+            color: var(--primary);
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .player-card {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 10px;
+            background: var(--light);
+            border-radius: 8px;
+            margin-bottom: 10px;
+            border-left: 4px solid transparent;
+            transition: all 0.3s;
+        }
+
+        .player-card:hover {
+            transform: translateX(5px);
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+
+        .player-card.current-turn {
+            border-left-color: var(--success);
+            background: #f0fff4;
+            animation: turnHighlight 1s infinite;
+        }
+
+        @keyframes turnHighlight {
+            0% { box-shadow: 0 0 0 0 var(--success); }
+            50% { box-shadow: 0 0 0 5px rgba(72, 187, 120, 0.2); }
+            100% { box-shadow: 0 0 0 0 var(--success); }
+        }
+
+        .player-avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: bold;
+            font-size: 1.2em;
+        }
+
+        .player-info {
+            flex: 1;
+        }
+
+        .player-name {
+            font-weight: bold;
+            margin-bottom: 3px;
+        }
+
+        .player-money {
+            color: var(--success);
+            font-size: 0.9em;
+        }
+
+        .chat-messages {
+            height: 300px;
+            overflow-y: auto;
+            background: var(--light);
+            border-radius: 8px;
+            padding: 10px;
+            margin-bottom: 10px;
+        }
+
+        .chat-message {
+            margin-bottom: 8px;
+            padding: 5px;
+            border-bottom: 1px solid #e2e8f0;
+            animation: fadeIn 0.3s;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateX(-10px); }
+            to { opacity: 1; transform: translateX(0); }
+        }
+
+        .chat-sender {
+            font-weight: bold;
+            color: var(--primary);
+            margin-right: 5px;
+        }
+
+        .chat-input {
+            display: flex;
+            gap: 10px;
+        }
+
+        .chat-input input {
+            flex: 1;
+            padding: 8px;
+            border: 1px solid #e2e8f0;
+            border-radius: 5px;
+            transition: all 0.3s;
+        }
+
+        .chat-input input:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        .chat-input button {
+            padding: 8px 15px;
+            background: var(--primary);
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .chat-input button:hover {
+            background: var(--secondary);
+            transform: scale(1.05);
+        }
+
+        /* Нижняя панель */
+        .game-footer {
+            margin-top: 20px;
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+        }
+
+        .action-buttons {
+            display: flex;
+            gap: 15px;
+            flex-wrap: wrap;
+        }
+
+        .btn.action {
+            padding: 10px 20px;
+            background: white;
+            color: var(--primary);
+            border: 1px solid var(--primary);
+            width: auto;
+            flex: 1;
+            transition: all 0.3s;
+        }
+
+        .btn.action:hover {
+            background: var(--primary);
+            color: white;
+            transform: translateY(-2px);
+        }
+
+        /* Модальные окна */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.5);
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+
+        .modal.active {
+            display: flex;
+        }
+
         .modal-content {
-            animation: popIn 0.3s;
+            background: white;
+            border-radius: 20px;
+            padding: 30px;
+            max-width: 500px;
+            width: 90%;
+            max-height: 80vh;
+            overflow-y: auto;
+            position: relative;
+            animation: modalPop 0.3s;
         }
 
-        @keyframes popIn {
+        @keyframes modalPop {
             from { transform: scale(0.8); opacity: 0; }
             to { transform: scale(1); opacity: 1; }
         }
 
-        /* ТРЕЙД */
-        .trade-container {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 20px;
-            margin: 20px 0;
-        }
-
-        .trade-column {
-            background: #f3f4f6;
-            border-radius: 30px;
-            padding: 20px;
-            animation: slideIn 0.3s;
-        }
-
-        @keyframes slideIn {
-            from { transform: translateX(-20px); opacity: 0; }
-            to { transform: translateX(0); opacity: 1; }
-        }
-
-        .property-item {
-            padding: 10px;
-            margin: 5px 0;
-            background: white;
-            border-radius: 15px;
-            cursor: pointer;
-            transition: all 0.2s;
-        }
-
-        .property-item:hover {
-            transform: translateX(5px);
-            background: #e5e7eb;
-        }
-
-        .property-item.selected {
-            background: #d1fae5;
-            border: 2px solid var(--success);
-            animation: glow 1s infinite;
-        }
-
-        .add-button {
-            width: 40px;
-            height: 40px;
-            border-radius: 50%;
-            background: var(--primary);
-            color: white;
-            border: none;
+        .close {
+            position: absolute;
+            top: 15px;
+            right: 20px;
             font-size: 1.5em;
             cursor: pointer;
-            transition: all 0.3s;
-            animation: pulse 2s infinite;
+            color: #a0aec0;
+            transition: color 0.3s;
         }
 
-        .add-button:hover {
-            transform: scale(1.1) rotate(90deg);
+        .close:hover {
+            color: var(--danger);
+            transform: scale(1.2);
         }
 
-        .add-button:disabled {
-            opacity: 0.5;
-            cursor: not-allowed;
-            animation: none;
-        }
-
-        @keyframes pulse {
-            0% { box-shadow: 0 0 0 0 var(--primary); }
-            70% { box-shadow: 0 0 0 10px rgba(67,97,238,0); }
-            100% { box-shadow: 0 0 0 0 var(--primary); }
-        }
-
-        .trade-notification {
-            position: fixed;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            background: white;
-            padding: 30px;
-            border-radius: 60px;
-            box-shadow: 0 30px 60px rgba(0,0,0,0.3);
-            z-index: 2000;
-            animation: notificationPop 0.3s;
-        }
-
-        @keyframes notificationPop {
-            from { transform: translate(-50%, -50%) scale(0.5); opacity: 0; }
-            to { transform: translate(-50%, -50%) scale(1); opacity: 1; }
-        }
-
+        /* Уведомления */
         .notification {
-            animation: slideInRight 0.3s;
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            padding: 15px 25px;
+            border-radius: 10px;
+            background: white;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+            z-index: 2000;
+            animation: slideIn 0.3s ease;
         }
 
-        @keyframes slideInRight {
+        .notification.success { border-left: 4px solid var(--success); }
+        .notification.error { border-left: 4px solid var(--danger); }
+        .notification.info { border-left: 4px solid var(--primary); }
+
+        @keyframes slideIn {
             from { transform: translateX(100%); opacity: 0; }
             to { transform: translateX(0); opacity: 1; }
+        }
+
+        @media (max-width: 1200px) {
+            :root { --board-size: 500px; }
+            .game-main { flex-direction: column; }
+        }
+
+        @media (max-width: 768px) {
+            :root { --board-size: 400px; }
+            .game-header { flex-direction: column; gap: 10px; }
+            .action-buttons { flex-direction: column; }
         }
     </style>
 </head>
 <body>
-    <div id="game-container">
-        <!-- ЭКРАН ВХОДА -->
+    <div class="container">
+        <!-- Экран входа -->
         <div id="login-screen">
             <div class="login-card">
-                <h1 class="game-title">🎲 МОНОПОЛИЯ</h1>
+                <h1 class="game-title">🎲 MONOPOLY</h1>
+                <p class="game-subtitle">Классическая игра онлайн</p>
                 
                 <div class="input-group">
-                    <label>👤 ВАШЕ ИМЯ</label>
-                    <input type="text" id="player-name" placeholder="Введите имя" maxlength="15">
+                    <input type="text" id="player-name" placeholder="Ваше имя" maxlength="20">
                 </div>
                 
                 <div class="character-selector">
-                    <h3>🎭 ВЫБЕРИТЕ ФИГУРКУ</h3>
+                    <h3>Выберите персонажа:</h3>
                     <div class="character-grid">
-                        <div class="character-option selected" data-char="dino" onclick="selectChar('dino')"><div class="emoji">🦖</div></div>
-                        <div class="character-option" data-char="duck" onclick="selectChar('duck')"><div class="emoji">🦆</div></div>
-                        <div class="character-option" data-char="car" onclick="selectChar('car')"><div class="emoji">🚗</div></div>
-                        <div class="character-option" data-char="hat" onclick="selectChar('hat')"><div class="emoji">🧢</div></div>
-                        <div class="character-option" data-char="ship" onclick="selectChar('ship')"><div class="emoji">⛵</div></div>
-                        <div class="character-option" data-char="dog" onclick="selectChar('dog')"><div class="emoji">🐕</div></div>
-                        <div class="character-option" data-char="cat" onclick="selectChar('cat')"><div class="emoji">🐱</div></div>
-                        <div class="character-option" data-char="penguin" onclick="selectChar('penguin')"><div class="emoji">🐧</div></div>
+                        <div class="character-option selected" data-char="dino" onclick="selectChar('dino')">
+                            <div class="emoji">🦖</div>
+                            <div class="name">Динозавр</div>
+                        </div>
+                        <div class="character-option" data-char="duck" onclick="selectChar('duck')">
+                            <div class="emoji">🦆</div>
+                            <div class="name">Утка</div>
+                        </div>
+                        <div class="character-option" data-char="car" onclick="selectChar('car')">
+                            <div class="emoji">🚗</div>
+                            <div class="name">Машина</div>
+                        </div>
+                        <div class="character-option" data-char="hat" onclick="selectChar('hat')">
+                            <div class="emoji">🧢</div>
+                            <div class="name">Шапка</div>
+                        </div>
+                        <div class="character-option" data-char="ship" onclick="selectChar('ship')">
+                            <div class="emoji">⛵</div>
+                            <div class="name">Корабль</div>
+                        </div>
+                        <div class="character-option" data-char="dog" onclick="selectChar('dog')">
+                            <div class="emoji">🐕</div>
+                            <div class="name">Пёс</div>
+                        </div>
                     </div>
                 </div>
                 
-                <button class="btn primary" onclick="createLobby()">✨ СОЗДАТЬ ЛОББИ</button>
-                <button class="btn secondary" onclick="showLobbies()">📋 СПИСОК ЛОББИ</button>
+                <button class="btn primary" onclick="createGame()">Создать новую игру</button>
+                <button class="btn secondary" onclick="showGames()">Список игр</button>
                 
-                <div id="lobbies-list" style="margin-top: 20px; display: none;">
-                    <h3>📋 ДОСТУПНЫЕ ЛОББИ:</h3>
-                    <div id="lobbies-container"></div>
+                <div id="games-list" style="margin-top: 20px; display: none;">
+                    <h3>Доступные игры:</h3>
+                    <div id="games-container"></div>
                 </div>
             </div>
         </div>
 
-        <!-- ЭКРАН ЛОББИ -->
-        <div id="lobby-screen">
-            <div class="lobby-header">
-                <span class="lobby-code" id="lobby-code-display">🔑 ----</span>
-                <button class="btn small danger" onclick="leaveLobby()">🚪 ПОКИНУТЬ</button>
-            </div>
-
-            <h2>👥 ИГРОКИ В ЛОББИ:</h2>
-            <div id="lobby-players" class="players-grid"></div>
-
-            <div class="lobby-chat">
-                <h3>💬 ЧАТ ЛОББИ</h3>
-                <div class="lobby-chat-messages" id="lobby-chat-messages"></div>
-                <div class="lobby-chat-input">
-                    <input type="text" id="lobby-chat-input" placeholder="Введите сообщение...">
-                    <button class="btn primary" onclick="sendLobbyChat()">➤</button>
-                </div>
-            </div>
-
-            <button class="start-game-btn" id="start-game-btn" onclick="startGame()">▶ НАЧАТЬ ИГРУ</button>
-        </div>
-
-        <!-- ЭКРАН ИГРЫ -->
+        <!-- Экран игры -->
         <div id="game-screen">
             <div class="game-header">
-                <span class="lobby-code" id="game-code-display">🔑 ----</span>
-                <span class="turn-indicator" id="turn-indicator">⏳ ОЖИДАНИЕ...</span>
-                <button class="btn small" onclick="leaveGame()">🚪 ВЫЙТИ</button>
+                <div class="game-info">
+                    <span class="game-code" id="game-code">Код: ----</span>
+                    <span class="turn-indicator" id="turn-indicator">Ожидание игроков...</span>
+                </div>
+                <button class="btn small" onclick="leaveGame()">Выйти из игры</button>
             </div>
 
-            <div style="display: flex; gap: 20px;">
-                <div>
+            <div class="game-main">
+                <div class="board-container">
                     <div class="monopoly-board" id="board"></div>
                     
-                    <div class="dice-area">
-                        <div class="dice-container">
-                            <div class="dice" id="dice1">⚀</div>
-                            <div class="dice" id="dice2">⚀</div>
-                        </div>
-                        <button class="btn primary" id="roll-dice" onclick="rollDice()" style="width: 250px;">🎲 БРОСИТЬ КОСТИ</button>
+                    <div class="dice-container">
+                        <div class="dice" id="dice1">⚀</div>
+                        <div class="dice" id="dice2">⚀</div>
                     </div>
+                    
+                    <button class="btn primary" id="roll-dice" onclick="rollDice()" style="width: 200px; margin: 20px auto;">🎲 Бросить кости</button>
                 </div>
 
                 <div class="sidebar">
                     <div class="players-panel">
-                        <h3>👥 ИГРОКИ</h3>
+                        <h3>👥 Игроки (<span id="player-count">0</span>/6)</h3>
                         <div id="players-list"></div>
                     </div>
 
                     <div class="chat-panel">
-                        <h3>💬 ЧАТ ИГРЫ</h3>
-                        <div class="lobby-chat-messages" id="game-chat-messages"></div>
-                        <div class="lobby-chat-input">
-                            <input type="text" id="game-chat-input" placeholder="Введите сообщение...">
-                            <button class="btn primary" onclick="sendGameChat()">➤</button>
+                        <h3>💬 Чат</h3>
+                        <div class="chat-messages" id="chat-messages"></div>
+                        <div class="chat-input">
+                            <input type="text" id="chat-input" placeholder="Введите сообщение..." onkeypress="if(event.key==='Enter') sendChat()">
+                            <button onclick="sendChat()">➤</button>
                         </div>
                     </div>
                 </div>
@@ -440,54 +725,48 @@
 
             <div class="game-footer">
                 <div class="action-buttons">
-                    <button class="btn action" onclick="showMyCards()">🏠 МОИ УЛИЦЫ</button>
-                    <button class="btn action" onclick="openTradeModal()">🔄 ТРЕЙД</button>
-                    <button class="btn action" onclick="buildHouse()">🏗️ ДОМ</button>
-                    <button class="btn action" onclick="buildHotel()">🏨 ОТЕЛЬ</button>
-                    <button class="btn action" onclick="endTurn()">⏭️ ЗАВЕРШИТЬ ХОД</button>
+                    <button class="btn action" onclick="showMyCards()">🏠 Мои карты</button>
+                    <button class="btn action" onclick="startTrade()">🔄 Обмен</button>
+                    <button class="btn action" onclick="showBuildMenu('house')">🏗️ Построить дом</button>
+                    <button class="btn action" onclick="showBuildMenu('hotel')">🏨 Построить отель</button>
+                    <button class="btn action" onclick="endTurn()">⏭️ Завершить ход</button>
                 </div>
             </div>
         </div>
-    </div>
 
-    <!-- МОДАЛКИ -->
-    <div class="modal" id="property-modal">
-        <div class="modal-content">
-            <span class="close" onclick="closeModal('property-modal')">&times;</span>
-            <h2 id="prop-name"></h2>
-            <div id="prop-details"></div>
-            <div style="display: flex; gap: 10px;">
-                <button class="btn primary" onclick="buyProperty()">💰 КУПИТЬ</button>
-                <button class="btn secondary" onclick="openAuctionModal()">🏷️ АУКЦИОН</button>
+        <!-- Модальное окно свойств -->
+        <div class="modal" id="property-modal">
+            <div class="modal-content">
+                <span class="close" onclick="closeModal('property-modal')">&times;</span>
+                <h2 id="property-name"></h2>
+                <div id="property-details"></div>
+                <div style="display: flex; gap: 10px; margin-top: 20px;">
+                    <button class="btn primary" onclick="buyProperty()">💰 Купить</button>
+                    <button class="btn secondary" onclick="startAuction()">🏷️ Аукцион</button>
+                </div>
             </div>
         </div>
-    </div>
 
-    <div class="modal" id="auction-modal">
-        <div class="modal-content">
-            <span class="close" onclick="closeModal('auction-modal')">&times;</span>
-            <h2>🏷️ АУКЦИОН</h2>
-            <div id="auction-info"></div>
-            <input type="number" id="bid-amount" placeholder="Ваша ставка (мин 10)" min="10" style="width: 100%; padding: 15px; margin: 15px 0; border-radius: 40px;">
-            <button class="btn primary" onclick="placeBid()">СДЕЛАТЬ СТАВКУ</button>
+        <!-- Модальное окно аукциона -->
+        <div class="modal" id="auction-modal">
+            <div class="modal-content">
+                <span class="close" onclick="closeModal('auction-modal')">&times;</span>
+                <h2>🏷️ Аукцион</h2>
+                <div id="auction-info"></div>
+                <div style="margin-top: 20px;">
+                    <input type="number" id="bid-amount" placeholder="Ваша ставка" style="width: 100%; padding: 10px; margin-bottom: 10px;">
+                    <button class="btn primary" onclick="placeBid()">Сделать ставку</button>
+                </div>
+            </div>
         </div>
-    </div>
 
-    <!-- МОДАЛКА ТРЕЙДА -->
-    <div class="modal" id="trade-modal">
-        <div class="modal-content">
-            <span class="close" onclick="closeTradeModal()">&times;</span>
-            <h2 id="trade-modal-title">🔄 ОБМЕН</h2>
-            <div id="trade-content"></div>
-        </div>
-    </div>
-
-    <!-- МОДАЛКА ВЫБОРА КАРТ -->
-    <div class="modal" id="select-property-modal">
-        <div class="modal-content">
-            <span class="close" onclick="closeModal('select-property-modal')">&times;</span>
-            <h2 id="select-prop-title">🏠 ВЫБЕРИТЕ УЛИЦУ</h2>
-            <div id="select-prop-list" style="max-height: 400px; overflow-y: auto;"></div>
+        <!-- Модальное окно обмена -->
+        <div class="modal" id="trade-modal">
+            <div class="modal-content">
+                <span class="close" onclick="closeModal('trade-modal')">&times;</span>
+                <h2>🔄 Обмен</h2>
+                <div id="trade-content"></div>
+            </div>
         </div>
     </div>
 
@@ -496,196 +775,114 @@
         let games = {};
         let currentGame = null;
         let currentPlayer = null;
-        let selectedCharacter = 'dino';
-        let selectedCell = null;
+        let selectedPosition = null;
         let currentAuction = null;
-        let auctionTimer = null;
-        let updateInterval = null;
-        let lobbyCleanupInterval = null;
-
-        // Трейд переменные
-        let currentTrade = null;
-        let tradeProposal = null;
-        let selectingFor = null;
+        let tradeTarget = null;
+        let selectedProperties = { mine: [], target: [] };
+        let selectedCharacter = 'dino';
 
         const charEmojis = {
-            'dino': '🦖', 'duck': '🦆', 'car': '🚗', 'hat': '🧢',
-            'ship': '⛵', 'dog': '🐕', 'cat': '🐱', 'penguin': '🐧'
+            'dino': '🦖',
+            'duck': '🦆',
+            'car': '🚗',
+            'hat': '🧢',
+            'ship': '⛵',
+            'dog': '🐕'
         };
 
-        const playerColors = [
-            '#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4', 
-            '#FFEEAD', '#D4A5A5', '#9B59B6', '#3498DB'
+        // Игровое поле
+        const boardProperties = [
+            { name: "Старт", price: 0, color: "special", rent: [0], housePrice: 0 },
+            { name: "Улица Победы", price: 60, color: "brown", rent: [2, 10, 30, 90, 160, 250], housePrice: 50 },
+            { name: "Казна", price: 0, color: "special", rent: [0], housePrice: 0 },
+            { name: "Проспект Мира", price: 60, color: "brown", rent: [4, 20, 60, 180, 320, 450], housePrice: 50 },
+            { name: "Налог", price: 200, color: "tax", rent: [200], housePrice: 0 },
+            { name: "Вокзал", price: 200, color: "railroad", rent: [25, 50, 100, 200], housePrice: 0 },
+            { name: "Невский проспект", price: 100, color: "lightblue", rent: [6, 30, 90, 270, 400, 550], housePrice: 50 },
+            { name: "Шанс", price: 0, color: "special", rent: [0], housePrice: 0 },
+            { name: "Улица Горького", price: 100, color: "lightblue", rent: [6, 30, 90, 270, 400, 550], housePrice: 50 },
+            { name: "Улица Чехова", price: 120, color: "lightblue", rent: [8, 40, 100, 300, 450, 600], housePrice: 50 },
+            { name: "Тюрьма", price: 0, color: "special", rent: [0], housePrice: 0 },
+            { name: "Пушкинская улица", price: 140, color: "pink", rent: [10, 50, 150, 450, 625, 750], housePrice: 100 },
+            { name: "Электростанция", price: 150, color: "utility", rent: [0], housePrice: 0 },
+            { name: "Улица Лермонтова", price: 140, color: "pink", rent: [10, 50, 150, 450, 625, 750], housePrice: 100 },
+            { name: "Улица Толстого", price: 160, color: "pink", rent: [12, 60, 180, 500, 700, 900], housePrice: 100 },
+            { name: "Вокзал", price: 200, color: "railroad", rent: [25, 50, 100, 200], housePrice: 0 },
+            { name: "Улица Гагарина", price: 180, color: "orange", rent: [14, 70, 200, 550, 750, 950], housePrice: 100 },
+            { name: "Казна", price: 0, color: "special", rent: [0], housePrice: 0 },
+            { name: "Улица Королева", price: 180, color: "orange", rent: [14, 70, 200, 550, 750, 950], housePrice: 100 },
+            { name: "Улица Циолковского", price: 200, color: "orange", rent: [16, 80, 220, 600, 800, 1000], housePrice: 100 },
+            { name: "Бесплатная парковка", price: 0, color: "special", rent: [0], housePrice: 0 },
+            { name: "Арбат", price: 220, color: "red", rent: [18, 90, 250, 700, 875, 1050], housePrice: 150 },
+            { name: "Шанс", price: 0, color: "special", rent: [0], housePrice: 0 },
+            { name: "Тверская улица", price: 220, color: "red", rent: [18, 90, 250, 700, 875, 1050], housePrice: 150 },
+            { name: "Кузнецкий мост", price: 240, color: "red", rent: [20, 100, 300, 750, 925, 1100], housePrice: 150 },
+            { name: "Вокзал", price: 200, color: "railroad", rent: [25, 50, 100, 200], housePrice: 0 },
+            { name: "Проспект Вернадского", price: 260, color: "yellow", rent: [22, 110, 330, 800, 975, 1150], housePrice: 150 },
+            { name: "Проспект Ленина", price: 260, color: "yellow", rent: [22, 110, 330, 800, 975, 1150], housePrice: 150 },
+            { name: "Водопровод", price: 150, color: "utility", rent: [0], housePrice: 0 },
+            { name: "Университетская", price: 280, color: "yellow", rent: [24, 120, 360, 850, 1025, 1200], housePrice: 150 },
+            { name: "Отправляйтесь в тюрьму", price: 0, color: "special", rent: [0], housePrice: 0 },
+            { name: "Невский проспект", price: 300, color: "green", rent: [26, 130, 390, 900, 1100, 1275], housePrice: 200 },
+            { name: "Улица Рубинштейна", price: 300, color: "green", rent: [26, 130, 390, 900, 1100, 1275], housePrice: 200 },
+            { name: "Казна", price: 0, color: "special", rent: [0], housePrice: 0 },
+            { name: "Лиговский проспект", price: 320, color: "green", rent: [28, 150, 450, 1000, 1200, 1400], housePrice: 200 },
+            { name: "Вокзал", price: 200, color: "railroad", rent: [25, 50, 100, 200], housePrice: 0 },
+            { name: "Шанс", price: 0, color: "special", rent: [0], housePrice: 0 },
+            { name: "Красная площадь", price: 350, color: "blue", rent: [35, 175, 500, 1100, 1300, 1500], housePrice: 200 },
+            { name: "Налог", price: 100, color: "tax", rent: [100], housePrice: 0 },
+            { name: "Кремль", price: 400, color: "blue", rent: [50, 200, 600, 1400, 1700, 2000], housePrice: 200 },
         ];
 
-        // ==================== ДАННЫЕ ПОЛЯ ====================
-        const boardData = [
-            { pos:0, name:"СТАРТ", price:0, color:"special" },
-            { pos:1, name:"УЛ.ПОБЕДЫ", price:60, color:"brown", rent:[2,10,30,90,160,250], housePrice:50 },
-            { pos:2, name:"КАЗНА", type:"chest", color:"special" },
-            { pos:3, name:"ПР.МИРА", price:60, color:"brown", rent:[4,20,60,180,320,450], housePrice:50 },
-            { pos:4, name:"НАЛОГ", price:200, type:"tax", color:"tax" },
-            { pos:5, name:"ВОКЗАЛ", price:200, color:"railroad", rent:[25,50,100,200] },
-            { pos:6, name:"НЕВСКИЙ", price:100, color:"lightblue", rent:[6,30,90,270,400,550], housePrice:50 },
-            { pos:7, name:"ШАНС", type:"chance", color:"special" },
-            { pos:8, name:"ГОРЬКОГО", price:100, color:"lightblue", rent:[6,30,90,270,400,550], housePrice:50 },
-            { pos:9, name:"ЧЕХОВА", price:120, color:"lightblue", rent:[8,40,100,300,450,600], housePrice:50 },
-            { pos:10, name:"ТЮРЬМА", type:"jail", color:"special" },
-            { pos:11, name:"ПУШКИН", price:140, color:"pink", rent:[10,50,150,450,625,750], housePrice:100 },
-            { pos:12, name:"ЭЛЕКТРО", price:150, color:"utility", rent:[0], housePrice:0 },
-            { pos:13, name:"ЛЕРМОНТ", price:140, color:"pink", rent:[10,50,150,450,625,750], housePrice:100 },
-            { pos:14, name:"ТОЛСТОГО", price:160, color:"pink", rent:[12,60,180,500,700,900], housePrice:100 },
-            { pos:15, name:"ВОКЗАЛ", price:200, color:"railroad", rent:[25,50,100,200] },
-            { pos:16, name:"ГАГАРИНА", price:180, color:"orange", rent:[14,70,200,550,750,950], housePrice:100 },
-            { pos:17, name:"КАЗНА", type:"chest", color:"special" },
-            { pos:18, name:"КОРОЛЕВА", price:180, color:"orange", rent:[14,70,200,550,750,950], housePrice:100 },
-            { pos:19, name:"ЦИОЛКОВ", price:200, color:"orange", rent:[16,80,220,600,800,1000], housePrice:100 },
-            { pos:20, name:"ПАРКОВКА", type:"parking", color:"special" },
-            { pos:21, name:"АРБАТ", price:220, color:"red", rent:[18,90,250,700,875,1050], housePrice:150 },
-            { pos:22, name:"ШАНС", type:"chance", color:"special" },
-            { pos:23, name:"ТВЕРСКАЯ", price:220, color:"red", rent:[18,90,250,700,875,1050], housePrice:150 },
-            { pos:24, name:"КУЗНЕЦК", price:240, color:"red", rent:[20,100,300,750,925,1100], housePrice:150 },
-            { pos:25, name:"ВОКЗАЛ", price:200, color:"railroad", rent:[25,50,100,200] },
-            { pos:26, name:"ВЕРНАД", price:260, color:"yellow", rent:[22,110,330,800,975,1150], housePrice:150 },
-            { pos:27, name:"ЛЕНИНА", price:260, color:"yellow", rent:[22,110,330,800,975,1150], housePrice:150 },
-            { pos:28, name:"ВОДОПР", price:150, color:"utility", rent:[0], housePrice:0 },
-            { pos:29, name:"УНИВЕР", price:280, color:"yellow", rent:[24,120,360,850,1025,1200], housePrice:150 },
-            { pos:30, name:"В ТЮРЬМУ", type:"gotojail", color:"special" },
-            { pos:31, name:"НЕВСКИЙ2", price:300, color:"green", rent:[26,130,390,900,1100,1275], housePrice:200 },
-            { pos:32, name:"РУБИНШ", price:300, color:"green", rent:[26,130,390,900,1100,1275], housePrice:200 },
-            { pos:33, name:"КАЗНА", type:"chest", color:"special" },
-            { pos:34, name:"ЛИГОВСК", price:320, color:"green", rent:[28,150,450,1000,1200,1400], housePrice:200 },
-            { pos:35, name:"ВОКЗАЛ", price:200, color:"railroad", rent:[25,50,100,200] },
-            { pos:36, name:"ШАНС", type:"chance", color:"special" },
-            { pos:37, name:"КРАСНАЯ", price:350, color:"blue", rent:[35,175,500,1100,1300,1500], housePrice:200 },
-            { pos:38, name:"НАЛОГ", price:100, type:"tax", color:"tax" },
-            { pos:39, name:"КРЕМЛЬ", price:400, color:"blue", rent:[50,200,600,1400,1700,2000], housePrice:200 }
-        ];
-
+        // Карточки шанса
         const chanceCards = [
-            { text:"Выход из тюрьмы", jailCard:true },
-            { text:"На Вокзал", pos:5 },
-            { text:"Дивиденды 50", money:50 },
-            { text:"Штраф 15", money:-15 },
-            { text:"В тюрьму", jail:true },
-            { text:"Лотерея 100", money:100 },
-            { text:"Страховка 50", money:-50 },
-            { text:"Старт +200", pos:0, money:200 }
+            { text: "Выходите из тюрьмы бесплатно", money: 0, jailCard: true },
+            { text: "Отправляйтесь на Вокзал", position: 5 },
+            { text: "Получите дивиденды 50", money: 50 },
+            { text: "Штраф за превышение скорости 15", money: -15 },
+            { text: "Отправляйтесь в тюрьму", jail: true },
+            { text: "Вы выиграли в лотерею 100", money: 100 },
+            { text: "Платите страховку 50", money: -50 },
+            { text: "Отправляйтесь на Старт", position: 0, money: 200 }
         ];
 
-        const chestCards = [
-            { text:"Ошибка банка +200", money:200 },
-            { text:"Лечение -100", money:-100 },
-            { text:"Нашли 50", money:50 },
-            { text:"Подарок 100", money:100 },
-            { text:"Налоги -50", money:-50 },
-            { text:"Наследство 200", money:200 },
-            { text:"На Старт", pos:0, money:200 }
+        // Карточки казны
+        const communityChestCards = [
+            { text: "Банковская ошибка в вашу пользу 200", money: 200 },
+            { text: "Платеж за лечение 100", money: -100 },
+            { text: "Вы нашли деньги 50", money: 50 },
+            { text: "Рождественский подарок 100", money: 100 },
+            { text: "Штраф за неуплату налогов 50", money: -50 },
+            { text: "Вы получили наследство 200", money: 200 },
+            { text: "Отправляйтесь на Старт", position: 0, money: 200 }
         ];
 
-        // ==================== ТАЙМЕР УДАЛЕНИЯ ЛОББИ ====================
-        function startLobbyCleanup() {
-            if (lobbyCleanupInterval) clearInterval(lobbyCleanupInterval);
-            
-            lobbyCleanupInterval = setInterval(() => {
-                const games = JSON.parse(localStorage.getItem('monopolyGames') || '{}');
-                let changed = false;
-                const now = Date.now();
-                
-                Object.keys(games).forEach(gameId => {
-                    const game = games[gameId];
-                    
-                    if (!game.started && game.createdAt && (now - game.createdAt) > 20 * 60 * 1000) {
-                        delete games[gameId];
-                        changed = true;
-                    }
-                    
-                    if (game.players && game.players.length === 0) {
-                        delete games[gameId];
-                        changed = true;
-                    }
-                });
-                
-                if (changed) {
-                    localStorage.setItem('monopolyGames', JSON.stringify(games));
-                    
-                    if (currentGame && !games[currentGame.id]) {
-                        showNotif('❌ Лобби было удалено (20 минут без старта)', 'error');
-                        leaveToMenu();
-                    }
-                }
-            }, 1000);
-        }
-
-        // ==================== АВТООБНОВЛЕНИЕ ====================
-        function startAutoUpdate() {
-            if (updateInterval) clearInterval(updateInterval);
-            
-            updateInterval = setInterval(() => {
-                if (!currentGame || !currentGame.id) return;
-                
-                const saved = JSON.parse(localStorage.getItem('monopolyGames') || '{}');
-                const updatedGame = saved[currentGame.id];
-                
-                if (!updatedGame) {
-                    showNotif('❌ Лобби больше не существует', 'error');
-                    leaveToMenu();
-                    return;
-                }
-                
-                const stillInGame = updatedGame.players.some(p => p.id === currentPlayer.id);
-                if (!stillInGame) {
-                    showNotif('❌ Вас кикнули из лобби', 'error');
-                    leaveToMenu();
-                    return;
-                }
-                
-                if (!currentGame.started && updatedGame.started) {
-                    currentGame = updatedGame;
-                    enterGame();
-                    return;
-                }
-                
-                currentGame = updatedGame;
-                
-                if (document.getElementById('lobby-screen').style.display === 'block') {
-                    updateLobbyUI();
-                } else if (document.getElementById('game-screen').style.display === 'block') {
-                    renderBoard();
-                    updatePlayersList();
-                    updateTurnIndicator();
-                    renderGameChat();
-                }
-            }, 500);
-        }
-
-        // ==================== ВЫБОР ПЕРСОНАЖА ====================
         function selectChar(char) {
             selectedCharacter = char;
             document.querySelectorAll('.character-option').forEach(opt => opt.classList.remove('selected'));
             document.querySelector(`[data-char="${char}"]`).classList.add('selected');
         }
 
-        // ==================== ЛОББИ ====================
-        function createLobby() {
+        function createGame() {
             const name = document.getElementById('player-name').value.trim();
-            if (!name) return showNotif('Введите имя!', 'error');
-            
-            const gameId = Math.random().toString(36).substring(2, 8).toUpperCase();
-            
+            if (!name) {
+                showNotification('Введите ваше имя', 'error');
+                return;
+            }
+
+            const gameId = generateGameId();
             currentPlayer = {
-                id: 'p' + Date.now() + Math.random(),
+                id: 'player_' + Date.now(),
                 name: name,
                 character: selectedCharacter,
-                color: playerColors[0],
-                isCreator: true,
+                position: 0,
                 money: 1500,
-                pos: 0,
-                props: [],
+                properties: [],
                 inJail: false,
                 jailTurns: 0,
-                jailCards: 0,
-                alive: true
+                getOutOfJailCards: 0,
+                alive: true,
+                color: getRandomColor()
             };
 
             currentGame = {
@@ -693,519 +890,340 @@
                 creator: currentPlayer.id,
                 creatorName: name,
                 players: [currentPlayer],
+                board: JSON.parse(JSON.stringify(boardProperties)),
+                currentTurn: currentPlayer.id,
                 started: false,
-                maxPlayers: 8,
-                chats: [],
-                board: JSON.parse(JSON.stringify(boardData)),
-                turn: null,
+                maxPlayers: 6,
                 diceRolled: false,
                 jackpot: 0,
                 auction: null,
-                createdAt: Date.now(),
+                chatMessages: [],
                 trades: []
             };
 
-            const games = JSON.parse(localStorage.getItem('monopolyGames') || '{}');
             games[gameId] = currentGame;
             localStorage.setItem('monopolyGames', JSON.stringify(games));
             
-            enterLobby();
-            startAutoUpdate();
+            showGameScreen();
+            renderBoard();
+            updatePlayersList();
+            showNotification(`Игра создана! Код: ${gameId}`, 'success');
         }
 
-        function joinLobby(gameId) {
+        function joinGame(gameId) {
             const name = document.getElementById('player-name').value.trim();
-            if (!name) return showNotif('Введите имя!', 'error');
+            if (!name) {
+                showNotification('Введите ваше имя', 'error');
+                return;
+            }
 
-            const games = JSON.parse(localStorage.getItem('monopolyGames') || '{}');
+            games = JSON.parse(localStorage.getItem('monopolyGames') || '{}');
             const game = games[gameId];
-            
-            if (!game) return showNotif('Лобби не найдено', 'error');
-            if (game.started) return showNotif('Игра уже началась', 'error');
-            if (game.players.length >= game.maxPlayers) return showNotif('Лобби заполнено', 'error');
-            if (game.players.some(p => p.name === name)) return showNotif('Имя занято', 'error');
-            if (game.players.some(p => p.character === selectedCharacter)) return showNotif('Фигурка занята', 'error');
+
+            if (!game) {
+                showNotification('Игра не найдена', 'error');
+                return;
+            }
+
+            if (game.started) {
+                showNotification('Игра уже началась', 'error');
+                return;
+            }
+
+            if (game.players.length >= game.maxPlayers) {
+                showNotification('Игра заполнена', 'error');
+                return;
+            }
 
             currentPlayer = {
-                id: 'p' + Date.now() + Math.random(),
+                id: 'player_' + Date.now(),
                 name: name,
                 character: selectedCharacter,
-                color: playerColors[game.players.length],
-                isCreator: false,
+                position: 0,
                 money: 1500,
-                pos: 0,
-                props: [],
+                properties: [],
                 inJail: false,
                 jailTurns: 0,
-                jailCards: 0,
-                alive: true
+                getOutOfJailCards: 0,
+                alive: true,
+                color: getRandomColor()
             };
 
             game.players.push(currentPlayer);
-            
-            if (!game.chats) game.chats = [];
-            game.chats.push({
-                sender: 'system',
-                text: `👋 ${name} присоединился к лобби`,
-                time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-            });
-            
             currentGame = game;
             games[gameId] = game;
             localStorage.setItem('monopolyGames', JSON.stringify(games));
-            
-            enterLobby();
-            startAutoUpdate();
-        }
 
-        function enterLobby() {
-            document.getElementById('login-screen').style.display = 'none';
-            document.getElementById('lobby-screen').style.display = 'block';
-            document.getElementById('game-screen').style.display = 'none';
-            
-            document.getElementById('lobby-code-display').textContent = `🔑 ${currentGame.id}`;
-            updateLobbyUI();
-        }
-
-        function updateLobbyUI() {
-            const container = document.getElementById('lobby-players');
-            if (!container) return;
-            
-            container.innerHTML = currentGame.players.map(player => {
-                const isCreator = player.id === currentGame.creator;
-                const canKick = currentPlayer.isCreator && player.id !== currentPlayer.id;
-                
-                return `
-                    <div class="lobby-player-card">
-                        <div class="lobby-player-avatar" style="background: ${player.color}">
-                            ${charEmojis[player.character]}
-                        </div>
-                        <div>
-                            <strong>${player.name}</strong>
-                            ${isCreator ? ' 👑' : ''}
-                        </div>
-                        ${canKick ? `<button class="kick-btn" onclick="kickPlayer('${player.id}')">✕</button>` : ''}
-                    </div>
-                `;
-            }).join('');
-            
-            renderLobbyChat();
-            
-            const startBtn = document.getElementById('start-game-btn');
-            if (currentPlayer.isCreator) {
-                startBtn.style.display = 'block';
-                if (currentGame.players.length < 2) {
-                    startBtn.disabled = true;
-                    startBtn.textContent = `⏳ ЖДЕМ ИГРОКОВ (${currentGame.players.length}/2)`;
-                } else {
-                    startBtn.disabled = false;
-                    startBtn.textContent = '▶ НАЧАТЬ ИГРУ';
-                }
-            } else {
-                startBtn.style.display = 'none';
-            }
-        }
-
-        function kickPlayer(playerId) {
-            if (!currentPlayer.isCreator) return;
-            
-            const kickedPlayer = currentGame.players.find(p => p.id === playerId);
-            if (!kickedPlayer) return;
-            
-            currentGame.players = currentGame.players.filter(p => p.id !== playerId);
-            
-            currentGame.chats.push({
-                sender: 'system',
-                text: `👢 ${kickedPlayer.name} был кикнут`,
-                time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-            });
-            
-            const games = JSON.parse(localStorage.getItem('monopolyGames') || '{}');
-            games[currentGame.id] = currentGame;
-            localStorage.setItem('monopolyGames', JSON.stringify(games));
-        }
-
-        function leaveLobby() {
-            if (!currentGame || !currentPlayer) return;
-            
-            currentGame.players = currentGame.players.filter(p => p.id !== currentPlayer.id);
-            
-            const games = JSON.parse(localStorage.getItem('monopolyGames') || '{}');
-            
-            if (currentPlayer.isCreator || currentGame.players.length === 0) {
-                delete games[currentGame.id];
-            } else {
-                currentGame.chats.push({
-                    sender: 'system',
-                    text: `🚪 ${currentPlayer.name} покинул лобби`,
-                    time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-                });
-                games[currentGame.id] = currentGame;
-            }
-            
-            localStorage.setItem('monopolyGames', JSON.stringify(games));
-            leaveToMenu();
-        }
-
-        function leaveToMenu() {
-            if (updateInterval) clearInterval(updateInterval);
-            document.getElementById('login-screen').style.display = 'flex';
-            document.getElementById('lobby-screen').style.display = 'none';
-            document.getElementById('game-screen').style.display = 'none';
-            closeAllModals();
-            currentGame = null;
-            currentPlayer = null;
-            currentTrade = null;
-            tradeProposal = null;
-        }
-
-        // ==================== ЧАТ ЛОББИ ====================
-        function sendLobbyChat() {
-            const input = document.getElementById('lobby-chat-input');
-            const text = input.value.trim();
-            if (!text || !currentGame) return;
-            
-            currentGame.chats.push({
-                sender: currentPlayer.name,
-                text: text,
-                time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-            });
-            
-            if (currentGame.chats.length > 50) currentGame.chats.shift();
-            
-            const games = JSON.parse(localStorage.getItem('monopolyGames') || '{}');
-            games[currentGame.id] = currentGame;
-            localStorage.setItem('monopolyGames', JSON.stringify(games));
-            
-            input.value = '';
-        }
-
-        function renderLobbyChat() {
-            const container = document.getElementById('lobby-chat-messages');
-            if (!container || !currentGame || !currentGame.chats) return;
-            
-            container.innerHTML = currentGame.chats.map(msg => `
-                <div class="chat-message">
-                    <span class="chat-sender">${msg.sender}:</span>
-                    ${msg.text}
-                    <span style="float: right; color: var(--gray); font-size: 0.7em;">${msg.time}</span>
-                </div>
-            `).join('');
-            
-            container.scrollTop = container.scrollHeight;
-        }
-
-        // ==================== НАЧАЛО ИГРЫ ====================
-        function startGame() {
-            if (!currentPlayer.isCreator) return;
-            if (currentGame.players.length < 2) return showNotif('Нужно минимум 2 игрока', 'error');
-            
-            currentGame.started = true;
-            currentGame.turn = currentGame.players[0].id;
-            currentGame.gameChats = [];
-            
-            currentGame.gameChats.push({
-                sender: 'system',
-                text: '🎮 ИГРА НАЧАЛАСЬ! Первый ход: ' + currentGame.players[0].name,
-                time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-            });
-            
-            const games = JSON.parse(localStorage.getItem('monopolyGames') || '{}');
-            games[currentGame.id] = currentGame;
-            localStorage.setItem('monopolyGames', JSON.stringify(games));
-        }
-
-        function enterGame() {
-            document.getElementById('lobby-screen').style.display = 'none';
-            document.getElementById('game-screen').style.display = 'block';
-            
-            document.getElementById('game-code-display').textContent = `🔑 ${currentGame.id}`;
+            showGameScreen();
             renderBoard();
             updatePlayersList();
-            renderGameChat();
+            addChatMessage('system', `${name} присоединился к игре`);
+        }
+
+        function startGame() {
+            if (!currentGame) return;
+            
+            if (currentGame.players.length < 2) {
+                showNotification('Нужно минимум 2 игрока', 'error');
+                return;
+            }
+
+            if (currentPlayer.id !== currentGame.creator) {
+                showNotification('Только создатель может начать игру', 'error');
+                return;
+            }
+
+            currentGame.started = true;
+            currentGame.currentTurn = currentGame.players[0].id;
+            saveGame();
+            
+            addChatMessage('system', '🎮 Игра началась!');
+            addChatMessage('system', `Первый ход: ${currentGame.players[0].name}`);
+            
             updateTurnIndicator();
+            showNotification('Игра началась!', 'success');
         }
 
-        // ==================== ПОЛЕ ====================
-        function renderBoard() {
-            const board = document.getElementById('board');
-            board.innerHTML = '';
-            
-            for (let row = 0; row < 11; row++) {
-                for (let col = 0; col < 11; col++) {
-                    const cell = document.createElement('div');
-                    cell.className = 'board-cell';
-                    
-                    if (row === 0 && col === 0) {
-                        cell.innerHTML = '<div class="cell-name">СТАРТ</div>';
-                        cell.onclick = () => showCellInfo(0);
-                    } 
-                    else if (row === 0 && col === 10) {
-                        cell.innerHTML = '<div class="cell-name">ТЮРЬМА</div>';
-                        cell.onclick = () => showCellInfo(10);
-                    }
-                    else if (row === 10 && col === 0) {
-                        cell.innerHTML = '<div class="cell-name">ПАРКОВКА</div>';
-                        cell.onclick = () => showCellInfo(20);
-                    }
-                    else if (row === 10 && col === 10) {
-                        cell.innerHTML = '<div class="cell-name">В ТЮРЬМУ</div>';
-                        cell.onclick = () => showCellInfo(30);
-                    }
-                    else if (row === 0 && col > 0 && col < 10) {
-                        addPropertyCell(cell, col);
-                    }
-                    else if (row === 10 && col > 0 && col < 10) {
-                        addPropertyCell(cell, 30 - col);
-                    }
-                    else if (col === 0 && row > 0 && row < 10) {
-                        addPropertyCell(cell, 20 - row);
-                    }
-                    else if (col === 10 && row > 0 && row < 10) {
-                        addPropertyCell(cell, 9 + row);
-                    }
-                    else if (row >= 2 && row <= 9 && col >= 2 && col <= 9) {
-                        if (row === 5 && col === 5) {
-                            cell.innerHTML = `
-                                <div style="display: flex; gap: 10px;">
-                                    <div style="width:60px;height:80px;background:#ffedd5;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:2em;cursor:pointer;" onmouseover="this.style.transform='scale(1.1)'" onmouseout="this.style.transform='scale(1)'" onclick="drawChance()">🎲</div>
-                                    <div style="width:60px;height:80px;background:#dbeafe;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:2em;cursor:pointer;" onmouseover="this.style.transform='scale(1.1)'" onmouseout="this.style.transform='scale(1)'" onclick="drawChest()">📦</div>
-                                </div>
-                            `;
-                        } else {
-                            cell.style.background = '#e5e7eb';
-                        }
-                    }
-                    
-                    const pos = getPosFromCell(row, col);
-                    if (pos !== -1) {
-                        const playersHere = currentGame.players.filter(p => p.pos === pos && p.alive);
-                        if (playersHere.length) {
-                            const tokensDiv = document.createElement('div');
-                            tokensDiv.className = 'player-tokens';
-                            playersHere.forEach(p => {
-                                const tok = document.createElement('div');
-                                tok.className = 'token';
-                                tok.style.backgroundColor = p.color;
-                                tok.textContent = charEmojis[p.character];
-                                tok.title = p.name;
-                                tokensDiv.appendChild(tok);
-                            });
-                            cell.appendChild(tokensDiv);
-                        }
-                    }
-                    
-                    board.appendChild(cell);
-                }
-            }
-        }
-
-        function addPropertyCell(cell, pos) {
-            const prop = currentGame.board[pos];
-            if (!prop) return;
-            
-            if (prop.color !== 'special' && prop.color !== 'tax') {
-                const strip = document.createElement('div');
-                strip.className = `color-strip ${prop.color}`;
-                cell.appendChild(strip);
-            }
-            
-            cell.innerHTML += `<div class="cell-name">${prop.name}</div>`;
-            if (prop.price) cell.innerHTML += `<div>${prop.price}</div>`;
-            
-            if (prop.houses > 0 || prop.hotel) {
-                const bDiv = document.createElement('div');
-                bDiv.className = 'buildings';
-                if (prop.hotel) {
-                    bDiv.innerHTML = '<div class="building hotel"></div>';
-                } else {
-                    for (let i = 0; i < prop.houses; i++) {
-                        bDiv.innerHTML += '<div class="building house"></div>';
-                    }
-                }
-                cell.appendChild(bDiv);
-            }
-            
-            cell.onclick = () => showCellInfo(pos);
-        }
-
-        function getPosFromCell(row, col) {
-            if (row === 0 && col === 0) return 0;
-            if (row === 0 && col === 10) return 10;
-            if (row === 10 && col === 0) return 20;
-            if (row === 10 && col === 10) return 30;
-            if (row === 0 && col > 0 && col < 10) return col;
-            if (row === 10 && col > 0 && col < 10) return 30 - col;
-            if (col === 0 && row > 0 && row < 10) return 20 - row;
-            if (col === 10 && row > 0 && row < 10) return 9 + row;
-            return -1;
-        }
-
-        function showCellInfo(pos) {
-            if (pos < 0) return;
-            const prop = currentGame.board[pos];
-            let msg = `${prop.name}\n`;
-            if (prop.owner) {
-                const owner = currentGame.players.find(p => p.id === prop.owner);
-                msg += `Владелец: ${owner.name}\nАренда: ${prop.rent[prop.houses || 0]}`;
-            } else if (prop.price > 0) {
-                msg += `Цена: ${prop.price}💰\nАренда: ${prop.rent[0]}`;
-            }
-            showNotif(msg);
-        }
-
-        // ==================== ИГРОВАЯ МЕХАНИКА ====================
         function rollDice() {
-            if (!currentGame.started) return showNotif('Игра не начата', 'error');
-            if (currentPlayer.id !== currentGame.turn) return showNotif('Не ваш ход', 'error');
-            if (currentGame.diceRolled) return showNotif('Вы уже бросили', 'error');
-            
+            if (!currentGame || !currentGame.started) {
+                showNotification('Игра еще не началась', 'error');
+                return;
+            }
+
+            if (currentPlayer.id !== currentGame.currentTurn) {
+                showNotification('Сейчас не ваш ход', 'error');
+                return;
+            }
+
+            if (currentGame.diceRolled) {
+                showNotification('Вы уже бросили кости', 'error');
+                return;
+            }
+
             document.getElementById('dice1').classList.add('rolling');
             document.getElementById('dice2').classList.add('rolling');
-            
+
             setTimeout(() => {
-                const d1 = Math.floor(Math.random() * 6) + 1;
-                const d2 = Math.floor(Math.random() * 6) + 1;
-                document.getElementById('dice1').textContent = ['⚀','⚁','⚂','⚃','⚄','⚅'][d1-1];
-                document.getElementById('dice2').textContent = ['⚀','⚁','⚂','⚃','⚄','⚅'][d2-1];
+                const dice1 = Math.floor(Math.random() * 6) + 1;
+                const dice2 = Math.floor(Math.random() * 6) + 1;
+                const total = dice1 + dice2;
+                const isDouble = dice1 === dice2;
+
+                document.getElementById('dice1').textContent = getDiceFace(dice1);
+                document.getElementById('dice2').textContent = getDiceFace(dice2);
                 document.getElementById('dice1').classList.remove('rolling');
                 document.getElementById('dice2').classList.remove('rolling');
-                
+
                 const player = getCurrentPlayer();
-                const oldPos = player.pos;
-                const total = d1 + d2;
+                const oldPosition = player.position;
                 
-                player.pos = (player.pos + total) % 40;
-                
-                if (player.pos < oldPos) {
+                if (player.inJail) {
+                    handleJailRoll(player, isDouble);
+                    return;
+                }
+
+                player.position = (player.position + total) % 40;
+
+                if (player.position < oldPosition) {
                     player.money += 200;
-                    addGameChat('system', `${player.name} +200 за Старт`);
+                    addChatMessage('system', `${player.name} прошел Старт и получил 200💰`);
                 }
-                
-                const land = currentGame.board[player.pos];
-                
-                if (land.type === 'tax') {
-                    if (player.money >= land.price) {
-                        player.money -= land.price;
-                        currentGame.jackpot += land.price;
-                    } else bankrupt(player);
-                }
-                else if (land.type === 'gotojail') {
-                    player.inJail = true;
-                    player.pos = 10;
-                    addGameChat('system', `${player.name} в тюрьму`);
-                }
-                else if (land.price > 0 && !land.owner) {
-                    selectedCell = player.pos;
-                    showPropModal(land);
-                }
-                else if (land.owner && land.owner !== player.id) {
-                    payRent(player, land);
-                }
-                
+
+                const property = currentGame.board[player.position];
+                handleLanding(player, property, total);
+
                 currentGame.diceRolled = true;
-                if (d1 !== d2) {
+                
+                if (!isDouble) {
                     nextTurn();
                 } else {
-                    showNotif('ДУБЛЬ! Ещё ход', 'warning');
+                    showNotification('Дубль! Ходите еще раз', 'success');
                 }
-                
-                const games = JSON.parse(localStorage.getItem('monopolyGames') || '{}');
-                games[currentGame.id] = currentGame;
-                localStorage.setItem('monopolyGames', JSON.stringify(games));
+
+                renderBoard();
+                updatePlayersList();
+                saveGame();
             }, 300);
         }
 
-        function payRent(player, prop) {
-            let rent = prop.rent[prop.houses || 0];
-            if (prop.color === 'railroad') {
-                const owner = getPlayerById(prop.owner);
-                const cnt = owner.props.filter(p => currentGame.board[p].color === 'railroad').length;
-                rent = [25, 50, 100, 200][cnt-1];
+        function handleJailRoll(player, isDouble) {
+            if (isDouble) {
+                player.inJail = false;
+                player.jailTurns = 0;
+                addChatMessage('system', `${player.name} вышел из тюрьмы!`);
+                currentGame.diceRolled = false;
+            } else {
+                player.jailTurns++;
+                if (player.jailTurns >= 3) {
+                    player.inJail = false;
+                    player.jailTurns = 0;
+                    player.money -= 50;
+                    addChatMessage('system', `${player.name} заплатил 50💰 и вышел из тюрьмы`);
+                } else {
+                    addChatMessage('system', `${player.name} в тюрьме. Осталось ходов: ${3 - player.jailTurns}`);
+                    nextTurn();
+                }
             }
-            if (player.money >= rent) {
-                player.money -= rent;
-                getPlayerById(prop.owner).money += rent;
-                addGameChat('system', `${player.name} заплатил ${rent}💰`);
-            } else bankrupt(player, prop.owner);
         }
 
-        function drawChance() {
-            if (currentPlayer.id !== currentGame.turn) return showNotif('Не ваш ход', 'error');
-            const card = chanceCards[Math.floor(Math.random() * chanceCards.length)];
-            applyCard(card);
-            addGameChat('system', `${currentPlayer.name}: ШАНС — ${card.text}`);
+        function handleLanding(player, property, diceTotal) {
+            if (property.color === 'tax') {
+                const tax = property.price;
+                if (player.money >= tax) {
+                    player.money -= tax;
+                    currentGame.jackpot += tax;
+                    addChatMessage('system', `${player.name} заплатил налог ${tax}💰`);
+                } else {
+                    bankrupt(player);
+                }
+            }
+            else if (property.position === 30) {
+                player.inJail = true;
+                player.position = 10;
+                addChatMessage('system', `${player.name} отправился в тюрьму!`);
+            }
+            else if (property.name === 'Шанс') {
+                const card = chanceCards[Math.floor(Math.random() * chanceCards.length)];
+                applyCard(player, card);
+                addChatMessage('system', `${player.name}: ${card.text}`);
+            }
+            else if (property.name === 'Казна') {
+                const card = communityChestCards[Math.floor(Math.random() * communityChestCards.length)];
+                applyCard(player, card);
+                addChatMessage('system', `${player.name}: ${card.text}`);
+            }
+            else if (property.position === 20 && currentGame.jackpot > 0) {
+                player.money += currentGame.jackpot;
+                addChatMessage('system', `${player.name} получил джекпот ${currentGame.jackpot}💰`);
+                currentGame.jackpot = 0;
+            }
+            else if (property.price > 0) {
+                if (!property.owner) {
+                    selectedPosition = property.position;
+                    showPropertyModal(property);
+                } else if (property.owner !== player.id) {
+                    let rent = property.rent[property.houses || 0];
+                    
+                    if (property.color === 'railroad') {
+                        const owner = getPlayerById(property.owner);
+                        const railroads = owner.properties.filter(p => 
+                            currentGame.board[p].color === 'railroad'
+                        ).length;
+                        rent = [25, 50, 100, 200][railroads - 1];
+                    } else if (property.color === 'utility') {
+                        const owner = getPlayerById(property.owner);
+                        const utilities = owner.properties.filter(p => 
+                            currentGame.board[p].color === 'utility'
+                        ).length;
+                        rent = utilities === 1 ? diceTotal * 4 : diceTotal * 10;
+                    }
+                    
+                    if (player.money >= rent) {
+                        player.money -= rent;
+                        getPlayerById(property.owner).money += rent;
+                        addChatMessage('system', `${player.name} заплатил аренду ${rent}💰 ${getPlayerById(property.owner).name}`);
+                    } else {
+                        bankrupt(player, property.owner);
+                    }
+                }
+            }
         }
 
-        function drawChest() {
-            if (currentPlayer.id !== currentGame.turn) return showNotif('Не ваш ход', 'error');
-            const card = chestCards[Math.floor(Math.random() * chestCards.length)];
-            applyCard(card);
-            addGameChat('system', `${currentPlayer.name}: КАЗНА — ${card.text}`);
-        }
-
-        function applyCard(card) {
-            const player = getCurrentPlayer();
+        function applyCard(player, card) {
             if (card.money) player.money += card.money;
-            if (card.jail) { player.inJail = true; player.pos = 10; }
-            if (card.pos !== undefined) player.pos = card.pos;
-            if (card.jailCard) player.jailCards++;
-            
-            const games = JSON.parse(localStorage.getItem('monopolyGames') || '{}');
-            games[currentGame.id] = currentGame;
-            localStorage.setItem('monopolyGames', JSON.stringify(games));
+            if (card.jail) {
+                player.inJail = true;
+                player.position = 10;
+            }
+            if (card.position !== undefined) player.position = card.position;
+            if (card.jailCard) player.getOutOfJailCards++;
         }
 
         function buyProperty() {
-            if (selectedCell === null) return;
-            const player = getCurrentPlayer();
-            const prop = currentGame.board[selectedCell];
-            if (player.money >= prop.price) {
-                player.money -= prop.price;
-                prop.owner = player.id;
-                player.props.push(selectedCell);
-                addGameChat('system', `${player.name} купил ${prop.name}`);
-                showNotif(`✅ Куплено!`);
-            } else showNotif('❌ Не хватает денег', 'error');
-            closeModal('property-modal');
+            if (!currentGame || selectedPosition === null) return;
             
-            const games = JSON.parse(localStorage.getItem('monopolyGames') || '{}');
-            games[currentGame.id] = currentGame;
-            localStorage.setItem('monopolyGames', JSON.stringify(games));
+            const player = getCurrentPlayer();
+            const property = currentGame.board[selectedPosition];
+            
+            if (player.money >= property.price) {
+                player.money -= property.price;
+                property.owner = player.id;
+                player.properties.push(selectedPosition);
+                
+                addChatMessage('system', `${player.name} купил ${property.name} за ${property.price}💰`);
+                showNotification(`Куплено: ${property.name}`, 'success');
+            } else {
+                showNotification('Недостаточно денег', 'error');
+            }
+            
+            closeModal('property-modal');
+            renderBoard();
+            updatePlayersList();
+            saveGame();
         }
 
-        function openAuctionModal() {
-            closeModal('property-modal');
-            const prop = currentGame.board[selectedCell];
-            currentAuction = { prop, bid: 10, leader: null, timer: 5, active: false };
+        function startAuction() {
+            if (!currentGame || selectedPosition === null) return;
+            
+            const property = currentGame.board[selectedPosition];
+            currentAuction = {
+                property: property,
+                currentBid: Math.floor(property.price / 2),
+                currentBidder: null,
+                bidders: [],
+                timeLeft: 30,
+                active: true
+            };
+            
             document.getElementById('auction-info').innerHTML = `
-                <p>Лот: <strong>${prop.name}</strong></p>
-                <p>💰 Ставка: <span id="current-bid">10</span></p>
-                <p>👑 Лидер: <span id="bid-leader">—</span></p>
-                <p>⏳ <span id="auction-timer">5</span>с</p>
+                <p>Лот: <strong>${property.name}</strong></p>
+                <p>Текущая ставка: <span id="current-bid">${currentAuction.currentBid}</span>💰</p>
+                <p>Лидер: <span id="current-bidder">Нет</span></p>
+                <p>Осталось: <span id="time-left">30</span>с</p>
             `;
+            
             openModal('auction-modal');
+            closeModal('property-modal');
+            
+            startAuctionTimer();
         }
 
         function placeBid() {
-            if (!currentAuction) return;
+            if (!currentAuction || !currentAuction.active) return;
+            
             const amount = parseInt(document.getElementById('bid-amount').value);
-            if (amount < 10 || amount <= currentAuction.bid) return showNotif('Ставка должна быть больше', 'error');
-            if (amount > currentPlayer.money) return showNotif('Не хватает денег', 'error');
+            if (isNaN(amount) || amount <= currentAuction.currentBid) {
+                showNotification('Ставка должна быть больше текущей', 'error');
+                return;
+            }
             
-            currentAuction.bid = amount;
-            currentAuction.leader = currentPlayer.id;
-            currentAuction.timer = 5;
-            currentAuction.active = true;
+            if (amount > currentPlayer.money) {
+                showNotification('Недостаточно денег', 'error');
+                return;
+            }
+            
+            currentAuction.currentBid = amount;
+            currentAuction.currentBidder = currentPlayer.id;
+            currentAuction.timeLeft = 30;
+            
             document.getElementById('current-bid').textContent = amount;
-            document.getElementById('bid-leader').textContent = currentPlayer.name;
+            document.getElementById('current-bidder').textContent = currentPlayer.name;
             
-            if (auctionTimer) clearInterval(auctionTimer);
-            auctionTimer = setInterval(() => {
-                currentAuction.timer--;
-                document.getElementById('auction-timer').textContent = currentAuction.timer;
-                if (currentAuction.timer <= 0) {
-                    clearInterval(auctionTimer);
+            addChatMessage('system', `${currentPlayer.name} предлагает ${amount}💰 за ${currentAuction.property.name}`);
+        }
+
+        function startAuctionTimer() {
+            const timer = setInterval(() => {
+                if (!currentAuction || !currentAuction.active) {
+                    clearInterval(timer);
+                    return;
+                }
+                
+                currentAuction.timeLeft--;
+                document.getElementById('time-left').textContent = currentAuction.timeLeft;
+                
+                if (currentAuction.timeLeft <= 0) {
+                    clearInterval(timer);
                     endAuction();
                 }
             }, 1000);
@@ -1213,572 +1231,566 @@
 
         function endAuction() {
             if (!currentAuction) return;
-            if (currentAuction.leader) {
-                const winner = getPlayerById(currentAuction.leader);
-                winner.money -= currentAuction.bid;
-                currentAuction.prop.owner = winner.id;
-                winner.props.push(selectedCell);
-                addGameChat('system', `🏆 ${winner.name} выиграл аукцион за ${currentAuction.bid}💰`);
+            
+            currentAuction.active = false;
+            
+            if (currentAuction.currentBidder) {
+                const winner = getPlayerById(currentAuction.currentBidder);
+                const property = currentAuction.property;
+                
+                winner.money -= currentAuction.currentBid;
+                property.owner = winner.id;
+                winner.properties.push(currentGame.board.indexOf(property));
+                
+                addChatMessage('system', `🏆 ${winner.name} выиграл аукцион и получил ${property.name} за ${currentAuction.currentBid}💰`);
+            } else {
+                addChatMessage('system', `Аукцион отменен - нет ставок`);
             }
+            
             currentAuction = null;
             closeModal('auction-modal');
-            
-            const games = JSON.parse(localStorage.getItem('monopolyGames') || '{}');
-            games[currentGame.id] = currentGame;
-            localStorage.setItem('monopolyGames', JSON.stringify(games));
+            renderBoard();
+            updatePlayersList();
+            saveGame();
         }
 
         function buildHouse() {
-            if (currentPlayer.id !== currentGame.turn) return showNotif('Не ваш ход', 'error');
             const player = getCurrentPlayer();
-            const buildable = player.props.find(pos => {
-                const p = currentGame.board[pos];
-                return p.housePrice && !p.hotel && (p.houses || 0) < 4 && hasFullGroup(p.color);
+            const buildable = player.properties.filter(pos => {
+                const prop = currentGame.board[pos];
+                return prop && !prop.hotel && prop.houses < 4 && hasFullColorGroup(prop.color);
             });
-            if (!buildable) return showNotif('Нет доступных для стройки', 'error');
-            const prop = currentGame.board[buildable];
+            
+            if (buildable.length === 0) {
+                showNotification('Нет доступных для постройки', 'error');
+                return;
+            }
+            
+            const pos = buildable[0];
+            const prop = currentGame.board[pos];
+            
             if (player.money >= prop.housePrice) {
                 player.money -= prop.housePrice;
-                prop.houses = (prop.houses || 0) + 1;
-                addGameChat('system', `${player.name} построил дом на ${prop.name}`);
-                
-                const games = JSON.parse(localStorage.getItem('monopolyGames') || '{}');
-                games[currentGame.id] = currentGame;
-                localStorage.setItem('monopolyGames', JSON.stringify(games));
+                prop.houses++;
+                addChatMessage('system', `${player.name} построил дом на ${prop.name}`);
+                renderBoard();
+                updatePlayersList();
+                saveGame();
             }
         }
 
         function buildHotel() {
-            if (currentPlayer.id !== currentGame.turn) return showNotif('Не ваш ход', 'error');
             const player = getCurrentPlayer();
-            const hotelable = player.props.find(pos => {
-                const p = currentGame.board[pos];
-                return p.houses === 4 && !p.hotel;
+            const buildable = player.properties.filter(pos => {
+                const prop = currentGame.board[pos];
+                return prop && !prop.hotel && prop.houses === 4;
             });
-            if (!hotelable) return showNotif('Нет улиц с 4 домами', 'error');
-            const prop = currentGame.board[hotelable];
+            
+            if (buildable.length === 0) {
+                showNotification('Нет доступных для постройки', 'error');
+                return;
+            }
+            
+            const pos = buildable[0];
+            const prop = currentGame.board[pos];
+            
             if (player.money >= prop.housePrice) {
                 player.money -= prop.housePrice;
                 prop.hotel = true;
                 prop.houses = 0;
-                addGameChat('system', `${player.name} построил отель на ${prop.name}`);
+                addChatMessage('system', `${player.name} построил отель на ${prop.name}`);
+                renderBoard();
+                updatePlayersList();
+                saveGame();
+            }
+        }
+
+        function hasFullColorGroup(color) {
+            const player = getCurrentPlayer();
+            const groupSizes = {
+                brown: 2, lightblue: 3, pink: 3, orange: 3,
+                red: 3, yellow: 3, green: 3, blue: 2
+            };
+            
+            const needed = groupSizes[color] || 2;
+            const owned = player.properties.filter(pos => 
+                currentGame.board[pos].color === color
+            ).length;
+            
+            return owned >= needed;
+        }
+
+        function bankrupt(player, newOwnerId = null) {
+            player.alive = false;
+            
+            if (newOwnerId) {
+                const newOwner = getPlayerById(newOwnerId);
+                player.properties.forEach(pos => {
+                    currentGame.board[pos].owner = newOwnerId;
+                    newOwner.properties.push(pos);
+                });
+                addChatMessage('system', `${player.name} обанкротился! Все имущество переходит ${newOwner.name}`);
+            }
+            
+            player.properties = [];
+            
+            const alivePlayers = currentGame.players.filter(p => p.alive);
+            if (alivePlayers.length === 1) {
+                addChatMessage('system', `🏆 ${alivePlayers[0].name} ПОБЕДИЛ В ИГРЕ! 🏆`);
+                currentGame.started = false;
+            }
+        }
+
+        function nextTurn() {
+            if (!currentGame) return;
+            
+            const alivePlayers = currentGame.players.filter(p => p.alive);
+            const currentIndex = alivePlayers.findIndex(p => p.id === currentGame.currentTurn);
+            const nextIndex = (currentIndex + 1) % alivePlayers.length;
+            
+            currentGame.currentTurn = alivePlayers[nextIndex].id;
+            currentGame.diceRolled = false;
+            
+            updateTurnIndicator();
+            saveGame();
+            
+            if (currentGame.currentTurn === currentPlayer.id) {
+                showNotification('Ваш ход!', 'success');
+            }
+        }
+
+        function endTurn() {
+            if (currentPlayer.id !== currentGame.currentTurn) {
+                showNotification('Сейчас не ваш ход', 'error');
+                return;
+            }
+            nextTurn();
+        }
+
+        function startTrade() {
+            const others = currentGame.players.filter(p => p.id !== currentPlayer.id && p.alive);
+            
+            if (others.length === 0) {
+                showNotification('Нет других игроков', 'error');
+                return;
+            }
+            
+            let html = '<p>Выберите игрока:</p>';
+            others.forEach(p => {
+                html += `<button class="btn secondary" onclick="selectTradeTarget('${p.id}')">${charEmojis[p.character]} ${p.name}</button><br>`;
+            });
+            
+            document.getElementById('trade-content').innerHTML = html;
+            openModal('trade-modal');
+        }
+
+        function selectTradeTarget(targetId) {
+            tradeTarget = targetId;
+            selectedProperties = { mine: [], target: [] };
+            showTradeOffer();
+        }
+
+        function showTradeOffer() {
+            const target = getPlayerById(tradeTarget);
+            const player = getCurrentPlayer();
+            
+            let html = `
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+                    <div>
+                        <h3>${charEmojis[player.character]} ${player.name}</h3>
+                        ${renderTradeProperties(player.properties, 'mine')}
+                        <p>Деньги: <input type="number" id="my-money" value="0" min="0" max="${player.money}"></p>
+                    </div>
+                    <div>
+                        <h3>${charEmojis[target.character]} ${target.name}</h3>
+                        ${renderTradeProperties(target.properties, 'target')}
+                        <p>Деньги: <input type="number" id="target-money" value="0" min="0" max="${target.money}"></p>
+                    </div>
+                </div>
+                <button class="btn primary" onclick="proposeTrade()" style="margin-top: 20px;">Предложить обмен</button>
+            `;
+            
+            document.getElementById('trade-content').innerHTML = html;
+        }
+
+        function renderTradeProperties(properties, type) {
+            if (properties.length === 0) return '<p>Нет свойств</p>';
+            
+            let html = '';
+            properties.forEach(pos => {
+                const prop = currentGame.board[pos];
+                const isSelected = selectedProperties[type].includes(pos);
+                html += `
+                    <div class="property-item" style="padding: 5px; margin: 5px 0; background: ${isSelected ? '#e2e8f0' : 'white'}; cursor: pointer; border: 1px solid #e2e8f0; border-radius: 5px;" 
+                         onclick="toggleTradeProperty('${type}', ${pos})">
+                        ${prop.name} (${prop.price}💰)
+                    </div>
+                `;
+            });
+            return html;
+        }
+
+        function toggleTradeProperty(type, pos) {
+            const index = selectedProperties[type].indexOf(pos);
+            if (index === -1) {
+                selectedProperties[type].push(pos);
+            } else {
+                selectedProperties[type].splice(index, 1);
+            }
+            showTradeOffer();
+        }
+
+        function proposeTrade() {
+            const target = getPlayerById(tradeTarget);
+            const myMoney = parseInt(document.getElementById('my-money').value) || 0;
+            const targetMoney = parseInt(document.getElementById('target-money').value) || 0;
+            
+            if (myMoney > currentPlayer.money || targetMoney > target.money) {
+                showNotification('Недостаточно денег', 'error');
+                return;
+            }
+            
+            const trade = {
+                id: 'trade_' + Date.now(),
+                proposer: currentPlayer.id,
+                target: tradeTarget,
+                proposerProperties: selectedProperties.mine,
+                targetProperties: selectedProperties.target,
+                proposerMoney: myMoney,
+                targetMoney: targetMoney,
+                status: 'pending'
+            };
+            
+            currentGame.trades.push(trade);
+            saveGame();
+            
+            addChatMessage('system', `${currentPlayer.name} предложил обмен ${target.name}`);
+            closeModal('trade-modal');
+        }
+
+        function sendChat() {
+            const input = document.getElementById('chat-input');
+            const message = input.value.trim();
+            
+            if (message && currentGame) {
+                addChatMessage(currentPlayer.name, message);
+                input.value = '';
+            }
+        }
+
+        function addChatMessage(sender, message) {
+            if (!currentGame) return;
+            
+            const msg = {
+                sender: sender,
+                message: message,
+                time: new Date().toLocaleTimeString()
+            };
+            
+            currentGame.chatMessages.push(msg);
+            if (currentGame.chatMessages.length > 50) {
+                currentGame.chatMessages.shift();
+            }
+            
+            renderChat();
+        }
+
+        function renderChat() {
+            const container = document.getElementById('chat-messages');
+            if (!container || !currentGame) return;
+            
+            container.innerHTML = '';
+            currentGame.chatMessages.forEach(msg => {
+                const div = document.createElement('div');
+                div.className = 'chat-message';
+                div.innerHTML = `
+                    <span class="chat-sender">${msg.sender}:</span>
+                    <span>${msg.message}</span>
+                    <span style="color: #a0aec0; font-size: 0.8em; margin-left: 5px;">${msg.time}</span>
+                `;
+                container.appendChild(div);
+            });
+            
+            container.scrollTop = container.scrollHeight;
+        }
+
+        function renderBoard() {
+            if (!currentGame) return;
+            
+            const board = document.getElementById('board');
+            board.innerHTML = '';
+            
+            const positions = createBoardPositions();
+            
+            positions.forEach(pos => {
+                const cell = document.createElement('div');
+                const prop = currentGame.board[pos];
                 
-                const games = JSON.parse(localStorage.getItem('monopolyGames') || '{}');
+                cell.className = `board-cell ${prop.color}`;
+                cell.onclick = () => onCellClick(pos);
+                
+                if (prop.color !== 'special') {
+                    const colorBar = document.createElement('div');
+                    colorBar.className = `property-color ${prop.color}`;
+                    cell.appendChild(colorBar);
+                }
+                
+                const name = document.createElement('div');
+                name.textContent = getShortName(prop.name);
+                cell.appendChild(name);
+                
+                if (prop.houses > 0 || prop.hotel) {
+                    const houses = document.createElement('div');
+                    houses.style.fontSize = '0.6em';
+                    houses.textContent = prop.hotel ? '🏨' : '🏠'.repeat(prop.houses);
+                    cell.appendChild(houses);
+                }
+                
+                const playersHere = currentGame.players.filter(p => p.position === pos && p.alive);
+                playersHere.forEach((player, index) => {
+                    const token = document.createElement('div');
+                    token.className = 'player-token';
+                    token.style.backgroundColor = player.color;
+                    token.style.left = (index * 12) + 'px';
+                    token.title = player.name;
+                    cell.appendChild(token);
+                });
+                
+                board.appendChild(cell);
+            });
+        }
+
+        function createBoardPositions() {
+            const positions = [];
+            for (let i = 0; i <= 10; i++) positions.push(i);
+            for (let i = 11; i <= 19; i++) positions.push(i);
+            for (let i = 20; i <= 30; i++) positions.push(i);
+            for (let i = 31; i <= 39; i++) positions.push(i);
+            return positions;
+        }
+
+        function getShortName(name) {
+            const short = {
+                'Старт': '🚀',
+                'Казна': '📦',
+                'Шанс': '🎲',
+                'Тюрьма': '🚓',
+                'Отправляйтесь в тюрьму': '⛓️',
+                'Бесплатная парковка': '🅿️',
+                'Налог': '💰',
+                'Вокзал': '🚂',
+                'Электростанция': '⚡',
+                'Водопровод': '💧'
+            };
+            return short[name] || name.substring(0, 3);
+        }
+
+        function getDiceFace(value) {
+            const faces = ['⚀', '⚁', '⚂', '⚃', '⚄', '⚅'];
+            return faces[value - 1];
+        }
+
+        function updatePlayersList() {
+            if (!currentGame) return;
+            
+            const container = document.getElementById('players-list');
+            const countSpan = document.getElementById('player-count');
+            
+            countSpan.textContent = currentGame.players.length;
+            
+            container.innerHTML = '';
+            currentGame.players.forEach(player => {
+                const card = document.createElement('div');
+                card.className = `player-card ${player.id === currentGame.currentTurn ? 'current-turn' : ''}`;
+                
+                card.innerHTML = `
+                    <div class="player-avatar" style="background: ${player.color}">
+                        ${charEmojis[player.character] || player.name.charAt(0)}
+                    </div>
+                    <div class="player-info">
+                        <div class="player-name">${player.name} ${player.inJail ? '🚓' : ''}</div>
+                        <div class="player-money">${player.money}💰</div>
+                        <div style="font-size: 0.8em; color: #718096;">${player.properties.length} карт</div>
+                    </div>
+                `;
+                
+                container.appendChild(card);
+            });
+        }
+
+        function updateTurnIndicator() {
+            const indicator = document.getElementById('turn-indicator');
+            if (!currentGame || !currentGame.started) {
+                indicator.textContent = 'Ожидание игроков...';
+                return;
+            }
+            
+            const player = getPlayerById(currentGame.currentTurn);
+            indicator.textContent = `Ход: ${player ? player.name : '...'}`;
+        }
+
+        function showMyCards() {
+            const player = getCurrentPlayer();
+            if (player.properties.length === 0) {
+                showNotification('У вас нет собственности', 'info');
+                return;
+            }
+            
+            let message = '🏠 Ваша собственность:\n\n';
+            player.properties.forEach(pos => {
+                const prop = currentGame.board[pos];
+                message += `${prop.name} - ${prop.price}💰`;
+                if (prop.houses > 0) message += ` (${prop.houses}🏠)`;
+                if (prop.hotel) message += ` (🏨)`;
+                message += '\n';
+            });
+            
+            showNotification(message, 'info');
+        }
+
+        function showBuildMenu(type) {
+            if (currentPlayer.id !== currentGame.currentTurn) {
+                showNotification('Сейчас не ваш ход', 'error');
+                return;
+            }
+            
+            if (type === 'house') {
+                buildHouse();
+            } else {
+                buildHotel();
+            }
+        }
+
+        function onCellClick(position) {
+            const prop = currentGame.board[position];
+            let message = `${prop.name}\n`;
+            
+            if (prop.owner) {
+                const owner = getPlayerById(prop.owner);
+                message += `Владелец: ${owner.name}\n`;
+                message += `Аренда: ${prop.rent[prop.houses || 0]}💰\n`;
+                if (prop.houses > 0) message += `Домов: ${prop.houses}\n`;
+                if (prop.hotel) message += `Отель: да\n`;
+            } else if (prop.price > 0) {
+                message += `Цена: ${prop.price}💰\n`;
+                message += `Аренда: ${prop.rent[0]}💰\n`;
+            }
+            
+            showNotification(message, 'info');
+        }
+
+        function showPropertyModal(property) {
+            document.getElementById('property-name').textContent = property.name;
+            
+            let details = `
+                <p>Цена: ${property.price}💰</p>
+                <p>Аренда: ${property.rent[0]}💰</p>
+            `;
+            
+            if (property.color !== 'special' && property.color !== 'railroad' && property.color !== 'utility') {
+                details += `<p>Цена дома: ${property.housePrice}💰</p>`;
+            }
+            
+            document.getElementById('property-details').innerHTML = details;
+            openModal('property-modal');
+        }
+
+        function getCurrentPlayer() {
+            return currentGame.players.find(p => p.id === currentPlayer.id);
+        }
+
+        function getPlayerById(id) {
+            return currentGame.players.find(p => p.id === id);
+        }
+
+        function getRandomColor() {
+            const colors = ['#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4', '#FFEEAD', '#D4A5A5', '#9B59B6', '#3498DB'];
+            return colors[Math.floor(Math.random() * colors.length)];
+        }
+
+        function generateGameId() {
+            return Math.random().toString(36).substring(2, 8).toUpperCase();
+        }
+
+        function showGames() {
+            games = JSON.parse(localStorage.getItem('monopolyGames') || '{}');
+            const container = document.getElementById('games-container');
+            const gamesList = document.getElementById('games-list');
+            
+            const availableGames = Object.values(games).filter(g => !g.started && g.players.length < g.maxPlayers);
+            
+            if (availableGames.length === 0) {
+                container.innerHTML = '<p>Нет доступных игр</p>';
+            } else {
+                container.innerHTML = '';
+                availableGames.forEach(game => {
+                    const div = document.createElement('div');
+                    div.innerHTML = `
+                        <div style="padding: 10px; border: 1px solid #e2e8f0; margin: 5px 0; border-radius: 5px;">
+                            <strong>Игра ${game.id}</strong><br>
+                            Создатель: ${game.creatorName}<br>
+                            Игроки: ${game.players.length}/${game.maxPlayers}<br>
+                            <button class="btn small" onclick="joinGame('${game.id}')">Присоединиться</button>
+                        </div>
+                    `;
+                    container.appendChild(div);
+                });
+            }
+            
+            gamesList.style.display = 'block';
+        }
+
+        function showGameScreen() {
+            document.getElementById('login-screen').style.display = 'none';
+            document.getElementById('game-screen').style.display = 'block';
+            document.getElementById('game-code').textContent = `Код: ${currentGame.id}`;
+            
+            if (currentPlayer.id === currentGame.creator && !currentGame.started) {
+                setTimeout(() => {
+                    if (confirm('Начать игру?')) {
+                        startGame();
+                    }
+                }, 1000);
+            }
+        }
+
+        function leaveGame() {
+            if (confirm('Выйти из игры?')) {
+                document.getElementById('login-screen').style.display = 'flex';
+                document.getElementById('game-screen').style.display = 'none';
+                currentGame = null;
+                currentPlayer = null;
+            }
+        }
+
+        function openModal(modalId) {
+            document.getElementById(modalId).classList.add('active');
+        }
+
+        function closeModal(modalId) {
+            document.getElementById(modalId).classList.remove('active');
+        }
+
+        function showNotification(message, type = 'info') {
+            const notification = document.createElement('div');
+            notification.className = `notification ${type}`;
+            notification.textContent = message;
+            document.body.appendChild(notification);
+            
+            setTimeout(() => notification.remove(), 3000);
+        }
+
+        function saveGame() {
+            if (currentGame) {
                 games[currentGame.id] = currentGame;
                 localStorage.setItem('monopolyGames', JSON.stringify(games));
             }
         }
 
-        function hasFullGroup(color) {
-            const player = getCurrentPlayer();
-            const groupSizes = { brown:2, lightblue:3, pink:3, orange:3, red:3, yellow:3, green:3, blue:2 };
-            const needed = groupSizes[color] || 2;
-            const owned = player.props.filter(p => currentGame.board[p].color === color).length;
-            return owned >= needed;
-        }
-
-        function nextTurn() {
-            const alive = currentGame.players.filter(p => p.alive);
-            let idx = alive.findIndex(p => p.id === currentGame.turn);
-            idx = (idx + 1) % alive.length;
-            currentGame.turn = alive[idx].id;
-            currentGame.diceRolled = false;
-            if (currentPlayer.id === currentGame.turn) showNotif('🎲 ВАШ ХОД!', 'warning');
-            
-            const games = JSON.parse(localStorage.getItem('monopolyGames') || '{}');
-            games[currentGame.id] = currentGame;
-            localStorage.setItem('monopolyGames', JSON.stringify(games));
-        }
-
-        function endTurn() {
-            if (currentPlayer.id !== currentGame.turn) return showNotif('Не ваш ход', 'error');
-            nextTurn();
-        }
-
-        // ==================== ЧАТ ИГРЫ ====================
-        function sendGameChat() {
-            const input = document.getElementById('game-chat-input');
-            const text = input.value.trim();
-            if (!text || !currentGame) return;
-            
-            if (!currentGame.gameChats) currentGame.gameChats = [];
-            currentGame.gameChats.push({
-                sender: currentPlayer.name,
-                text: text,
-                time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-            });
-            
-            if (currentGame.gameChats.length > 50) currentGame.gameChats.shift();
-            
-            const games = JSON.parse(localStorage.getItem('monopolyGames') || '{}');
-            games[currentGame.id] = currentGame;
-            localStorage.setItem('monopolyGames', JSON.stringify(games));
-            
-            input.value = '';
-        }
-
-        function renderGameChat() {
-            const container = document.getElementById('game-chat-messages');
-            if (!container || !currentGame.gameChats) return;
-            container.innerHTML = currentGame.gameChats.map(msg => `
-                <div class="chat-message">
-                    <span class="chat-sender">${msg.sender}:</span> ${msg.text}
-                    <span style="float:right;color:var(--gray);font-size:0.7em;">${msg.time}</span>
-                </div>
-            `).join('');
-            container.scrollTop = container.scrollHeight;
-        }
-
-        function addGameChat(sender, text) {
-            if (!currentGame.gameChats) currentGame.gameChats = [];
-            currentGame.gameChats.push({
-                sender, text,
-                time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-            });
-            if (currentGame.gameChats.length > 50) currentGame.gameChats.shift();
-            
-            const games = JSON.parse(localStorage.getItem('monopolyGames') || '{}');
-            games[currentGame.id] = currentGame;
-            localStorage.setItem('monopolyGames', JSON.stringify(games));
-        }
-
-        // ==================== ТРЕЙД СИСТЕМА ====================
-        function openTradeModal() {
-            const others = currentGame.players.filter(p => p.id !== currentPlayer.id && p.alive);
-            if (!others.length) return showNotif('Нет других игроков', 'error');
-            
-            let html = '<p style="text-align:center; font-size:1.2em;">Выберите игрока для обмена:</p>';
-            others.forEach(p => {
-                html += `<button class="btn secondary" onclick="proposeTradeTo('${p.id}')" style="margin:5px 0;">${charEmojis[p.character]} ${p.name}</button>`;
-            });
-            
-            document.getElementById('trade-content').innerHTML = html;
-            openModal('trade-modal');
-        }
-
-        function proposeTradeTo(targetId) {
-            tradeProposal = {
-                fromId: currentPlayer.id,
-                toId: targetId,
-                fromName: currentPlayer.name,
-                toName: getPlayerById(targetId).name,
-                status: 'pending'
-            };
-            
-            closeModal('trade-modal');
-            showTradeNotification(targetId);
-        }
-
-        function showTradeNotification(targetId) {
-            const target = getPlayerById(targetId);
-            
-            const notifDiv = document.createElement('div');
-            notifDiv.className = 'trade-notification';
-            notifDiv.id = 'trade-notification';
-            notifDiv.innerHTML = `
-                <h2 style="color: var(--primary); margin-bottom: 20px;">🔄 ПРЕДЛОЖЕНИЕ ОБМЕНА</h2>
-                <p style="font-size: 1.3em; margin-bottom: 30px;">
-                    ${charEmojis[currentPlayer.character]} <strong>${currentPlayer.name}</strong><br>
-                    хочет обменяться с вами!
-                </p>
-                <div style="display: flex; gap: 15px;">
-                    <button class="btn primary" style="flex: 1;" onclick="acceptTradeProposal('${targetId}')">✅ ПРИНЯТЬ</button>
-                    <button class="btn danger" style="flex: 1;" onclick="declineTradeProposal('${targetId}')">❌ ОТКЛОНИТЬ</button>
-                </div>
-            `;
-            
-            document.body.appendChild(notifDiv);
-            
-            setTimeout(() => {
-                const notif = document.getElementById('trade-notification');
-                if (notif) notif.remove();
-            }, 30000);
-        }
-
-        function acceptTradeProposal(targetId) {
-            const notif = document.getElementById('trade-notification');
-            if (notif) notif.remove();
-            
-            currentTrade = {
-                id: 'trade_' + Date.now(),
-                player1: targetId,
-                player2: currentPlayer.id,
-                props1: [],
-                props2: [],
-                money1: 0,
-                money2: 0,
-                status: 'active',
-                accepted1: false,
-                accepted2: false
-            };
-            
-            if (!currentGame.trades) currentGame.trades = [];
-            currentGame.trades.push(currentTrade);
-            
-            const games = JSON.parse(localStorage.getItem('monopolyGames') || '{}');
-            games[currentGame.id] = currentGame;
-            localStorage.setItem('monopolyGames', JSON.stringify(games));
-            
-            openTradeWindow();
-        }
-
-        function declineTradeProposal(targetId) {
-            const notif = document.getElementById('trade-notification');
-            if (notif) notif.remove();
-            showNotif('❌ Вы отклонили предложение', 'info');
-        }
-
-        function openTradeWindow() {
-            if (!currentTrade) return;
-            
-            const player1 = getPlayerById(currentTrade.player1);
-            const player2 = getPlayerById(currentTrade.player2);
-            const isPlayer1 = currentPlayer.id === currentTrade.player1;
-            const isPlayer2 = currentPlayer.id === currentTrade.player2;
-            
-            if (!isPlayer1 && !isPlayer2) return;
-            
-            document.getElementById('trade-modal-title').innerHTML = `🔄 ОБМЕН: ${player1.name} ⇄ ${player2.name}`;
-            
-            let html = `
-                <div class="trade-container">
-                    <div class="trade-column">
-                        <h3>${charEmojis[player1.character]} ${player1.name}</h3>
-                        <div style="max-height: 200px; overflow-y: auto; margin-bottom: 10px;" id="props1-list">
-                            ${renderPropsList(currentTrade.props1, 'player1')}
-                        </div>
-                        <button class="add-button" onclick="openPropertySelector('player1')" ${!isPlayer1 ? 'disabled' : ''}>+</button>
-                        <input type="number" class="money-input" id="money1" value="${currentTrade.money1}" min="0" max="${player1.money}" placeholder="Деньги" onchange="updateTradeMoney('player1', this.value)" ${!isPlayer1 ? 'disabled' : ''}>
-                    </div>
-                    <div class="trade-column">
-                        <h3>${charEmojis[player2.character]} ${player2.name}</h3>
-                        <div style="max-height: 200px; overflow-y: auto; margin-bottom: 10px;" id="props2-list">
-                            ${renderPropsList(currentTrade.props2, 'player2')}
-                        </div>
-                        <button class="add-button" onclick="openPropertySelector('player2')" ${!isPlayer2 ? 'disabled' : ''}>+</button>
-                        <input type="number" class="money-input" id="money2" value="${currentTrade.money2}" min="0" max="${player2.money}" placeholder="Деньги" onchange="updateTradeMoney('player2', this.value)" ${!isPlayer2 ? 'disabled' : ''}>
-                    </div>
-                </div>
-                <div class="trade-buttons">
-                    <button class="btn primary" onclick="acceptTrade()" style="flex: 1;">✅ ПРИНЯТЬ</button>
-                    <button class="btn danger" onclick="declineTrade()" style="flex: 1;">❌ ОТКЛОНИТЬ</button>
-                </div>
-            `;
-            
-            document.getElementById('trade-content').innerHTML = html;
-            openModal('trade-modal');
-        }
-
-        function renderPropsList(props, playerKey) {
-            if (props.length === 0) return '<p style="color: var(--gray); text-align: center;">Нет выбранных улиц</p>';
-            
-            return props.map(pos => {
-                const prop = currentGame.board[pos];
-                return `<div class="property-item selected" onclick="removeProperty('${playerKey}', ${pos})">${prop.name} (${prop.price}💰)</div>`;
-            }).join('');
-        }
-
-        function openPropertySelector(playerKey) {
-            const isPlayer1 = (playerKey === 'player1' && currentPlayer.id === currentTrade.player1);
-            const isPlayer2 = (playerKey === 'player2' && currentPlayer.id === currentTrade.player2);
-            
-            if (!isPlayer1 && !isPlayer2) {
-                showNotif('❌ Вы не можете выбирать имущество другого игрока', 'error');
-                return;
-            }
-            
-            const player = getCurrentPlayer();
-            const availableProps = player.props.filter(pos => {
-                if (playerKey === 'player1') {
-                    return !currentTrade.props1.includes(pos);
-                } else {
-                    return !currentTrade.props2.includes(pos);
-                }
-            });
-            
-            if (availableProps.length === 0) {
-                showNotif('❌ У вас нет доступных улиц', 'error');
-                return;
-            }
-            
-            selectingFor = playerKey;
-            document.getElementById('select-prop-title').innerHTML = `🏠 ВЫБЕРИТЕ УЛИЦУ (${player.name})`;
-            
-            let html = '';
-            availableProps.forEach(pos => {
-                const prop = currentGame.board[pos];
-                html += `<div class="property-item" onclick="selectProperty(${pos})">${prop.name} (${prop.price}💰)</div>`;
-            });
-            
-            document.getElementById('select-prop-list').innerHTML = html;
-            openModal('select-property-modal');
-        }
-
-        function selectProperty(pos) {
-            if (!selectingFor) return;
-            
-            if (selectingFor === 'player1') {
-                currentTrade.props1.push(pos);
-                const player = getPlayerById(currentTrade.player1);
-                player.props = player.props.filter(p => p !== pos);
-            } else {
-                currentTrade.props2.push(pos);
-                const player = getPlayerById(currentTrade.player2);
-                player.props = player.props.filter(p => p !== pos);
-            }
-            
-            closeModal('select-property-modal');
-            
-            const games = JSON.parse(localStorage.getItem('monopolyGames') || '{}');
-            games[currentGame.id] = currentGame;
-            localStorage.setItem('monopolyGames', JSON.stringify(games));
-            
-            openTradeWindow();
-        }
-
-        function removeProperty(playerKey, pos) {
-            if (playerKey === 'player1' && currentPlayer.id === currentTrade.player1) {
-                currentTrade.props1 = currentTrade.props1.filter(p => p !== pos);
-                const player = getPlayerById(currentTrade.player1);
-                player.props.push(pos);
-            } else if (playerKey === 'player2' && currentPlayer.id === currentTrade.player2) {
-                currentTrade.props2 = currentTrade.props2.filter(p => p !== pos);
-                const player = getPlayerById(currentTrade.player2);
-                player.props.push(pos);
-            } else {
-                showNotif('❌ Вы не можете убирать имущество другого игрока', 'error');
-                return;
-            }
-            
-            const games = JSON.parse(localStorage.getItem('monopolyGames') || '{}');
-            games[currentGame.id] = currentGame;
-            localStorage.setItem('monopolyGames', JSON.stringify(games));
-            
-            openTradeWindow();
-        }
-
-        function updateTradeMoney(playerKey, value) {
-            const amount = parseInt(value) || 0;
-            
-            if (playerKey === 'player1' && currentPlayer.id === currentTrade.player1) {
-                const player = getPlayerById(currentTrade.player1);
-                if (amount > player.money) {
-                    showNotif('❌ Недостаточно денег', 'error');
-                    return;
-                }
-                currentTrade.money1 = amount;
-            } else if (playerKey === 'player2' && currentPlayer.id === currentTrade.player2) {
-                const player = getPlayerById(currentTrade.player2);
-                if (amount > player.money) {
-                    showNotif('❌ Недостаточно денег', 'error');
-                    return;
-                }
-                currentTrade.money2 = amount;
-            }
-            
-            const games = JSON.parse(localStorage.getItem('monopolyGames') || '{}');
-            games[currentGame.id] = currentGame;
-            localStorage.setItem('monopolyGames', JSON.stringify(games));
-        }
-
-        function acceptTrade() {
-            if (!currentTrade) return;
-            
-            const isPlayer1 = currentPlayer.id === currentTrade.player1;
-            const isPlayer2 = currentPlayer.id === currentTrade.player2;
-            
-            if (isPlayer1) {
-                currentTrade.accepted1 = true;
-            } else if (isPlayer2) {
-                currentTrade.accepted2 = true;
-            }
-            
-            if (currentTrade.accepted1 && currentTrade.accepted2) {
-                const player1 = getPlayerById(currentTrade.player1);
-                const player2 = getPlayerById(currentTrade.player2);
-                
-                player1.money -= currentTrade.money1;
-                player1.money += currentTrade.money2;
-                player2.money -= currentTrade.money2;
-                player2.money += currentTrade.money1;
-                
-                currentTrade.props1.forEach(pos => {
-                    currentGame.board[pos].owner = player2.id;
-                    player2.props.push(pos);
-                });
-                
-                currentTrade.props2.forEach(pos => {
-                    currentGame.board[pos].owner = player1.id;
-                    player1.props.push(pos);
-                });
-                
-                addGameChat('system', `🤝 Обмен между ${player1.name} и ${player2.name} завершён!`);
-                showNotif('✅ Обмен успешно завершён!', 'success');
-                
-                currentGame.trades = currentGame.trades.filter(t => t.id !== currentTrade.id);
-                currentTrade = null;
-                
-                closeModal('trade-modal');
-            } else {
-                showNotif('✅ Вы приняли обмен. Ожидайте согласия второго игрока', 'info');
-                closeModal('trade-modal');
-            }
-            
-            const games = JSON.parse(localStorage.getItem('monopolyGames') || '{}');
-            games[currentGame.id] = currentGame;
-            localStorage.setItem('monopolyGames', JSON.stringify(games));
-        }
-
-        function declineTrade() {
-            if (!currentTrade) return;
-            
-            if (currentTrade.props1.length > 0) {
-                const player1 = getPlayerById(currentTrade.player1);
-                currentTrade.props1.forEach(pos => {
-                    player1.props.push(pos);
-                });
-            }
-            
-            if (currentTrade.props2.length > 0) {
-                const player2 = getPlayerById(currentTrade.player2);
-                currentTrade.props2.forEach(pos => {
-                    player2.props.push(pos);
-                });
-            }
-            
-            currentGame.trades = currentGame.trades.filter(t => t.id !== currentTrade.id);
-            currentTrade = null;
-            
-            const games = JSON.parse(localStorage.getItem('monopolyGames') || '{}');
-            games[currentGame.id] = currentGame;
-            localStorage.setItem('monopolyGames', JSON.stringify(games));
-            
-            closeModal('trade-modal');
-            showNotif('❌ Обмен отклонён', 'info');
-        }
-
-        function closeTradeModal() {
-            closeModal('trade-modal');
-        }
-
-        // ==================== ОБНОВЛЕНИЕ ИГРОКОВ ====================
-        function updatePlayersList() {
-            const container = document.getElementById('players-list');
-            if (!container) return;
-            container.innerHTML = currentGame.players.map(p => `
-                <div class="player-card ${p.id === currentGame.turn ? 'current-turn' : ''}">
-                    <div class="player-avatar" style="background: ${p.color}">${charEmojis[p.character]}</div>
-                    <div>
-                        <div class="player-name">${p.name} ${p.inJail ? '🚓' : ''}</div>
-                        <div>💰 ${p.money}</div>
-                        <div>🏠 ${p.props.length}</div>
-                    </div>
-                </div>
-            `).join('');
-        }
-
-        function updateTurnIndicator() {
-            const ind = document.getElementById('turn-indicator');
-            if (!currentGame.started) ind.textContent = '⏳ ОЖИДАНИЕ...';
-            else {
-                const p = getPlayerById(currentGame.turn);
-                ind.textContent = `🎲 ХОДИТ: ${p.name}`;
-            }
-        }
-
-        // ==================== МОИ КАРТЫ ====================
-        function showMyCards() {
-            const me = getCurrentPlayer();
-            if (!me.props.length) return showNotif('Нет собственности', 'info');
-            let msg = '🏠 ВАША СОБСТВЕННОСТЬ:\n';
-            me.props.forEach(pos => {
-                const p = currentGame.board[pos];
-                msg += `${p.name} — ${p.price}💰`;
-                if (p.houses) msg += ` (${p.houses}🏠)`;
-                if (p.hotel) msg += ` (🏨)`;
-                msg += `\n`;
-            });
-            showNotif(msg);
-        }
-
-        // ==================== СПИСОК ЛОББИ ====================
-        function showLobbies() {
-            const games = JSON.parse(localStorage.getItem('monopolyGames') || '{}');
-            const container = document.getElementById('lobbies-container');
-            const listDiv = document.getElementById('lobbies-list');
-            
-            const available = Object.values(games).filter(g => !g.started && g.players.length < g.maxPlayers);
-            
-            container.innerHTML = available.length ? available.map(game => {
-                const takenChars = game.players.map(p => p.character);
-                const charFree = !takenChars.includes(selectedCharacter);
-                return `
-                    <div style="background:#f3f4f6; border-radius:30px; padding:15px; margin-bottom:10px;">
-                        <div><strong>🔑 ${game.id}</strong> 👑 ${game.creatorName}</div>
-                        <div>👥 ${game.players.length}/${game.maxPlayers}</div>
-                        <div>🎭 ${game.players.map(p => charEmojis[p.character]).join(' ')}</div>
-                        <button class="btn small ${charFree ? 'primary' : 'secondary'}" 
-                                onclick="joinLobby('${game.id}')" 
-                                ${!charFree ? 'disabled' : ''}
-                                style="margin-top: 10px;">
-                            ${charFree ? '✅ ПРИСОЕДИНИТЬСЯ' : '❌ ФИГУРКА ЗАНЯТА'}
-                        </button>
-                    </div>
-                `;
-            }).join('') : '<p>Нет доступных лобби</p>';
-            
-            listDiv.style.display = 'block';
-        }
-
-        // ==================== ВСПОМОГАТЕЛЬНЫЕ ====================
-        function getCurrentPlayer() { return currentGame.players.find(p => p.id === currentPlayer.id); }
-        function getPlayerById(id) { return currentGame.players.find(p => p.id === id); }
-        
-        function showPropModal(prop) {
-            document.getElementById('prop-name').textContent = prop.name;
-            document.getElementById('prop-details').innerHTML = `
-                <p>💰 Цена: ${prop.price}</p>
-                <p>🏠 Базовая рента: ${prop.rent[0]}</p>
-                ${prop.housePrice ? `<p>🏗️ Дом: ${prop.housePrice}</p>` : ''}
-            `;
-            openModal('property-modal');
-        }
-        
-        function openModal(id) { document.getElementById(id).classList.add('active'); }
-        function closeModal(id) { document.getElementById(id).classList.remove('active'); }
-        
-        function closeAllModals() {
-            ['property-modal', 'auction-modal', 'trade-modal', 'select-property-modal'].forEach(id => {
-                closeModal(id);
-            });
-        }
-        
-        function showNotif(msg, type = 'info') {
-            const n = document.createElement('div');
-            n.className = `notification ${type}`;
-            n.textContent = msg;
-            document.body.appendChild(n);
-            setTimeout(() => n.remove(), 3000);
-        }
-        
-        function leaveGame() { 
-            if (confirm('Выйти?')) {
-                if (updateInterval) clearInterval(updateInterval);
-                document.getElementById('login-screen').style.display = 'flex';
-                document.getElementById('game-screen').style.display = 'none';
-                closeAllModals();
-                currentGame = null;
-                currentPlayer = null;
-                currentTrade = null;
-                tradeProposal = null;
-            }
-        }
-
-        window.onload = () => {
+        window.onload = function() {
             games = JSON.parse(localStorage.getItem('monopolyGames') || '{}');
             selectChar('dino');
-            startLobbyCleanup();
-        };
+        }
     </script>
 </body>
 </html>
