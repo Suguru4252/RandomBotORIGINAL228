@@ -102,13 +102,6 @@
             border: 2px solid #e5e7eb;
             border-radius: 30px;
             font-size: 1.1em;
-            transition: all 0.3s;
-        }
-
-        .input-group input:focus {
-            outline: none;
-            border-color: var(--primary);
-            box-shadow: 0 0 0 4px rgba(67,97,238,0.2);
         }
 
         .character-selector {
@@ -157,26 +150,6 @@
             transition: all 0.2s;
             width: 100%;
             margin-bottom: 10px;
-            position: relative;
-            overflow: hidden;
-        }
-
-        .btn::after {
-            content: '';
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            width: 0;
-            height: 0;
-            border-radius: 50%;
-            background: rgba(255,255,255,0.5);
-            transform: translate(-50%, -50%);
-            transition: width 0.6s, height 0.6s;
-        }
-
-        .btn:active::after {
-            width: 300px;
-            height: 300px;
         }
 
         .btn.primary {
@@ -245,12 +218,6 @@
             align-items: center;
             gap: 15px;
             position: relative;
-            transition: all 0.3s;
-        }
-
-        .lobby-player-card:hover {
-            transform: translateX(5px);
-            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
         }
 
         .lobby-player-avatar {
@@ -274,16 +241,6 @@
             color: white;
             border: none;
             cursor: pointer;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 1.2em;
-            transition: all 0.2s;
-        }
-
-        .kick-btn:hover {
-            transform: scale(1.1);
-            background: #dc2626;
         }
 
         .lobby-chat {
@@ -299,7 +256,6 @@
             border-radius: 30px;
             padding: 15px;
             margin-bottom: 15px;
-            scroll-behavior: smooth;
         }
 
         .chat-message {
@@ -307,26 +263,11 @@
             padding: 8px 15px;
             background: white;
             border-radius: 20px;
-            animation: fadeInMessage 0.3s ease;
-            word-wrap: break-word;
-        }
-
-        @keyframes fadeInMessage {
-            from { opacity: 0; transform: translateY(10px); }
-            to { opacity: 1; transform: translateY(0); }
         }
 
         .chat-sender {
             font-weight: bold;
             color: var(--primary);
-            margin-right: 5px;
-        }
-
-        .chat-time {
-            float: right;
-            color: var(--gray);
-            font-size: 0.7em;
-            margin-left: 10px;
         }
 
         .lobby-chat-input {
@@ -339,30 +280,6 @@
             padding: 12px 20px;
             border: 2px solid #e5e7eb;
             border-radius: 40px;
-            transition: all 0.3s;
-        }
-
-        .lobby-chat-input input:focus {
-            outline: none;
-            border-color: var(--primary);
-            box-shadow: 0 0 0 4px rgba(67,97,238,0.2);
-        }
-
-        .lobby-chat-input button {
-            width: 50px;
-            height: 50px;
-            border-radius: 50%;
-            background: var(--primary);
-            color: white;
-            border: none;
-            cursor: pointer;
-            font-size: 1.2em;
-            transition: all 0.3s;
-        }
-
-        .lobby-chat-input button:hover {
-            transform: scale(1.1);
-            background: var(--primary-dark);
         }
 
         .start-game-btn {
@@ -376,12 +293,6 @@
             cursor: pointer;
             width: 100%;
             margin-top: 20px;
-            transition: all 0.3s;
-        }
-
-        .start-game-btn:hover:not(:disabled) {
-            transform: translateY(-2px);
-            box-shadow: 0 10px 25px -5px var(--warning);
         }
 
         .start-game-btn:disabled {
@@ -402,12 +313,6 @@
             display: flex;
             justify-content: space-between;
             align-items: center;
-            animation: slideDown 0.5s;
-        }
-
-        @keyframes slideDown {
-            from { transform: translateY(-50px); opacity: 0; }
-            to { transform: translateY(0); opacity: 1; }
         }
 
         .turn-indicator {
@@ -416,13 +321,6 @@
             padding: 8px 25px;
             border-radius: 40px;
             font-weight: bold;
-            animation: turnPulse 2s infinite;
-        }
-
-        @keyframes turnPulse {
-            0% { transform: scale(1); }
-            50% { transform: scale(1.02); }
-            100% { transform: scale(1); }
         }
 
         /* ПОЛЕ */
@@ -454,13 +352,6 @@
             position: relative;
             border: 1px solid #d1d5db;
             cursor: pointer;
-            transition: all 0.2s;
-        }
-
-        .board-cell:hover {
-            transform: scale(1.05);
-            z-index: 10;
-            box-shadow: 0 5px 20px rgba(0,0,0,0.3);
         }
 
         .color-strip {
@@ -499,12 +390,6 @@
             justify-content: center;
             font-size: 10px;
             border: 2px solid white;
-            animation: bounce 1s infinite;
-        }
-
-        @keyframes bounce {
-            0%, 100% { transform: translateY(0); }
-            50% { transform: translateY(-3px); }
         }
 
         .dice-area {
@@ -532,17 +417,6 @@
             font-size: 3.5em;
             box-shadow: 0 10px 15px -3px black;
             border: 3px solid var(--dark);
-            transition: all 0.3s;
-        }
-
-        .dice.rolling {
-            animation: diceRoll 0.2s infinite;
-        }
-
-        @keyframes diceRoll {
-            0% { transform: rotate(0deg) scale(1); }
-            50% { transform: rotate(180deg) scale(1.2); }
-            100% { transform: rotate(360deg) scale(1); }
         }
 
         .sidebar {
@@ -570,24 +444,11 @@
             border-radius: 30px;
             margin-bottom: 10px;
             border-left: 6px solid transparent;
-            transition: all 0.3s;
-        }
-
-        .player-card:hover {
-            transform: translateX(5px);
-            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
         }
 
         .player-card.current-turn {
             border-left-color: var(--success);
             background: #ecfdf5;
-            animation: turnGlow 2s infinite;
-        }
-
-        @keyframes turnGlow {
-            0% { box-shadow: 0 0 0 0 var(--success); }
-            50% { box-shadow: 0 0 0 5px rgba(6,214,160,0.2); }
-            100% { box-shadow: 0 0 0 0 var(--success); }
         }
 
         .player-avatar {
@@ -619,13 +480,6 @@
             border: 2px solid var(--primary);
             padding: 12px 25px;
             flex: 1;
-            transition: all 0.3s;
-        }
-
-        .btn.action:hover {
-            background: var(--primary);
-            color: white;
-            transform: translateY(-2px);
         }
 
         /* МОДАЛКИ */
@@ -650,30 +504,8 @@
             width: 90%;
             max-height: 80vh;
             overflow-y: auto;
-            animation: modalPop 0.3s;
         }
 
-        @keyframes modalPop {
-            from { transform: scale(0.8); opacity: 0; }
-            to { transform: scale(1); opacity: 1; }
-        }
-
-        .close {
-            position: absolute;
-            top: 15px;
-            right: 20px;
-            font-size: 2em;
-            cursor: pointer;
-            color: var(--gray);
-            transition: all 0.3s;
-        }
-
-        .close:hover {
-            color: var(--danger);
-            transform: scale(1.2);
-        }
-
-        /* Уведомления */
         .notification {
             position: fixed;
             top: 30px;
@@ -692,6 +524,88 @@
             to { transform: translateX(0); opacity: 1; }
         }
 
+        /* ТРЕЙД СТИЛИ */
+        .trade-container {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin: 20px 0;
+        }
+
+        .trade-column {
+            background: #f3f4f6;
+            border-radius: 30px;
+            padding: 15px;
+        }
+
+        .property-item {
+            padding: 10px;
+            margin: 5px 0;
+            background: white;
+            border-radius: 15px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .property-item:hover {
+            transform: translateX(5px);
+            background: #e5e7eb;
+        }
+
+        .property-item.selected {
+            background: #d1fae5;
+            border: 2px solid var(--success);
+        }
+
+        .add-button {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: var(--primary);
+            color: white;
+            border: none;
+            font-size: 1.5em;
+            cursor: pointer;
+            margin: 10px 0;
+        }
+
+        .add-button:hover {
+            transform: scale(1.1);
+        }
+
+        .add-button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .money-input {
+            width: 100%;
+            padding: 10px;
+            border: 2px solid #e5e7eb;
+            border-radius: 20px;
+            margin: 10px 0;
+        }
+
+        .trade-notification {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: white;
+            padding: 30px;
+            border-radius: 60px;
+            box-shadow: 0 30px 60px rgba(0,0,0,0.3);
+            z-index: 2000;
+            min-width: 400px;
+            text-align: center;
+        }
+
+        .trade-buttons {
+            display: flex;
+            gap: 15px;
+            margin-top: 20px;
+        }
+
         /* Админские стили */
         .admin-delete-btn {
             position: absolute;
@@ -708,21 +622,9 @@
             font-weight: bold;
             box-shadow: 0 0 20px var(--danger);
             z-index: 100;
-            animation: adminPulse 1s infinite;
             display: flex;
             align-items: center;
             justify-content: center;
-        }
-
-        @keyframes adminPulse {
-            0% { transform: scale(1); box-shadow: 0 0 20px var(--danger); }
-            50% { transform: scale(1.1); box-shadow: 0 0 40px var(--danger); }
-            100% { transform: scale(1); box-shadow: 0 0 20px var(--danger); }
-        }
-
-        .admin-delete-btn:hover {
-            transform: scale(1.2);
-            background: #dc2626;
         }
 
         .game-item {
@@ -731,17 +633,6 @@
             border-radius: 30px;
             padding: 15px;
             margin-bottom: 10px;
-            transition: all 0.3s;
-        }
-
-        .game-item:hover {
-            transform: translateX(5px);
-            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
-        }
-
-        .admin-message {
-            border-left: 4px solid var(--admin);
-            background: #f3e8ff;
         }
     </style>
 </head>
@@ -876,11 +767,21 @@
         </div>
     </div>
 
+    <!-- МОДАЛКА ТРЕЙДА -->
     <div class="modal" id="trade-modal">
         <div class="modal-content">
-            <span class="close" onclick="closeModal('trade-modal')">&times;</span>
+            <span class="close" onclick="closeTradeModal()">&times;</span>
             <h2>🔄 ОБМЕН</h2>
             <div id="trade-content"></div>
+        </div>
+    </div>
+
+    <!-- МОДАЛКА ВЫБОРА КАРТ -->
+    <div class="modal" id="select-property-modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeModal('select-property-modal')">&times;</span>
+            <h2 id="select-prop-title">🏠 ВЫБЕРИТЕ УЛИЦУ</h2>
+            <div id="select-prop-list" style="max-height: 400px; overflow-y: auto;"></div>
         </div>
     </div>
 
@@ -898,6 +799,13 @@
         let isAdmin = false;
         let lastUpdate = 0;
         let isUpdating = false;
+
+        // Трейд переменные
+        let currentTrade = null;
+        let tradeProposal = null;
+        let selectingFor = null;
+        let selectedMyProps = [];
+        let selectedHisProps = [];
 
         // СЕКРЕТНЫЙ АДМИН НИК
         const ADMIN_NAME = 'SuguruK';
@@ -984,17 +892,8 @@
             
             const name = nameInput.value.trim();
             isAdmin = (name === ADMIN_NAME);
-            
-            if (isAdmin) {
-                document.body.classList.add('admin-mode');
-                document.getElementById('login-card')?.classList.add('admin-login');
-            } else {
-                document.body.classList.remove('admin-mode');
-                document.getElementById('login-card')?.classList.remove('admin-login');
-            }
         }
 
-        // Следим за изменением имени
         document.addEventListener('DOMContentLoaded', () => {
             const nameInput = document.getElementById('player-name');
             if (nameInput) {
@@ -1007,10 +906,6 @@
             if (!isAdmin) return;
             
             const games = JSON.parse(localStorage.getItem('monopolyGames') || '{}');
-            const deletedGame = games[gameId];
-            
-            if (!deletedGame) return;
-            
             delete games[gameId];
             localStorage.setItem('monopolyGames', JSON.stringify(games));
             
@@ -1057,7 +952,7 @@
                         showLobbies();
                     }
                 }
-            }, 5000); // Проверка раз в 5 секунд вместо 1
+            }, 5000);
         }
 
         // ==================== АВТООБНОВЛЕНИЕ ====================
@@ -1068,7 +963,7 @@
                 if (!currentGame || !currentGame.id || isUpdating) return;
                 
                 const now = Date.now();
-                if (now - lastUpdate < 800) return; // Минимум 800мс между обновлениями
+                if (now - lastUpdate < 800) return;
                 
                 isUpdating = true;
                 
@@ -1090,7 +985,6 @@
                     return;
                 }
                 
-                // Проверяем начало игры
                 if (!currentGame.started && updatedGame.started) {
                     currentGame = updatedGame;
                     enterGame();
@@ -1099,7 +993,6 @@
                     return;
                 }
                 
-                // Проверяем изменения в игре
                 const gameChanged = JSON.stringify(currentGame) !== JSON.stringify(updatedGame);
                 if (gameChanged) {
                     currentGame = updatedGame;
@@ -1321,13 +1214,10 @@
             const text = input.value.trim();
             if (!text || !currentGame) return;
             
-            const isAdminMessage = isAdmin && currentPlayer.name === ADMIN_NAME;
-            
             currentGame.chats.push({
                 sender: currentPlayer.name,
                 text: text,
-                time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-                isAdmin: isAdminMessage
+                time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
             });
             
             if (currentGame.chats.length > 50) currentGame.chats.shift();
@@ -1337,27 +1227,22 @@
             localStorage.setItem('monopolyGames', JSON.stringify(games));
             
             input.value = '';
-            renderLobbyChat(); // Мгновенное отображение
+            renderLobbyChat();
         }
 
         function renderLobbyChat() {
             const container = document.getElementById('lobby-chat-messages');
             if (!container || !currentGame || !currentGame.chats) return;
             
-            const oldHeight = container.scrollHeight;
-            const wasAtBottom = container.scrollTop + container.clientHeight >= oldHeight - 20;
-            
             container.innerHTML = currentGame.chats.map(msg => `
-                <div class="chat-message ${msg.isAdmin ? 'admin-message' : ''}">
+                <div class="chat-message">
                     <span class="chat-sender">${msg.sender}:</span>
-                    <span>${msg.text}</span>
-                    <span class="chat-time">${msg.time}</span>
+                    ${msg.text}
+                    <span style="float: right; color: var(--gray); font-size: 0.7em;">${msg.time}</span>
                 </div>
             `).join('');
             
-            if (wasAtBottom) {
-                container.scrollTop = container.scrollHeight;
-            }
+            container.scrollTop = container.scrollHeight;
         }
 
         // ==================== НАЧАЛО ИГРЫ ====================
@@ -1379,7 +1264,6 @@
             games[currentGame.id] = currentGame;
             localStorage.setItem('monopolyGames', JSON.stringify(games));
             
-            // Создатель тоже входит в игру
             enterGame();
         }
 
@@ -1771,13 +1655,10 @@
             
             if (!currentGame.gameChats) currentGame.gameChats = [];
             
-            const isAdminMessage = isAdmin && currentPlayer.name === ADMIN_NAME;
-            
             currentGame.gameChats.push({
                 sender: currentPlayer.name,
                 text: text,
-                time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-                isAdmin: isAdminMessage
+                time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
             });
             
             if (currentGame.gameChats.length > 50) currentGame.gameChats.shift();
@@ -1787,27 +1668,21 @@
             localStorage.setItem('monopolyGames', JSON.stringify(games));
             
             input.value = '';
-            renderGameChat(); // Мгновенное отображение
+            renderGameChat();
         }
 
         function renderGameChat() {
             const container = document.getElementById('game-chat-messages');
             if (!container || !currentGame.gameChats) return;
             
-            const oldHeight = container.scrollHeight;
-            const wasAtBottom = container.scrollTop + container.clientHeight >= oldHeight - 20;
-            
             container.innerHTML = currentGame.gameChats.map(msg => `
-                <div class="chat-message ${msg.isAdmin ? 'admin-message' : ''}">
-                    <span class="chat-sender">${msg.sender}:</span>
-                    <span>${msg.text}</span>
-                    <span class="chat-time">${msg.time}</span>
+                <div class="chat-message">
+                    <span class="chat-sender">${msg.sender}:</span> ${msg.text}
+                    <span style="float:right;color:var(--gray);font-size:0.7em;">${msg.time}</span>
                 </div>
             `).join('');
             
-            if (wasAtBottom) {
-                container.scrollTop = container.scrollHeight;
-            }
+            container.scrollTop = container.scrollHeight;
         }
 
         function addGameChat(sender, text) {
@@ -1821,6 +1696,359 @@
             const games = JSON.parse(localStorage.getItem('monopolyGames') || '{}');
             games[currentGame.id] = currentGame;
             localStorage.setItem('monopolyGames', JSON.stringify(games));
+        }
+
+        // ==================== ТРЕЙД СИСТЕМА (ПОЛНОСТЬЮ ПЕРЕПИСАНА) ====================
+        function openTradeModal() {
+            const others = currentGame.players.filter(p => p.id !== currentPlayer.id && p.alive);
+            if (!others.length) return showNotif('Нет других игроков', 'error');
+            
+            let html = '<p style="text-align:center; font-size:1.2em;">Выберите игрока для обмена:</p>';
+            others.forEach(p => {
+                html += `<button class="btn secondary" onclick="proposeTradeTo('${p.id}')" style="margin:5px 0;">${charEmojis[p.character]} ${p.name}</button>`;
+            });
+            
+            document.getElementById('trade-content').innerHTML = html;
+            openModal('trade-modal');
+        }
+
+        function proposeTradeTo(targetId) {
+            const target = getPlayerById(targetId);
+            
+            // Создаем предложение
+            tradeProposal = {
+                id: 'trade_' + Date.now(),
+                fromId: currentPlayer.id,
+                fromName: currentPlayer.name,
+                toId: targetId,
+                toName: target.name,
+                status: 'pending'
+            };
+            
+            closeModal('trade-modal');
+            
+            // Показываем уведомление цели
+            showTradeNotification(targetId);
+        }
+
+        function showTradeNotification(targetId) {
+            const target = getPlayerById(targetId);
+            
+            const notifDiv = document.createElement('div');
+            notifDiv.className = 'trade-notification';
+            notifDiv.id = 'trade-notification';
+            notifDiv.innerHTML = `
+                <h2 style="color: var(--primary); margin-bottom: 20px;">🔄 ПРЕДЛОЖЕНИЕ ОБМЕНА</h2>
+                <p style="font-size: 1.3em; margin-bottom: 30px;">
+                    ${charEmojis[currentPlayer.character]} <strong>${currentPlayer.name}</strong><br>
+                    хочет обменяться с вами!
+                </p>
+                <div style="display: flex; gap: 15px;">
+                    <button class="btn primary" style="flex: 1;" onclick="acceptTradeProposal('${targetId}')">✅ ПРИНЯТЬ</button>
+                    <button class="btn danger" style="flex: 1;" onclick="declineTradeProposal()">❌ ОТКЛОНИТЬ</button>
+                </div>
+            `;
+            
+            document.body.appendChild(notifDiv);
+            
+            // Автоматически убираем через 30 секунд
+            setTimeout(() => {
+                const notif = document.getElementById('trade-notification');
+                if (notif) notif.remove();
+            }, 30000);
+        }
+
+        function acceptTradeProposal(targetId) {
+            const notif = document.getElementById('trade-notification');
+            if (notif) notif.remove();
+            
+            // Создаем активную сделку
+            currentTrade = {
+                id: 'trade_' + Date.now(),
+                player1Id: tradeProposal.fromId,
+                player1Name: tradeProposal.fromName,
+                player2Id: currentPlayer.id,
+                player2Name: currentPlayer.name,
+                props1: [],
+                props2: [],
+                money1: 0,
+                money2: 0,
+                status: 'active',
+                accepted1: false,
+                accepted2: false
+            };
+            
+            // Сохраняем в игру
+            if (!currentGame.trades) currentGame.trades = [];
+            currentGame.trades.push(currentTrade);
+            
+            const games = JSON.parse(localStorage.getItem('monopolyGames') || '{}');
+            games[currentGame.id] = currentGame;
+            localStorage.setItem('monopolyGames', JSON.stringify(games));
+            
+            // Открываем окно трейда для обоих игроков
+            openTradeWindow();
+        }
+
+        function declineTradeProposal() {
+            const notif = document.getElementById('trade-notification');
+            if (notif) notif.remove();
+            tradeProposal = null;
+            showNotif('❌ Вы отклонили предложение', 'info');
+        }
+
+        function openTradeWindow() {
+            if (!currentTrade) return;
+            
+            const player1 = getPlayerById(currentTrade.player1Id);
+            const player2 = getPlayerById(currentTrade.player2Id);
+            const isPlayer1 = currentPlayer.id === currentTrade.player1Id;
+            const isPlayer2 = currentPlayer.id === currentTrade.player2Id;
+            
+            if (!isPlayer1 && !isPlayer2) return;
+            
+            // Определяем, кто есть кто в текущем окне
+            const myId = currentPlayer.id;
+            const myProps = myId === currentTrade.player1Id ? currentTrade.props1 : currentTrade.props2;
+            const hisProps = myId === currentTrade.player1Id ? currentTrade.props2 : currentTrade.props1;
+            const myMoney = myId === currentTrade.player1Id ? currentTrade.money1 : currentTrade.money2;
+            const hisMoney = myId === currentTrade.player1Id ? currentTrade.money2 : currentTrade.money1;
+            const myName = myId === currentTrade.player1Id ? player1.name : player2.name;
+            const hisName = myId === currentTrade.player1Id ? player2.name : player1.name;
+            
+            document.getElementById('trade-modal-title').innerHTML = `🔄 ОБМЕН: ${player1.name} ⇄ ${player2.name}`;
+            
+            let html = `
+                <div class="trade-container">
+                    <div class="trade-column">
+                        <h3>${charEmojis[player1.character]} ${player1.name}</h3>
+                        <div style="max-height: 200px; overflow-y: auto; margin-bottom: 10px;" id="props1-list">
+                            ${renderTradeProps(currentTrade.props1)}
+                        </div>
+                        ${isPlayer1 ? `<button class="add-button" onclick="openPropertySelector('player1')">+</button>` : ''}
+                        <input type="number" class="money-input" id="money1" value="${currentTrade.money1}" min="0" max="${player1.money}" placeholder="Деньги" onchange="updateTradeMoney('player1', this.value)" ${!isPlayer1 ? 'disabled' : ''}>
+                    </div>
+                    <div class="trade-column">
+                        <h3>${charEmojis[player2.character]} ${player2.name}</h3>
+                        <div style="max-height: 200px; overflow-y: auto; margin-bottom: 10px;" id="props2-list">
+                            ${renderTradeProps(currentTrade.props2)}
+                        </div>
+                        ${isPlayer2 ? `<button class="add-button" onclick="openPropertySelector('player2')">+</button>` : ''}
+                        <input type="number" class="money-input" id="money2" value="${currentTrade.money2}" min="0" max="${player2.money}" placeholder="Деньги" onchange="updateTradeMoney('player2', this.value)" ${!isPlayer2 ? 'disabled' : ''}>
+                    </div>
+                </div>
+                <div class="trade-buttons">
+                    <button class="btn primary" onclick="acceptTrade()" style="flex: 1;">✅ ПРИНЯТЬ</button>
+                    <button class="btn danger" onclick="declineTrade()" style="flex: 1;">❌ ОТКЛОНИТЬ</button>
+                </div>
+            `;
+            
+            document.getElementById('trade-content').innerHTML = html;
+            openModal('trade-modal');
+        }
+
+        function renderTradeProps(props) {
+            if (!props || props.length === 0) return '<p style="color: var(--gray); text-align: center;">Нет выбранных улиц</p>';
+            
+            return props.map(pos => {
+                const prop = currentGame.board[pos];
+                return `<div class="property-item selected" onclick="removeProperty(${pos})">${prop.name} (${prop.price}💰)</div>`;
+            }).join('');
+        }
+
+        function openPropertySelector(playerKey) {
+            const isPlayer1 = (playerKey === 'player1' && currentPlayer.id === currentTrade.player1Id);
+            const isPlayer2 = (playerKey === 'player2' && currentPlayer.id === currentTrade.player2Id);
+            
+            if (!isPlayer1 && !isPlayer2) {
+                showNotif('❌ Вы не можете выбирать имущество другого игрока', 'error');
+                return;
+            }
+            
+            const player = getCurrentPlayer();
+            const availableProps = player.props.filter(pos => {
+                if (playerKey === 'player1') {
+                    return !currentTrade.props1.includes(pos);
+                } else {
+                    return !currentTrade.props2.includes(pos);
+                }
+            });
+            
+            if (availableProps.length === 0) {
+                showNotif('❌ У вас нет доступных улиц', 'error');
+                return;
+            }
+            
+            selectingFor = playerKey;
+            document.getElementById('select-prop-title').innerHTML = `🏠 ВЫБЕРИТЕ УЛИЦУ (${player.name})`;
+            
+            let html = '';
+            availableProps.forEach(pos => {
+                const prop = currentGame.board[pos];
+                html += `<div class="property-item" onclick="selectProperty(${pos})">${prop.name} (${prop.price}💰)</div>`;
+            });
+            
+            document.getElementById('select-prop-list').innerHTML = html;
+            openModal('select-property-modal');
+        }
+
+        function selectProperty(pos) {
+            if (!selectingFor) return;
+            
+            // Добавляем свойство в трейд
+            if (selectingFor === 'player1') {
+                currentTrade.props1.push(pos);
+                // Убираем из имущества игрока
+                const player = getPlayerById(currentTrade.player1Id);
+                player.props = player.props.filter(p => p !== pos);
+            } else {
+                currentTrade.props2.push(pos);
+                const player = getPlayerById(currentTrade.player2Id);
+                player.props = player.props.filter(p => p !== pos);
+            }
+            
+            closeModal('select-property-modal');
+            
+            // Сохраняем изменения
+            const games = JSON.parse(localStorage.getItem('monopolyGames') || '{}');
+            games[currentGame.id] = currentGame;
+            localStorage.setItem('monopolyGames', JSON.stringify(games));
+            
+            // Обновляем окно
+            openTradeWindow();
+        }
+
+        function removeProperty(pos) {
+            const isPlayer1 = currentTrade.props1.includes(pos);
+            const isPlayer2 = currentTrade.props2.includes(pos);
+            
+            if (isPlayer1 && currentPlayer.id === currentTrade.player1Id) {
+                currentTrade.props1 = currentTrade.props1.filter(p => p !== pos);
+                const player = getPlayerById(currentTrade.player1Id);
+                player.props.push(pos);
+            } else if (isPlayer2 && currentPlayer.id === currentTrade.player2Id) {
+                currentTrade.props2 = currentTrade.props2.filter(p => p !== pos);
+                const player = getPlayerById(currentTrade.player2Id);
+                player.props.push(pos);
+            } else {
+                showNotif('❌ Вы не можете убирать имущество другого игрока', 'error');
+                return;
+            }
+            
+            const games = JSON.parse(localStorage.getItem('monopolyGames') || '{}');
+            games[currentGame.id] = currentGame;
+            localStorage.setItem('monopolyGames', JSON.stringify(games));
+            
+            openTradeWindow();
+        }
+
+        function updateTradeMoney(playerKey, value) {
+            const amount = parseInt(value) || 0;
+            
+            if (playerKey === 'player1' && currentPlayer.id === currentTrade.player1Id) {
+                const player = getPlayerById(currentTrade.player1Id);
+                if (amount > player.money) {
+                    showNotif('❌ Недостаточно денег', 'error');
+                    return;
+                }
+                currentTrade.money1 = amount;
+            } else if (playerKey === 'player2' && currentPlayer.id === currentTrade.player2Id) {
+                const player = getPlayerById(currentTrade.player2Id);
+                if (amount > player.money) {
+                    showNotif('❌ Недостаточно денег', 'error');
+                    return;
+                }
+                currentTrade.money2 = amount;
+            }
+            
+            const games = JSON.parse(localStorage.getItem('monopolyGames') || '{}');
+            games[currentGame.id] = currentGame;
+            localStorage.setItem('monopolyGames', JSON.stringify(games));
+        }
+
+        function acceptTrade() {
+            if (!currentTrade) return;
+            
+            const isPlayer1 = currentPlayer.id === currentTrade.player1Id;
+            const isPlayer2 = currentPlayer.id === currentTrade.player2Id;
+            
+            if (isPlayer1) {
+                currentTrade.accepted1 = true;
+            } else if (isPlayer2) {
+                currentTrade.accepted2 = true;
+            }
+            
+            // Если оба приняли - завершаем сделку
+            if (currentTrade.accepted1 && currentTrade.accepted2) {
+                const player1 = getPlayerById(currentTrade.player1Id);
+                const player2 = getPlayerById(currentTrade.player2Id);
+                
+                // Передаем деньги
+                player1.money -= currentTrade.money1;
+                player1.money += currentTrade.money2;
+                player2.money -= currentTrade.money2;
+                player2.money += currentTrade.money1;
+                
+                // Передаем имущество
+                currentTrade.props1.forEach(pos => {
+                    currentGame.board[pos].owner = player2.id;
+                    player2.props.push(pos);
+                });
+                
+                currentTrade.props2.forEach(pos => {
+                    currentGame.board[pos].owner = player1.id;
+                    player1.props.push(pos);
+                });
+                
+                addGameChat('system', `🤝 Обмен между ${player1.name} и ${player2.name} завершён!`);
+                showNotif('✅ Обмен успешно завершён!', 'success');
+                
+                // Удаляем трейд
+                currentGame.trades = currentGame.trades.filter(t => t.id !== currentTrade.id);
+                currentTrade = null;
+                
+                closeModal('trade-modal');
+            } else {
+                showNotif('✅ Вы приняли обмен. Ожидайте согласия второго игрока', 'info');
+                closeModal('trade-modal');
+            }
+            
+            const games = JSON.parse(localStorage.getItem('monopolyGames') || '{}');
+            games[currentGame.id] = currentGame;
+            localStorage.setItem('monopolyGames', JSON.stringify(games));
+        }
+
+        function declineTrade() {
+            if (!currentTrade) return;
+            
+            // Возвращаем имущество обратно
+            if (currentTrade.props1.length > 0) {
+                const player1 = getPlayerById(currentTrade.player1Id);
+                currentTrade.props1.forEach(pos => {
+                    player1.props.push(pos);
+                });
+            }
+            
+            if (currentTrade.props2.length > 0) {
+                const player2 = getPlayerById(currentTrade.player2Id);
+                currentTrade.props2.forEach(pos => {
+                    player2.props.push(pos);
+                });
+            }
+            
+            currentGame.trades = currentGame.trades.filter(t => t.id !== currentTrade.id);
+            currentTrade = null;
+            
+            const games = JSON.parse(localStorage.getItem('monopolyGames') || '{}');
+            games[currentGame.id] = currentGame;
+            localStorage.setItem('monopolyGames', JSON.stringify(games));
+            
+            closeModal('trade-modal');
+            showNotif('❌ Обмен отклонён', 'info');
+        }
+
+        function closeTradeModal() {
+            closeModal('trade-modal');
         }
 
         // ==================== ОБНОВЛЕНИЕ ИГРОКОВ ====================
@@ -1846,78 +2074,6 @@
                 const p = getPlayerById(currentGame.turn);
                 ind.textContent = `🎲 ХОДИТ: ${p.name}`;
             }
-        }
-
-        // ==================== ТРЕЙД ====================
-        function openTradeModal() {
-            const others = currentGame.players.filter(p => p.id !== currentPlayer.id && p.alive);
-            if (!others.length) return showNotif('Нет других игроков', 'error');
-            let html = '<p>Выберите игрока:</p>';
-            others.forEach(p => {
-                html += `<button class="btn secondary" onclick="selectTradeTarget('${p.id}')">${charEmojis[p.character]} ${p.name}</button>`;
-            });
-            document.getElementById('trade-content').innerHTML = html;
-            openModal('trade-modal');
-        }
-
-        function selectTradeTarget(id) {
-            tradeTarget = id;
-            selectedMyProps = [];
-            selectedHisProps = [];
-            showTradeWindow();
-        }
-
-        function showTradeWindow() {
-            const target = getPlayerById(tradeTarget);
-            const me = getCurrentPlayer();
-            let html = '<div style="display:grid;grid-template-columns:1fr 1fr;gap:15px;">';
-            html += `<div><h3>${charEmojis[me.character]} ${me.name}</h3>`;
-            me.props.forEach(pos => {
-                const p = currentGame.board[pos];
-                const sel = selectedMyProps.includes(pos) ? 'style="background:#d1fae5;"' : '';
-                html += `<div class="property-item" ${sel} onclick="toggleMyProp(${pos})">${p.name}</div>`;
-            });
-            html += `</div><div><h3>${charEmojis[target.character]} ${target.name}</h3>`;
-            target.props.forEach(pos => {
-                const p = currentGame.board[pos];
-                const sel = selectedHisProps.includes(pos) ? 'style="background:#d1fae5;"' : '';
-                html += `<div class="property-item" ${sel} onclick="toggleHisProp(${pos})">${p.name}</div>`;
-            });
-            html += '</div></div><button class="btn primary" onclick="proposeTrade()">ПРЕДЛОЖИТЬ</button>';
-            document.getElementById('trade-content').innerHTML = html;
-        }
-
-        function toggleMyProp(pos) {
-            const idx = selectedMyProps.indexOf(pos);
-            if (idx === -1) selectedMyProps.push(pos); else selectedMyProps.splice(idx, 1);
-            showTradeWindow();
-        }
-
-        function toggleHisProp(pos) {
-            const idx = selectedHisProps.indexOf(pos);
-            if (idx === -1) selectedHisProps.push(pos); else selectedHisProps.splice(idx, 1);
-            showTradeWindow();
-        }
-
-        function proposeTrade() {
-            const target = getPlayerById(tradeTarget);
-            const me = getCurrentPlayer();
-            selectedMyProps.forEach(pos => {
-                currentGame.board[pos].owner = target.id;
-                target.props.push(pos);
-                me.props = me.props.filter(p => p !== pos);
-            });
-            selectedHisProps.forEach(pos => {
-                currentGame.board[pos].owner = me.id;
-                me.props.push(pos);
-                target.props = target.props.filter(p => p !== pos);
-            });
-            addGameChat('system', `🤝 Обмен между ${me.name} и ${target.name}`);
-            closeModal('trade-modal');
-            
-            const games = JSON.parse(localStorage.getItem('monopolyGames') || '{}');
-            games[currentGame.id] = currentGame;
-            localStorage.setItem('monopolyGames', JSON.stringify(games));
         }
 
         // ==================== МОИ КАРТЫ ====================
