@@ -323,7 +323,7 @@ async def main():
     await db.connect()
     asyncio.create_task(daily_decline())
     await dp.start_polling(bot)
-    logger.info("Бот запущен!")
+    logger.info("Бот ZveroBot запущен!")
 
 if __name__ == "__main__":
     asyncio.run(main())
