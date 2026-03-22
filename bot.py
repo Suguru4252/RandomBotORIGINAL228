@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """
 ZveroBot — виртуальный питомец в Telegram
+С поддержкой прокси для обхода блокировок
 """
 
 import asyncio
@@ -13,9 +14,36 @@ from aiogram import Bot, Dispatcher, types, F
 from aiogram.filters import Command
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 from aiogram.fsm.storage.memory import MemoryStorage
+from aiogram.client.session.aiohttp import AiohttpSession
 
 # ==================== КОНФИГУРАЦИЯ ====================
 BOT_TOKEN = "8323291713:AAFzA2TccSzbRCYvzxxtaFjpIVNlfuskQgI"
+
+# ПРОКСИ - ВЫБЕРИ ОДИН ИЗ НИХ (раскомментируй нужный)
+# HTTP прокси:
+PROXY_URL = "http://45.137.116.170:3128"  # Тестовый
+# PROXY_URL = "http://188.166.3.244:80"
+# PROXY_URL = "http://45.77.174.217:3128"
+
+# SOCKS5 прокси (нужна библиотека aiohttp-socks):
+# PROXY_URL = "socks5://45.86.93.145:1080"
+
+# Если прокси не нужен - закомментируй PROXY_URL и раскомментируй строку ниже
+# PROXY_URL = None
+
+# ==================== СОЗДАНИЕ БОТА С ПРОКСИ ====================
+if PROXY_URL:
+    try:
+        session = AiohttpSession(proxy=PROXY_URL)
+        bot = Bot(token=BOT_TOKEN, session=session)
+        print(f"✅ Бот запущен с прокси: {PROXY_URL}")
+    except Exception as e:
+        print(f"❌ Ошибка прокси: {e}")
+        print("⚠️ Запускаю без прокси...")
+        bot = Bot(token=BOT_TOKEN)
+else:
+    bot = Bot(token=BOT_TOKEN)
+    print("✅ Бот запущен без прокси")
 
 # Настройка логирования
 logging.basicConfig(
@@ -24,8 +52,6 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-# Инициализация бота
-bot = Bot(token=BOT_TOKEN)
 dp = Dispatcher(storage=MemoryStorage())
 
 # ==================== БАЗА ДАННЫХ (SQLite) ====================
